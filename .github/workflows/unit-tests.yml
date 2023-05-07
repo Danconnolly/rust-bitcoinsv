@@ -6,11 +6,6 @@ jobs:
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
-    env:
-      PROJECT_NAME_UNDERSCORE: rust_bitcoinsv
-      CARGO_INCREMENTAL: 0
-      RUSTFLAGS: -Zprofile -Ccodegen-units=1 -Copt-level=0 -Clink-dead-code -Coverflow-checks=off -Zpanic_abort_tests -Cpanic=abort
-      RUSTDOCFLAGS: -Cpanic=abort
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
@@ -23,38 +18,11 @@ jobs:
           components: rustfmt, clippy
 
       - name: Cache dependencies
-        uses: actions/cache@v2
-        env:
-          cache-name: cache-dependencies
-        with:
-          path: |
-            ~/.cargo/.crates.toml
-            ~/.cargo/.crates2.json
-            ~/.cargo/bin
-            ~/.cargo/registry/index
-            ~/.cargo/registry/cache
-            target
-          key: ${{ runner.os }}-build-${{ env.cache-name }}-${{ hashFiles('Cargo.lock') }}
+        uses: Swatinem/rust-cache@v2
 
-      - name: Generate test result and coverage report
-        run: |
-          cargo install grcov;
-          cargo test $CARGO_OPTIONS -- -Z unstable-options --format json > results.json;
-          zip -0 ccov.zip `find . \( -name "$PROJECT_NAME_UNDERSCORE*.gc*" \) -print`;
-          grcov ccov.zip -s . -t lcov --llvm --ignore-not-existing --ignore "/*" --ignore "tests/*" -o lcov.info;
-
-      - name: Upload test results
-        uses: EnricoMi/publish-unit-test-result-action@v1
+      - uses: actions-rs/cargo@v1
         with:
-          check_name: Test Results
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          files: results.json
-
-      - name: Upload to CodeCov
-        uses: codecov/codecov-action@v3
-        with:
-          files: ./lcov.info
-          fail_ci_if_error: false
+          command: check
 
       - uses: actions-rs/clippy-check@v1
         with:
