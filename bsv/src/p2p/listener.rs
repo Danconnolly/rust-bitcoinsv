@@ -1,13 +1,30 @@
+use std::net::Ipv4Addr;
 use tokio::sync::mpsc::{channel, Sender, Receiver};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use crate::util::ACTOR_CHANNEL_SIZE;
 
+/// Configuration for a P2P Listener.
+/// Can be used to specify the port to listen on.
+/// Later improvements: specify the address to listen on.
 pub struct ListenerConfig {
     pub port: u16,
 }
 
+impl ListenerConfig {
+    pub fn default() -> Self {
+        Self {
+            port: 0,        // choose random port
+        }
+    }
+}
+
 /// A Listener listens for incoming connections from peers.
+///
+/// The Listener listens for incoming connections and sends a ListenerMessage::AcceptConnection
+/// message to the supplied outbox when a connection is accepted.
+///
+/// The Listener is actually a handle to an actor implemented in ListenerActor.
 pub struct Listener {
     sender: Sender<ListenerInternalMessage>,
 }
@@ -48,7 +65,7 @@ impl ListenerActor {
     }
 
     async fn run(&mut self) {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.port)).await.unwrap();
         loop {
             tokio::select! {
                 message = self.inbox.recv() => {
@@ -106,7 +123,7 @@ mod tests {
         let p = l.get_port().await;
         println!("Listener port: {}", p);
         assert!(p > 0);         // did we really get a port back?
-        let mut out_stream = TcpStream::connect(SocketAddr::new(IpAddr::from(Ipv4Addr::LOCALHOST), p)).await.unwrap();
+        let mut out_stream = TcpStream::connect(SocketAddr::new(IpAddr::from(Ipv4Addr::UNSPECIFIED), p)).await.unwrap();
         // we expect to receive an AcceptConnection message
         let msg = rx.recv().await.unwrap();
         match msg {
