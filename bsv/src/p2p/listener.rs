@@ -115,4 +115,23 @@ mod tests {
             }
         }
     }
+
+    // does it actually listen to a specific port?
+    // this might fail because we may be unable to bind to the requested port
+    #[tokio::test]
+    async fn listener_at_port() {
+        let chosen_port = 32631;
+        let (tx, mut rx) = channel(1);
+        let (l, j) = Listener::new(tx, ListenerConfig { port: chosen_port });
+        let p = l.get_port().await;
+        assert_eq!(p, chosen_port);
+        let mut out_stream = TcpStream::connect(SocketAddr::new(IpAddr::from(Ipv4Addr::LOCALHOST), chosen_port)).await.unwrap();
+        // we expect to receive an AcceptConnection message
+        let msg = rx.recv().await.unwrap();
+        match msg {
+            ListenerMessage::AcceptConnection { socket, address } => {
+                println!("Accepted connection from {}", address);
+            }
+        }
+    }
 }
