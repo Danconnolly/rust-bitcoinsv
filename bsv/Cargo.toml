@@ -1,0 +1,16 @@
+[package]
+name = "rust-bitcoinsv"
+version = "0.0.1"
+edition = "2021"
+authors = ["Daniel Connolly <daniel@dconnolly.com>"]
+repository = "https://github.com/Danconnolly/rust-bitcoinsv"
+license-file = "LICENSE.txt"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+async-trait = "0.1.67"
+uuid = { version = "1.3.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
+
+[lib]
+path = "src/lib.rs"
+
