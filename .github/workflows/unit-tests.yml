@@ -9,18 +9,16 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
       - name: Setup Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
-
-      - name: Install dependencies
-        run: |
-          rustup component add rustfmt
-          rustup component add clippy --toolchain stable
+          components: rustfmt, clippy
 
       - name: Run tests
-        run: cargo test
+        uses: actions-rs/cargo@v1
+        with:
+          command: check
