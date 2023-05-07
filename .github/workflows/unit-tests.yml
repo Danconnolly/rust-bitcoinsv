@@ -17,9 +17,6 @@ jobs:
           toolchain: nightly
           components: rustfmt, clippy
 
-      - name: Cache dependencies
-        uses: Swatinem/rust-cache@v2
-
       - name: Run tests
         run: cargo test --verbose
         env:
