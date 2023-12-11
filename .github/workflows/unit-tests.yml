@@ -26,4 +26,4 @@ jobs:
         run: RUSTC_BOOTSTRAP=1 cargo test -- -Z unstable-options --format json --report-time | tee results.json
 
       - name: Convert to JUnit
-        run: cargo2junit results.json --output junit.xml
+        run: cat results.json | cargo2junit > results.xml
