@@ -1,5 +1,5 @@
 # rust-bitcoinsv
-![Test Status]( https://gist.githubusercontent.com/Danconnolly/202d737d8ec36a48fbb4f7d0d4e1d779/badge.svg)
+![Test Status](https://gist.githubusercontent.com/Danconnolly/202d737d8ec36a48fbb4f7d0d4e1d779/raw/badge.svg)
 
 Low level async Bitcoin SV library in Rust.
 
