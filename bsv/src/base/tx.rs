@@ -163,15 +163,43 @@ mod tests {
     use crate::base::Hash;
     use super::*;
 
+
+    /// Read a transaction from a byte array and check it
     #[tokio::test]
     async fn tx_read() {
-        let tx_hex = "01000000018a052edc7ae2136bfc0a860cdc91185ab0d7329107802f0a9c1cd0026c815f75010000006b483045022100e587ef1b4497a6694cad646cab468b6ece2fa98c7f49f9488611ca34eecebd1002205c4ea9066484bd1bffb7fdd7d84b5ae0ee6b7cdc20a8a513e41e420e0633b98841210262142850483b6728b8ecd299e4d0c8cf30ea0636f66205166814e52d73b64b4bffffffff0200000000000000000a006a075354554b2e434fb8ce3f01000000001976a91454cba8da8701174e34aac2bb31d42a88e2c302d088ac00000000";
-        let tx_hash = "3abc31f8ff40ffb66d9037e156842fe782e6fa1ae728759263471c68660095f1";
-        let tx_bin = hex::decode(tx_hex).unwrap();
+        let (tx_bin, tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin);
         let tx = Tx::read(&mut cursor).await.unwrap();
         assert_eq!(tx.size, 211);
         assert_eq!(tx.version, 1);
-        assert_eq!(tx.hash().await, Hash::decode(tx_hash).unwrap());
+        assert_eq!(tx.hash().await, tx_hash);
+    }
+
+    /// If the binary is incomplete, we should get an error
+    #[tokio::test]
+    async fn read_short() {
+        let (tx_bin, tx_hash) = get_tx1();
+        let mut cursor = Cursor::new(&tx_bin[0..200]);
+        assert!(Tx::read(&mut cursor).await.is_err());
+    }
+
+    /// If we supply too many bytes, then the read should succeed and we should have some bytes left over.
+    #[tokio::test]
+    async fn tx_lomg() {
+        let (mut tx_bin, tx_hash) = get_tx1();
+        tx_bin.append(&mut vec![0u8; 100]);
+        let mut cursor = Cursor::new(&tx_bin[0..300]);
+        let tx = Tx::read(&mut cursor).await.unwrap();
+        assert_eq!(cursor.position(), 211);
+        assert_eq!(tx.size, 211);
+        assert_eq!(tx.version, 1);
+        assert_eq!(tx.hash().await, tx_hash);
+    }
+
+    fn get_tx1() -> (Vec<u8>, Hash) {
+        let tx_hex = "01000000018a052edc7ae2136bfc0a860cdc91185ab0d7329107802f0a9c1cd0026c815f75010000006b483045022100e587ef1b4497a6694cad646cab468b6ece2fa98c7f49f9488611ca34eecebd1002205c4ea9066484bd1bffb7fdd7d84b5ae0ee6b7cdc20a8a513e41e420e0633b98841210262142850483b6728b8ecd299e4d0c8cf30ea0636f66205166814e52d73b64b4bffffffff0200000000000000000a006a075354554b2e434fb8ce3f01000000001976a91454cba8da8701174e34aac2bb31d42a88e2c302d088ac00000000";
+        let tx_hash = "3abc31f8ff40ffb66d9037e156842fe782e6fa1ae728759263471c68660095f1";
+        let tx_bin = hex::decode(tx_hex).unwrap();
+        return (tx_bin, Hash::decode(tx_hash).unwrap());
     }
 }
