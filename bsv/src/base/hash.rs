@@ -1,7 +1,8 @@
 use std::cmp::Ordering;
 use std::fmt;
 use ring::digest::{digest, SHA256};
-use crate::util::{Error, Result};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+// use crate::util::{Error, Result};
 
 /// The hash that is most often used in Bitcoin is the double SHA-256 hash.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -10,7 +11,8 @@ pub struct Hash{
 }
 
 impl Hash {
-    /// Converts the hash into a hex string
+    /// Converts the hash into a hex string. The bytes are reversed in the hex string to match the
+    /// Bitcoin standard representation.
     pub fn encode(&self) -> String {
         let mut r = self.hash.clone();
         r.reverse();
@@ -18,11 +20,11 @@ impl Hash {
     }
 
     /// Converts a string of 64 hex characters into a hash
-    pub fn decode(s: &str) -> Result<Hash> {
+    pub fn decode(s: &str) -> crate::Result<Hash> {
         let decoded_bytes = hex::decode(s)?;
         if decoded_bytes.len() != 32 {
             let msg = format!("Length {} of {:?}", decoded_bytes.len(), decoded_bytes);
-            return Err(Error::BadArgument(msg));
+            return Err(crate::Error::BadArgument(msg));
         }
         let mut hash_bytes = [0; 32];
         hash_bytes.clone_from_slice(&decoded_bytes);
@@ -65,13 +67,29 @@ impl PartialOrd for Hash {
     }
 }
 
-
 impl fmt::Debug for Hash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{}", self.encode())
     }
 }
 
+impl Serialize for Hash {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.serialize_str(&self.encode())
+    }
+}
+
+impl<'de> Deserialize<'de> for Hash {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+        let s = String::deserialize(deserializer)?;
+        Hash::decode(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
+    }
+
+    // fn deserialize<D: serde::Deserializer>(deserializer: D) -> Result<Self, D::Error> {
+    //     let s = String::deserialize(deserializer)?;
+    //     Hash::decode(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
+    // }
+}
 
 #[cfg(test)]
 mod tests {
@@ -125,5 +143,22 @@ mod tests {
         let s1 = "5555555555555555555555555555555555555555555555555555555555555556";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
         assert!(Hash::decode(s1).unwrap() > Hash::decode(s2).unwrap());
+    }
+
+    #[test]
+    fn json_serialize_hash() {
+        let hash = Hash::decode("0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e").expect("Failed to decode test hash");
+        let serialized = serde_json::to_string(&hash).expect("Failed to serialize");
+        // Ensure it serializes to a hex string
+        assert_eq!(serialized, "\"0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e\"");
+    }
+
+    #[test]
+    fn json_deserialize_hash() {
+        let original_hash = Hash::sha256d(b"hello world");
+        let serialized = serde_json::to_string(&original_hash).expect("Failed to serialize");
+        let deserialized: Hash = serde_json::from_str(&serialized).expect("Failed to deserialize");
+        // Ensure the deserialized hash matches the original
+        assert_eq!(deserialized, original_hash);
     }
 }
