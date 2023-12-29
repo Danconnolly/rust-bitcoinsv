@@ -2,6 +2,8 @@ use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::base::{Hash, VarInt};
 
+pub type TxHash = Hash;
+
 /// A Bitcoin transaction.
 /// Often, when we read a transaction we dont know in advance how large it is and we have to
 /// parse through the transaction discovering its length as we go. This involves several memory

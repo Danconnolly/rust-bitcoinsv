@@ -10,6 +10,10 @@ pub struct Hash{
     pub hash: [u8; 32],
 }
 
+pub type BlockHash = Hash;      // here temporarily until we have blocks defined
+pub type MerkleRoot = Hash;     // here temporarily until we have blocks defined
+
+
 impl Hash {
     /// Converts the hash into a hex string. The bytes are reversed in the hex string in accordance with
     /// Bitcoin standard representation.
