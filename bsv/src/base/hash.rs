@@ -84,11 +84,6 @@ impl<'de> Deserialize<'de> for Hash {
         let s = String::deserialize(deserializer)?;
         Hash::decode(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
-
-    // fn deserialize<D: serde::Deserializer>(deserializer: D) -> Result<Self, D::Error> {
-    //     let s = String::deserialize(deserializer)?;
-    //     Hash::decode(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
-    // }
 }
 
 #[cfg(test)]
