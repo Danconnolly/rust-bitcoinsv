@@ -11,7 +11,7 @@ pub struct Hash{
 }
 
 impl Hash {
-    /// Converts the hash into a hex string. The bytes are reversed in the hex string to match the
+    /// Converts the hash into a hex string. The bytes are reversed in the hex string in accordance with
     /// Bitcoin standard representation.
     pub fn encode(&self) -> String {
         let mut r = self.hash.clone();
@@ -19,13 +19,14 @@ impl Hash {
         hex::encode(r)
     }
 
-    /// Converts a string of 64 hex characters into a hash
+    /// Converts a string of 64 hex characters into a hash. The bytes of the hex encoded form are reversed in
+    /// accordance with Bitcoin standards.
     pub fn decode(s: &str) -> crate::Result<Hash> {
-        let decoded_bytes = hex::decode(s)?;
-        if decoded_bytes.len() != 32 {
-            let msg = format!("Length {} of {:?}", decoded_bytes.len(), decoded_bytes);
+        if s.len() != 64 {
+            let msg = format!("Length of hex encoded hash must be 64. Len of {:?} is {}", s.len(), s);
             return Err(crate::Error::BadArgument(msg));
         }
+        let decoded_bytes = hex::decode(s)?;
         let mut hash_bytes = [0; 32];
         hash_bytes.clone_from_slice(&decoded_bytes);
         hash_bytes.reverse();
@@ -42,10 +43,19 @@ impl Hash {
 }
 
 impl From<&[u8]> for Hash {
-    fn from(data: &[u8]) -> Hash {
-        Hash::sha256d(data)
+    /// This converts a u8 encoded hash into a Hash struct.
+    fn from(hash_as_bytes: &[u8]) -> Hash {
+        Hash {
+            hash: <[u8; 32]>::try_from(hash_as_bytes).expect("Hash must be 32 bytes"),
+        }
     }
+}
 
+impl From<&str> for Hash {
+    /// This converts a hex encoded hash into a Hash struct.
+    fn from(hash_as_hex: &str) -> Hash {
+        Hash::decode(hash_as_hex).unwrap()
+    }
 }
 
 impl Ord for Hash {
