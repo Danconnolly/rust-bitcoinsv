@@ -101,7 +101,7 @@ mod tests {
         let mut cursor = std::io::Cursor::new(&block_header_bin);
         let block_header = BlockHeader::read(&mut cursor).await.unwrap();
         assert_eq!(block_header.version, 609435648);
-        assert_eq!(block_header.hash().await, block_header_hash);
+        assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce, 1285270638);
         assert_eq!(block_header.bits, 0x1808583c);
         assert_eq!(block_header.merkle_root, Hash::from_hex("39513f5dd95fcb548f43a6e2719819d3f6ecee1c52e7e64bf25b0e93b5bd4227").unwrap());
