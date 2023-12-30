@@ -1,5 +1,8 @@
 use async_trait::async_trait;
+use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use futures::executor::block_on;
+
 use crate::base::binary::Encodable;
 use crate::Hash;
 
@@ -64,6 +67,28 @@ impl Encodable for BlockHeader {
     }
 }
 
+impl FromHex for BlockHeader {
+    type Error = crate::Error;
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
+        let bytes = Vec::<u8>::from_hex(hex)?;
+        block_on(BlockHeader::read(&mut bytes.as_slice()))
+    }
+}
+
+impl ToHex for BlockHeader {
+    fn encode_hex<T: FromIterator<char>>(&self) -> T {
+        let mut bytes = Vec::with_capacity(BlockHeader::BINARY_SIZE);
+        block_on(self.write(&mut bytes)).unwrap();
+        bytes.encode_hex()
+    }
+
+    fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
+        let mut bytes = Vec::with_capacity(BlockHeader::BINARY_SIZE);
+        block_on(self.write(&mut bytes)).unwrap();
+        bytes.encode_hex_upper()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use hex::FromHex;
@@ -90,4 +115,25 @@ mod tests {
             Hash::from_hex("000000000000000001749126813c455cabd41bb80fdfc1833ffe09deacb91967").unwrap()
         )
     }
+
+    #[test]
+    fn from_hex_non_async() {
+        let bh = BlockHeader::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
+        assert_eq!(bh.version, 609435648);
+    }
+
+    #[tokio::test]
+    async fn from_hex_async() {
+        let bh = BlockHeader::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
+        assert_eq!(bh.version, 609435648);
+    }
+
+    #[test]
+    fn check_hex_encode() {
+        let o = "00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c";
+        let bh = BlockHeader::from_hex(o).unwrap();
+        let s = bh.encode_hex::<String>();
+        assert_eq!(s, o);
+    }
+
 }
