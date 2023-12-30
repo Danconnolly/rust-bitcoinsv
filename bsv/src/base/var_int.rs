@@ -1,5 +1,6 @@
-use std::io;
+use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::base::binary::Encodable;
 
 /// The VarInt Bitcoin data type with async serialization.
 /// Code based on https://github.com/brentongunning/rust-sv
@@ -18,39 +19,6 @@ impl VarInt {
 
     pub fn size(&self) -> usize {
         return self.raw.len();
-    }
-
-    ///
-    /// Writes the var int to bytes
-    pub async fn write<R: AsyncWrite + Unpin>(&self, writer: &mut R) -> io::Result<()> {
-        writer.write_all(&self.raw).await.unwrap();
-        // if self.value <= 252 {
-        //     writer.write_u8(self.value as u8).await.unwrap();
-        // } else if self.value <= 0xffff {
-        //     writer.write_u8(0xfd).await.unwrap();
-        //     writer.write_u16_le(self.value as u16).await.unwrap();
-        // } else if self.value <= 0xffffffff {
-        //     writer.write_u8(0xfe).await.unwrap();
-        //     writer.write_u32_le(self.value as u32).await.unwrap();
-        // } else {
-        //     writer.write_u8(0xff).await.unwrap();
-        //     writer.write_u64_le(self.value).await.unwrap();
-        // }
-        Ok(())
-    }
-
-    /// Reads a var int from bytes
-    pub async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<VarInt> {
-        let n0 = reader.read_u8().await.unwrap();
-        let v = match n0 {
-            0xff => reader.read_u64_le().await.unwrap(),
-            0xfe => reader.read_u32_le().await.unwrap() as u64,
-            0xfd => reader.read_u16_le().await.unwrap() as u64,
-            _ => n0 as u64 };
-        Ok( VarInt {
-            value: v,
-            raw: VarInt::raw_from_v(v),
-        })
     }
 
     fn raw_from_v(v: u64) -> Vec<u8> {
@@ -75,10 +43,33 @@ impl VarInt {
     }
 }
 
+#[async_trait]
+impl Encodable for VarInt {
+    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<VarInt> {
+        let n0 = reader.read_u8().await.unwrap();
+        let v = match n0 {
+            0xff => reader.read_u64_le().await.unwrap(),
+            0xfe => reader.read_u32_le().await.unwrap() as u64,
+            0xfd => reader.read_u16_le().await.unwrap() as u64,
+            _ => n0 as u64 };
+        Ok( VarInt {
+            value: v,
+            raw: VarInt::raw_from_v(v),
+        })
+    }
+
+    async fn write<R: AsyncWrite + Unpin + Send>(&self, writer: &mut R) -> crate::Result<()> {
+        writer.write_all(&self.raw).await.unwrap();
+        Ok(())
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
     use super::VarInt;
+    use crate::base::binary::Encodable;
 
     #[test]
     fn size() {
