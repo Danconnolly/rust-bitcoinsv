@@ -1,6 +1,7 @@
 use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::base::{Hash, VarInt};
+use crate::base::binary::Encodable;
 
 pub type TxHash = Hash;
 
@@ -16,10 +17,8 @@ pub type TxHash = Hash;
 pub struct Tx {
     /// transaction version number
     pub version: u32,
-    /// the size of the serialized transaction
-    pub size: usize,
-    inputs: Vec<TxInput>,       // inputs
-    outputs: Vec<TxOutput>,     // outputs
+    pub inputs: Vec<TxInput>,       // inputs
+    pub outputs: Vec<TxOutput>,     // outputs
     /// lock time
     pub lock_time: u32,
 }
@@ -35,39 +34,35 @@ impl Tx {
         self.write(&mut cursor).await.unwrap();
         return cursor.get_ref().clone();
     }
+}
 
-    pub async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Tx> {
+impl Encodable for Tx {
+    async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Tx> {
         // our constraints are primarily memory size, not CPU time. We want to read the entire
         // transaction in as quickly as possible, keeping the memory footprint as small as possible.
         let version = reader.read_u32_le().await?;
         let num_inputs = VarInt::read(reader).await?;
-        let mut len = 4 + num_inputs.size();
         let mut inputs = Vec::new();
         for _i in 0..num_inputs.value {
-            let (input, input_len) = TxInput::read(reader).await?;
-            len += input_len;
+            let input= TxInput::read(reader).await?;
             inputs.push(input);
         }
         let num_outputs = VarInt::read(reader).await?;
-        len += num_outputs.size();
         let mut outputs = Vec::new();
         for _i in 0..num_outputs.value {
-            let (output, output_len) = TxOutput::read(reader).await?;
-            len += output_len;
+            let output = TxOutput::read(reader).await?;
             outputs.push(output);
         }
         let lock_time = reader.read_u32_le().await?;
-        len += 4;
         return Ok(Tx {
             version,
-            size: len,
             inputs,
             outputs,
             lock_time
         });
     }
 
-    pub async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
+    async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u32_le(self.version).await?;
         VarInt::new(self.inputs.len() as u64).write(writer).await?;
         for input in self.inputs.iter() {
@@ -82,12 +77,13 @@ impl Tx {
     }
 }
 
+
 pub struct Outpoint {
     raw: [u8; 36],
 }
 
-impl Outpoint {
-    pub async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Outpoint> {
+impl Encodable for Outpoint {
+    async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Outpoint> {
         let mut outpoint: [u8; 36] = [0; 36];
         let _bytes_read = reader.read_exact(&mut outpoint).await?;
         assert_eq!(_bytes_read, 36);
@@ -96,7 +92,7 @@ impl Outpoint {
         });
     }
 
-    pub async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
+    async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_all(&self.raw).await?;
         Ok(())
     }
@@ -108,22 +104,22 @@ pub struct TxInput {
     pub sequence: u32,
 }
 
-impl TxInput {
-    pub async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<(TxInput, usize)> {
+impl Encodable for TxInput {
+    async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<TxInput> {
         let outpoint = Outpoint::read(reader).await?;
         let script_size = VarInt::read(reader).await?;
         let mut script = vec![0u8; script_size.value as usize];
         let _bytes_read = reader.read_exact(&mut script).await?;
         assert_eq!(_bytes_read, script_size.value as usize);
         let sequence = reader.read_u32_le().await?;
-        return Ok((TxInput {
+        return Ok(TxInput {
             outpoint,
             raw_script: script,
             sequence,
-        }, 40 + script_size.size() + script_size.value as usize));
+        });
     }
 
-    pub async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
+    async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
         self.outpoint.write(writer).await?;
         VarInt::new(self.raw_script.len() as u64).write(writer).await?;
         writer.write_all(&self.raw_script).await?;
@@ -137,21 +133,21 @@ pub struct TxOutput {
     raw_script: Vec<u8>,
 }
 
-impl TxOutput {
-    pub async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<(TxOutput, usize)> {
+impl Encodable for TxOutput {
+    async fn read<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<TxOutput> {
         let value = reader.read_u64_le().await?;
         let script_size = VarInt::read(reader).await?;
         let len = 8 + script_size.size() + script_size.value as usize;
         let mut script = vec![0u8; script_size.value as usize];
         let _bytes_read = reader.read_exact(&mut script).await?;
         assert_eq!(_bytes_read, script_size.value as usize);
-        return Ok((TxOutput {
+        return Ok(TxOutput {
             value,
             raw_script: script,
-        }, len));
+        });
     }
 
-    pub async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
+    async fn write<W: AsyncWrite + Unpin>(&self, writer: &mut W) -> io::Result<()> {
         writer.write_u64_le(self.value).await?;
         VarInt::new(self.raw_script.len() as u64).write(writer).await?;
         writer.write_all(&self.raw_script).await?;

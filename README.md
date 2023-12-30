@@ -6,6 +6,11 @@ Low level async Bitcoin SV library in Rust.
 This is a hobby and experimental. If you're looking for a complete library, check out [rust-sv](https://docs.rs/sv/latest/sv/)
 by Brenton Gunning.
 
+## Dev Notes
+Some notes that I'll need to put into a dev document at some point:
+
+1. I use serde for JSON serialization and deserialization.
+2. I use custom de/serialization traits for encoding to Bitcoin Binary standard.
 
 
 

@@ -4,9 +4,10 @@ mod hash;
 mod params;
 mod tx;
 mod var_int;
+mod binary;
 
 
-pub use self::hash::{Hash, BlockHash, MerkleRoot};
+pub use self::hash::Hash;
 pub use self::params::Blockchain;
 pub use self::tx::{TxHash, Tx, TxInput, TxOutput, Outpoint};
 pub use self::var_int::VarInt;
