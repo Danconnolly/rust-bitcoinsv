@@ -16,8 +16,8 @@ pub type MerkleRoot = Hash;     // here temporarily until we have blocks defined
 
 
 impl Hash {
-    const HASH_LENGTH: usize = 32;
-    const HEX_HASH_LENGTH: usize = Hash::HASH_LENGTH * 2;
+    const BINARY_SIZE: usize = 32;
+    const HEX_SIZE: usize = Hash::BINARY_SIZE * 2;
 
     pub fn sha256d(data: &[u8]) -> Hash {
         let sha256 = digest(&SHA256, &data);
@@ -46,7 +46,7 @@ impl FromHex for Hash {
     /// accordance with Bitcoin standards.
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let hex = hex.as_ref();
-        if hex.len() != Hash::HEX_HASH_LENGTH {
+        if hex.len() != Hash::HEX_SIZE {
             let msg = format!("Length of hex encoded hash must be 64. Len is {:}.", hex.len());
             return Err(crate::Error::BadArgument(msg));
         }
@@ -54,7 +54,7 @@ impl FromHex for Hash {
             Ok(mut hash_bytes) => {
                 // Reverse bytes in place to match Bitcoin standard representation.
                 hash_bytes.reverse();
-                let mut hash_array = [0u8; Hash::HASH_LENGTH];
+                let mut hash_array = [0u8; Hash::BINARY_SIZE];
                 hash_array.copy_from_slice(&hash_bytes);
                 Ok(Hash { hash: hash_array })
             },
