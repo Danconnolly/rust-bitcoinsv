@@ -1,8 +1,13 @@
 use std::cmp::Ordering;
 use std::fmt;
+use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::base::binary::Encodable;
+use crate::base::BlockHeader;
+use crate::Outpoint;
 // use crate::util::{Error, Result};
 
 /// The hash that is most often used in Bitcoin is the double SHA-256 hash.
@@ -23,7 +28,7 @@ impl Hash {
         Hash{hash: hash256}
     }
 
-    // used by the ToHex trait implementation
+    // helper for ToHex trait implementation
     fn generic_encode_hex<T, F>(&self, mut encode_fn: F) -> T
         where
             T: FromIterator<char>,
@@ -32,6 +37,22 @@ impl Hash {
         let mut reversed_bytes = self.hash.clone();
         reversed_bytes.reverse();
         encode_fn(&reversed_bytes).chars().collect()
+    }
+}
+
+#[async_trait]
+impl Encodable for Hash {
+    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Hash> {
+        let mut hash_value: [u8; 32] = [0; 32];
+        let _bytes_read = reader.read_exact(&mut hash_value).await?;
+        return Ok(Hash {
+            hash: hash_value,
+        });
+    }
+
+    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_all(&self.hash).await?;
+        Ok(())
     }
 }
 
@@ -183,6 +204,34 @@ mod tests {
         let s1 = "5555555555555555555555555555555555555555555555555555555555555556";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
         assert!(Hash::from_hex(s1).unwrap() > Hash::from_hex(s2).unwrap());
+    }
+
+    /// Test binary read of hash
+    #[tokio::test]
+    async fn hash_read() {
+        let b = vec![
+            0xbe, 0xc7, 0x7b, 0x08, 0x3c, 0xf7, 0xb7, 0x5c,
+            0x97, 0xcc, 0xfa, 0x0c, 0x4b, 0x0c, 0x0c, 0x40,
+            0xa6, 0xe5, 0xae, 0x6b, 0x05, 0xab, 0x12, 0xc9,
+            0x38, 0x81, 0xaf, 0x7f, 0x8a, 0x04, 0x53, 0xf2
+        ];
+        let h = Hash::read(&mut &b[..]).await.unwrap();
+        assert_eq!(h.encode_hex::<String>(), "f253048a7faf8138c912ab056baee5a6400c0c4b0cfacc975cb7f73c087bc7be");
+    }
+
+    #[tokio::test]
+    async fn hash_write() {
+        let s = "684b2f7e73dec228a7bf9a73495eeb6a28f2cda66b7f8e1627fdff8922ec754f";
+        let h = Hash::from_hex(s).unwrap();
+        let mut b = Vec::new();
+        h.write(&mut b).await.unwrap();
+        let c = vec![
+            0x4f, 0x75, 0xec, 0x22, 0x89, 0xff, 0xfd, 0x27,
+            0x16, 0x8e, 0x7f, 0x6b, 0xa6, 0xcd, 0xf2, 0x28,
+            0x6a, 0xeb, 0x5e, 0x49, 0x73, 0x9a, 0xbf, 0xa7,
+            0x28, 0xc2, 0xde, 0x73, 0x7e, 0x2f, 0x4b, 0x68
+        ];
+        assert_eq!(b, c);
     }
 
     #[test]
