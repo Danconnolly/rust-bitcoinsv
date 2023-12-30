@@ -162,7 +162,7 @@ impl TxOutput {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-    use crate::base::Hash;
+    use crate::base::{Hash, FromHex};
     use super::*;
 
 
@@ -180,7 +180,7 @@ mod tests {
     /// If the binary is incomplete, we should get an error
     #[tokio::test]
     async fn read_short() {
-        let (tx_bin, tx_hash) = get_tx1();
+        let (tx_bin, _tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin[0..200]);
         assert!(Tx::read(&mut cursor).await.is_err());
     }
@@ -202,6 +202,6 @@ mod tests {
         let tx_hex = "01000000018a052edc7ae2136bfc0a860cdc91185ab0d7329107802f0a9c1cd0026c815f75010000006b483045022100e587ef1b4497a6694cad646cab468b6ece2fa98c7f49f9488611ca34eecebd1002205c4ea9066484bd1bffb7fdd7d84b5ae0ee6b7cdc20a8a513e41e420e0633b98841210262142850483b6728b8ecd299e4d0c8cf30ea0636f66205166814e52d73b64b4bffffffff0200000000000000000a006a075354554b2e434fb8ce3f01000000001976a91454cba8da8701174e34aac2bb31d42a88e2c302d088ac00000000";
         let tx_hash = "3abc31f8ff40ffb66d9037e156842fe782e6fa1ae728759263471c68660095f1";
         let tx_bin = hex::decode(tx_hex).unwrap();
-        return (tx_bin, Hash::decode(tx_hash).unwrap());
+        return (tx_bin, Hash::from_hex(tx_hash).unwrap());
     }
 }

@@ -1,5 +1,6 @@
 use std::cmp::Ordering;
 use std::fmt;
+use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 // use crate::util::{Error, Result};
@@ -15,27 +16,8 @@ pub type MerkleRoot = Hash;     // here temporarily until we have blocks defined
 
 
 impl Hash {
-    /// Converts the hash into a hex string. The bytes are reversed in the hex string in accordance with
-    /// Bitcoin standard representation.
-    pub fn encode(&self) -> String {
-        let mut r = self.hash.clone();
-        r.reverse();
-        hex::encode(r)
-    }
-
-    /// Converts a string of 64 hex characters into a hash. The bytes of the hex encoded form are reversed in
-    /// accordance with Bitcoin standards.
-    pub fn decode(s: &str) -> crate::Result<Hash> {
-        if s.len() != 64 {
-            let msg = format!("Length of hex encoded hash must be 64. Len of {:?} is {}", s.len(), s);
-            return Err(crate::Error::BadArgument(msg));
-        }
-        let decoded_bytes = hex::decode(s)?;
-        let mut hash_bytes = [0; 32];
-        hash_bytes.clone_from_slice(&decoded_bytes);
-        hash_bytes.reverse();
-        Ok(Hash{hash: hash_bytes})
-    }
+    const HASH_LENGTH: usize = 32;
+    const HEX_HASH_LENGTH: usize = Hash::HASH_LENGTH * 2;
 
     pub fn sha256d(data: &[u8]) -> Hash {
         let sha256 = digest(&SHA256, &data);
@@ -43,6 +25,53 @@ impl Hash {
         let mut hash256 = [0; 32];
         hash256.clone_from_slice(sha256d.as_ref());
         Hash{hash: hash256}
+    }
+
+    // used by the ToHex trait implementation
+    fn generic_encode_hex<T, F>(&self, mut encode_fn: F) -> T
+        where
+            T: FromIterator<char>,
+            F: FnMut(&[u8]) -> String,
+    {
+        let mut reversed_bytes = self.hash.clone();
+        reversed_bytes.reverse();
+        encode_fn(&reversed_bytes).chars().collect()
+    }
+}
+
+impl FromHex for Hash {
+    type Error = crate::Error;
+
+    /// Converts a string of 64 hex characters into a hash. The bytes of the hex encoded form are reversed in
+    /// accordance with Bitcoin standards.
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
+        let hex = hex.as_ref();
+        if hex.len() != Hash::HEX_HASH_LENGTH {
+            let msg = format!("Length of hex encoded hash must be 64. Len is {:}.", hex.len());
+            return Err(crate::Error::BadArgument(msg));
+        }
+        match hex::decode(hex) {
+            Ok(mut hash_bytes) => {
+                // Reverse bytes in place to match Bitcoin standard representation.
+                hash_bytes.reverse();
+                let mut hash_array = [0u8; Hash::HASH_LENGTH];
+                hash_array.copy_from_slice(&hash_bytes);
+                Ok(Hash { hash: hash_array })
+            },
+            Err(e) => Err(crate::Error::FromHexError(e)),
+        }
+    }
+}
+
+impl ToHex for Hash {
+    /// Converts the hash into a hex string. The bytes are reversed in the hex string in accordance with
+    /// Bitcoin standard representation.
+    fn encode_hex<T: FromIterator<char>>(&self) -> T {
+        self.generic_encode_hex(|bytes| hex::encode(bytes))
+    }
+
+    fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
+        self.generic_encode_hex(|bytes| hex::encode_upper(bytes))
     }
 }
 
@@ -58,7 +87,7 @@ impl From<&[u8]> for Hash {
 impl From<&str> for Hash {
     /// This converts a hex encoded hash into a Hash struct.
     fn from(hash_as_hex: &str) -> Hash {
-        Hash::decode(hash_as_hex).unwrap()
+        Hash::from_hex(hash_as_hex).unwrap()
     }
 }
 
@@ -83,26 +112,26 @@ impl PartialOrd for Hash {
 
 impl fmt::Display for Hash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.encode())
+        write!(f, "{}", self.encode_hex::<String>())
     }
 }
 
 impl fmt::Debug for Hash {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.encode())
+        write!(f, "{}", self.encode_hex::<String>())
     }
 }
 
 impl Serialize for Hash {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        serializer.serialize_str(&self.encode())
+        serializer.serialize_str(self.encode_hex::<String>().as_ref())
     }
 }
 
 impl<'de> Deserialize<'de> for Hash {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
         let s = String::deserialize(deserializer)?;
-        Hash::decode(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
+        Hash::from_hex(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
 }
 
@@ -124,45 +153,45 @@ mod tests {
         let s1 = "0000000000000000000000000000000000000000000000000000000000000000";
         let s2 = "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
         let s3 = "abcdef0000112233445566778899abcdef000011223344556677889912345678";
-        assert!(Hash::decode(s1).is_ok());
-        assert!(Hash::decode(s2).is_ok());
-        assert!(Hash::decode(s3).is_ok());
+        assert!(Hash::from_hex(s1).is_ok());
+        assert!(Hash::from_hex(s2).is_ok());
+        assert!(Hash::from_hex(s3).is_ok());
 
         // Invalid
         let s1 = "000000000000000000000000000000000000000000000000000000000000000";
         let s2 = "00000000000000000000000000000000000000000000000000000000000000000";
         let s3 = "000000000000000000000000000000000000000000000000000000000000000g";
-        assert!(Hash::decode(s1).is_err());
-        assert!(Hash::decode(s2).is_err());
-        assert!(Hash::decode(s3).is_err());
+        assert!(Hash::from_hex(s1).is_err());
+        assert!(Hash::from_hex(s2).is_err());
+        assert!(Hash::from_hex(s3).is_err());
     }
 
     #[test]
     fn hash_compare() {
         let s1 = "5555555555555555555555555555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert_eq!(Hash::decode(s1).unwrap(), Hash::decode(s2).unwrap());
+        assert_eq!(Hash::from_hex(s1).unwrap(), Hash::from_hex(s2).unwrap());
 
         let s1 = "0555555555555555555555555555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::decode(s1).unwrap() < Hash::decode(s2).unwrap());
+        assert!(Hash::from_hex(s1).unwrap() < Hash::from_hex(s2).unwrap());
 
         let s1 = "5555555555555555555555555555555555555555555555555555555555555550";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::decode(s1).unwrap() < Hash::decode(s2).unwrap());
+        assert!(Hash::from_hex(s1).unwrap() < Hash::from_hex(s2).unwrap());
 
         let s1 = "6555555555555555555555555555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::decode(s1).unwrap() > Hash::decode(s2).unwrap());
+        assert!(Hash::from_hex(s1).unwrap() > Hash::from_hex(s2).unwrap());
 
         let s1 = "5555555555555555555555555555555555555555555555555555555555555556";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::decode(s1).unwrap() > Hash::decode(s2).unwrap());
+        assert!(Hash::from_hex(s1).unwrap() > Hash::from_hex(s2).unwrap());
     }
 
     #[test]
     fn json_serialize_hash() {
-        let hash = Hash::decode("0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e").expect("Failed to decode test hash");
+        let hash = Hash::from_hex("0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e").expect("Failed to decode test hash");
         let serialized = serde_json::to_string(&hash).expect("Failed to serialize");
         // Ensure it serializes to a hex string
         assert_eq!(serialized, "\"0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e\"");
