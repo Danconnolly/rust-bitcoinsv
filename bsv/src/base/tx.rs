@@ -183,7 +183,7 @@ mod tests {
 
     /// If we supply too many bytes, then the read should succeed and we should have some bytes left over.
     #[tokio::test]
-    async fn tx_lomg() {
+    async fn tx_long() {
         let (mut tx_bin, tx_hash) = get_tx1();
         tx_bin.append(&mut vec![0u8; 100]);
         let mut cursor = Cursor::new(&tx_bin[0..300]);
