@@ -11,13 +11,9 @@ pub struct Hash{
     pub hash: [u8; 32],
 }
 
-pub type BlockHash = Hash;      // here temporarily until we have blocks defined
-pub type MerkleRoot = Hash;     // here temporarily until we have blocks defined
-
-
 impl Hash {
-    const BINARY_SIZE: usize = 32;
-    const HEX_SIZE: usize = Hash::BINARY_SIZE * 2;
+    pub const BINARY_SIZE: usize = 32;
+    pub const HEX_SIZE: usize = Hash::BINARY_SIZE * 2;
 
     pub fn sha256d(data: &[u8]) -> Hash {
         let sha256 = digest(&SHA256, &data);
