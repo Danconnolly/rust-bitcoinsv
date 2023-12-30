@@ -3,7 +3,7 @@ use std::fmt::Write;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Amount in BSV format, with 10^8 satoshis per BSV.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct  Amount(pub i64);
 
 impl Amount {
