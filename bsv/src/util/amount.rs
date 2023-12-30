@@ -47,6 +47,12 @@ impl<'de> Deserialize<'de> for Amount {
     }
 }
 
+impl Default for Amount {
+    fn default() -> Self {
+        Amount::ZERO
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
