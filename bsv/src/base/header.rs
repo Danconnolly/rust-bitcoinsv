@@ -36,9 +36,9 @@ impl BlockHeader {
     }
 
     /// Calculates the hash for this block header
-    pub async fn hash(&self) -> BlockHash {
+    pub fn hash(&self) -> BlockHash {
         let mut v = Vec::with_capacity(80);
-        self.write(&mut v).await.unwrap();
+        block_on(self.write(&mut v)).unwrap();
         Hash::sha256d(&v)
     }
 }
