@@ -123,7 +123,7 @@ mod tests {
         let p = l.get_port().await;
         println!("Listener port: {}", p);
         assert!(p > 0);         // did we really get a port back?
-        let mut out_stream = TcpStream::connect(SocketAddr::new(IpAddr::from(Ipv4Addr::UNSPECIFIED), p)).await.unwrap();
+        let mut out_stream = TcpStream::connect(SocketAddr::new(IpAddr::from(Ipv4Addr::LOCALHOST), p)).await.unwrap();
         // we expect to receive an AcceptConnection message
         let msg = rx.recv().await.unwrap();
         match msg {
