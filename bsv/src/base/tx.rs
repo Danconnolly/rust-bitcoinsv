@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::base::{Hash, VarInt};
 use crate::base::binary::Encodable;
@@ -24,9 +25,9 @@ pub struct Tx {
 }
 
 impl Tx {
-    pub async fn hash(&self) -> Hash {
+    pub fn hash(&self) -> Hash {
         let mut v = Vec::new();
-        self.write(&mut v).await.unwrap();
+        block_on(self.write(&mut v)).unwrap();
         Hash::sha256d(&v)
     }
 }
@@ -134,7 +135,6 @@ impl Encodable for TxOutput {
     async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<TxOutput> {
         let value = reader.read_u64_le().await?;
         let script_size = VarInt::read(reader).await?;
-        let len = 8 + script_size.size() + script_size.value as usize;
         let mut script = vec![0u8; script_size.value as usize];
         let _bytes_read = reader.read_exact(&mut script).await?;
         assert_eq!(_bytes_read, script_size.value as usize);
@@ -167,7 +167,7 @@ mod tests {
         let tx = Tx::read(&mut cursor).await.unwrap();
         // assert_eq!(tx.size, 211);
         assert_eq!(tx.version, 1);
-        assert_eq!(tx.hash().await, tx_hash);
+        assert_eq!(tx.hash(), tx_hash);
     }
 
     /// If the binary is incomplete, we should get an error
@@ -188,7 +188,14 @@ mod tests {
         assert_eq!(cursor.position(), 211);
         // assert_eq!(tx.size, 211);
         assert_eq!(tx.version, 1);
-        assert_eq!(tx.hash().await, tx_hash);
+        assert_eq!(tx.hash(), tx_hash);
+    }
+
+    #[test]
+    fn read_non_async_from_ram() {
+        let (tx_bin, tx_hash) = get_tx1();
+        let tx = Tx::read_from_buf(&tx_bin).unwrap();
+        assert_eq!(tx.hash(), tx_hash);
     }
 
     fn get_tx1() -> (Vec<u8>, Hash) {
