@@ -1,8 +1,11 @@
+use std::io::Cursor;
 use async_trait::async_trait;
 use futures::executor::block_on;
+use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::base::{Hash, VarInt};
 use crate::base::binary::Encodable;
+
 
 pub type TxHash = Hash;
 
@@ -29,6 +32,31 @@ impl Tx {
         let mut v = Vec::new();
         block_on(self.write(&mut v)).unwrap();
         Hash::sha256d(&v)
+    }
+}
+
+impl FromHex for Tx {
+    type Error = crate::Error;
+
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
+        let mut bytes = hex::decode(hex)?;
+        let mut cursor = Cursor::new(&mut bytes);
+        let tx = block_on(Tx::read(&mut cursor))?;
+        Ok(tx)
+    }
+}
+
+impl ToHex for Tx {
+    fn encode_hex<T: FromIterator<char>>(&self) -> T {
+        let mut bytes = Vec::new();
+        block_on(self.write(&mut bytes)).unwrap();
+        bytes.encode_hex()
+    }
+
+    fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
+        let mut bytes = Vec::new();
+        block_on(self.write(&mut bytes)).unwrap();
+        bytes.encode_hex_upper()
     }
 }
 
@@ -196,6 +224,15 @@ mod tests {
         let (tx_bin, tx_hash) = get_tx1();
         let tx = Tx::read_from_buf(&tx_bin).unwrap();
         assert_eq!(tx.hash(), tx_hash);
+    }
+
+    #[test]
+    fn read_from_hex() {
+        let (tx_bin, tx_hash) = get_tx1();
+        let tx = Tx::read_from_buf(&tx_bin).unwrap();
+        let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
+        assert_eq!(tx.hash(), tx_hash);
+        assert_eq!(tx2.hash(), tx_hash);
     }
 
     fn get_tx1() -> (Vec<u8>, Hash) {
