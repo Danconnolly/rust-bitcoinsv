@@ -8,7 +8,7 @@ mod tx;
 mod var_int;
 
 
-
+pub use self::binary::Encodable;
 pub use self::hash::Hash;
 pub use self::header::{BlockHash, MerkleRoot, BlockHeader};
 pub use self::params::Blockchain;
