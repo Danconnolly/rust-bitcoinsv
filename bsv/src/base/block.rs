@@ -145,8 +145,9 @@ mod tests {
             tx_count += 1;
             tx.unwrap();
         }
-        let r = s.finish().await;
         assert_eq!(tx_count, 222);
+        let r = s.finish().await;
+        assert_eq!(r.position(), r.get_ref().len() as u64, "Cursor is not at the end");
     }
 
     // read block from a file for test purposes
