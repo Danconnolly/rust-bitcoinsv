@@ -3,7 +3,7 @@ use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use futures::executor::block_on;
 
-use crate::base::binary::Encodable;
+use crate::bitcoin::binary::Encodable;
 use crate::Hash;
 
 pub type BlockHash = Hash;

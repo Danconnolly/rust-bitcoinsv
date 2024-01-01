@@ -1,4 +1,4 @@
-use crate::base::Blockchain;
+use crate::bitcoin::Blockchain;
 use crate::util::ACTOR_CHANNEL_SIZE;
 use std::collections::HashMap;
 use std::net::IpAddr;
@@ -190,7 +190,7 @@ impl P2PManagerActor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::base::Blockchain::Mainnet;
+    use crate::bitcoin::Blockchain::Mainnet;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn simple_tests() {

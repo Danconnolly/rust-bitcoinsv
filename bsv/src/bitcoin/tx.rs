@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use futures::executor::block_on;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::base::{Hash, VarInt};
-use crate::base::binary::Encodable;
+use crate::bitcoin::{Hash, VarInt};
+use crate::bitcoin::binary::Encodable;
 
 
 pub type TxHash = Hash;
@@ -183,7 +183,7 @@ impl Encodable for TxOutput {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-    use crate::base::{Hash, FromHex};
+    use crate::bitcoin::{Hash, FromHex};
     use super::*;
 
 

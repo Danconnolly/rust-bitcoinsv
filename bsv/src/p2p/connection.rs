@@ -1,6 +1,6 @@
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
-use crate::base::Blockchain;
+use crate::bitcoin::Blockchain;
 use crate::p2p::peer::Peer;
 use crate::util::ACTOR_CHANNEL_SIZE;
 

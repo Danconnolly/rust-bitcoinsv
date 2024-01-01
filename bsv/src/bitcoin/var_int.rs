@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::base::binary::Encodable;
+use crate::bitcoin::binary::Encodable;
 
 /// The VarInt Bitcoin data type with async serialization.
 /// Code based on https://github.com/brentongunning/rust-sv
@@ -69,7 +69,7 @@ impl Encodable for VarInt {
 mod tests {
     use std::io::Cursor;
     use super::VarInt;
-    use crate::base::binary::Encodable;
+    use crate::bitcoin::binary::Encodable;
 
     #[test]
     fn size() {

@@ -5,7 +5,7 @@ use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::base::binary::Encodable;
+use crate::bitcoin::binary::Encodable;
 
 /// The hash that is most often used in Bitcoin is the double SHA-256 hash.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]

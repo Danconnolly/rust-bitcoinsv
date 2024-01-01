@@ -12,9 +12,9 @@ If you have anything you particularly want to see, feel free to open an issue or
 
 ## Current Feature Status
 
-* `base` module: Tx, BlockHeader, FullBlockStream
+* `bitcoin` module: main structs - Tx, BlockHeader, FullBlockStream
 * `p2p` module: needs review
-* `util` module: Amount
+* `util` module: main structs - Amount
 
 
 
