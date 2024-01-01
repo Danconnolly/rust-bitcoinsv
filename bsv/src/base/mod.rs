@@ -6,9 +6,11 @@ mod header;
 mod params;
 mod tx;
 mod var_int;
+mod block;
 
 
 pub use self::binary::Encodable;
+pub use self::block::FullBlockStream;
 pub use self::hash::Hash;
 pub use self::header::{BlockHash, MerkleRoot, BlockHeader};
 pub use self::params::Blockchain;
