@@ -23,6 +23,11 @@ jobs:
       - name: Install cargo2junit
         run: cargo install cargo2junit
 
+      - name: Run Clippy
+        uses: clechasseur/rs-clippy-check@v3
+        with:
+          args: --all-features
+
       - name: Build
         run: cargo build --verbose
 
