@@ -18,7 +18,7 @@ impl Hash {
     pub const HEX_SIZE: usize = Hash::BINARY_SIZE * 2;
 
     pub fn sha256d(data: &[u8]) -> Hash {
-        let sha256 = digest(&SHA256, &data);
+        let sha256 = digest(&SHA256, data);
         let sha256d = digest(&SHA256, sha256.as_ref());
         let mut hash256 = [0; 32];
         hash256.clone_from_slice(sha256d.as_ref());
@@ -31,7 +31,7 @@ impl Hash {
             T: FromIterator<char>,
             F: FnMut(&[u8]) -> String,
     {
-        let mut reversed_bytes = self.hash.clone();
+        let mut reversed_bytes = self.hash;
         reversed_bytes.reverse();
         encode_fn(&reversed_bytes).chars().collect()
     }

@@ -1,5 +1,4 @@
 use core::fmt;
-use std::fmt::Write;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Amount in BSV format, with 10^8 satoshis per BSV.

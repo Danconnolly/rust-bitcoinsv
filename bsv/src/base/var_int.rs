@@ -18,7 +18,7 @@ impl VarInt {
     }
 
     pub fn size(&self) -> usize {
-        return self.raw.len();
+        self.raw.len()
     }
 
     fn raw_from_v(v: u64) -> Vec<u8> {

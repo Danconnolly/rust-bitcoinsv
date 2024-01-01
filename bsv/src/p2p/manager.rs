@@ -1,7 +1,7 @@
 use crate::base::Blockchain;
 use crate::util::ACTOR_CHANNEL_SIZE;
 use std::collections::HashMap;
-use std::net::{IpAddr, SocketAddr};
+use std::net::IpAddr;
 use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
@@ -191,7 +191,6 @@ impl P2PManagerActor {
 mod tests {
     use super::*;
     use crate::base::Blockchain::Mainnet;
-    use tokio::join;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn simple_tests() {
