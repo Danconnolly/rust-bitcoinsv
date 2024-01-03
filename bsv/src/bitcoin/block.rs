@@ -5,12 +5,14 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::Stream;
 pub use tokio_stream::StreamExt;
-use crate::{BlockHeader, Encodable, Tx, VarInt};
+use crate::bitcoin::{BlockHeader, Encodable, Tx};
+use crate::bitcoin::var_int::VarInt;
 
-/// Functions and types for working with blocks.
 
-
-/// A stream over the transactions in a block. It also provides access to the block header.
+/// Deserialize the bytes in a block and produce a stream of the transactions.
+///
+/// It also provides access to the block header.
+///
 /// In Bitcoin SV, blocks can get very large, so we dont actually keep a block in memory, but
 /// instead iterate over the transactions in the block. Ideally each transaction should be processed
 /// immediately and dropped to keep memory use low.
@@ -49,7 +51,7 @@ impl<R> FullBlockStream<R>
     where
         R: AsyncRead + Unpin + Send + 'static,
 {
-    /// Create a new FullBlockStream, reading the block from the reader. The block header and the
+    /// Create a new FullBlockStream, decoding the block from the reader. The block header and the
     /// number of transactions in the block will be immediately ready when this function has finished.
     pub async fn new(mut reader: R) -> crate::Result<FullBlockStream<R>> {
         let block_header = BlockHeader::read(&mut reader).await?;

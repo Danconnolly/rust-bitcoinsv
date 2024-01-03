@@ -4,24 +4,27 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use futures::executor::block_on;
 
 use crate::bitcoin::binary::Encodable;
-use crate::Hash;
+use crate::bitcoin::hash::Hash;
 
+/// The BlockHash is used to identify block headers and enforce proof of work.
 pub type BlockHash = Hash;
+/// The MerkleRoot is the root of the merkle tree of this block's transaction hashes.
 pub type MerkleRoot = Hash;
 
+/// BlockHeaders are linked to together to form a blockchain.
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct BlockHeader {
-    /// Block version
+    /// Block version.
     pub version: u32,
-    /// Hash of the previous block
+    /// Hash of the previous block header.
     pub prev_hash: BlockHash,
-    /// Root of the merkle tree of this block's transaction hashes
+    /// Root of the merkle tree of this block's transaction hashes.
     pub merkle_root: MerkleRoot,
-    /// Timestamp when this block was created as recorded by the miner
+    /// Timestamp when this block was created as recorded by the miner.
     pub timestamp: u32,
-    /// Target difficulty bits
+    /// Target difficulty bits.
     pub bits: u32,
-    /// Nonce used to mine the block
+    /// Nonce used to mine the block.
     pub nonce: u32,
 }
 

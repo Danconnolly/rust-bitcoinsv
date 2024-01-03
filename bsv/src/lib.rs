@@ -1,8 +1,17 @@
-mod bitcoin;
-mod p2p;
-mod util;
-mod result;
+//! Bitcoin SV library for Rust.
+//!
+//! This library is a work in progress. It is intended to provide a full featured library for using Bitcoin SV
+//! in Rust applications at the infrastructure level. It is not intended to be a wallet or a client.
 
+/// Contains functionality related to the core of Bitcoin SV. Transactions, Block Headers, etc.
+pub mod bitcoin;
+
+/// Contains functionality related to the Bitcoin SV peer-to-peer protocol and network.
+// todo: review this module before releasing it
+mod p2p;
+
+/// Contains useful utility functions.
+pub mod util;
+
+mod result;
 pub use result::{Error, Result};
-pub use bitcoin::{Blockchain, BlockHash, BlockHeader, Encodable, FullBlockStream, Hash, MerkleRoot, Outpoint, Tx, TxHash, TxInput, TxOutput, VarInt};
-pub use util::Amount;

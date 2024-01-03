@@ -1,17 +1,17 @@
-use crate::bitcoin::Blockchain;
-use crate::util::ACTOR_CHANNEL_SIZE;
+use crate::bitcoin::BlockchainId;
 use std::collections::HashMap;
 use std::net::IpAddr;
 use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
+use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::peer::Peer;
 
 /// Configuration for the P2PManager.
 pub struct P2PManagerConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
-    pub blockchain: Blockchain,
+    pub blockchain: BlockchainId,
     /// Whether the P2PManager should start in the paused state.
     pub paused: bool,
     /// The target number of connections to maintain.
@@ -27,7 +27,7 @@ pub struct P2PManagerConfig {
 }
 
 impl P2PManagerConfig {
-    pub fn default(chain: Blockchain) -> Self {
+    pub fn default(chain: BlockchainId) -> Self {
         P2PManagerConfig {
             blockchain: chain,
             paused: false,
@@ -43,7 +43,7 @@ impl P2PManagerConfig {
 impl Default for P2PManagerConfig {
     // Default connects to mainnet
     fn default() -> Self {
-        P2PManagerConfig::default(Blockchain::Mainnet)
+        P2PManagerConfig::default(BlockchainId::Mainnet)
     }
 }
 
@@ -190,7 +190,7 @@ impl P2PManagerActor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitcoin::Blockchain::Mainnet;
+    use crate::bitcoin::BlockchainId::Mainnet;
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn simple_tests() {

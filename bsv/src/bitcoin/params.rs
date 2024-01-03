@@ -2,10 +2,11 @@
 
 use serde::{Deserialize, Serialize};
 
+/// The blockchain (mainnet, testnet, stn, regtest) to use.
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
-pub enum Blockchain {
+pub enum BlockchainId {
     #[serde(alias = "main")]
     Mainnet = 0,
     Testnet = 1,
@@ -19,7 +20,7 @@ mod tests {
 
     #[test]
     fn json_serialize_blockchain() {
-        let chain = Blockchain::Mainnet;
+        let chain = BlockchainId::Mainnet;
         let json = serde_json::to_string(&chain).unwrap();
         assert_eq!(json, "\"mainnet\"");
     }
@@ -27,7 +28,7 @@ mod tests {
     #[test]
     fn json_deserialize_blockchain() {
         let json = "\"mainnet\"";
-        let chain: Blockchain = serde_json::from_str(json).unwrap();
-        assert_eq!(chain, Blockchain::Mainnet);
+        let chain: BlockchainId = serde_json::from_str(json).unwrap();
+        assert_eq!(chain, BlockchainId::Mainnet);
     }
 }

@@ -2,7 +2,7 @@ use std::net::Ipv4Addr;
 use tokio::sync::mpsc::{channel, Sender, Receiver};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use crate::util::ACTOR_CHANNEL_SIZE;
+use crate::p2p::ACTOR_CHANNEL_SIZE;
 
 /// Configuration for a P2P Listener.
 /// Can be used to specify the port to listen on.

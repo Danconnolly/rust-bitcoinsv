@@ -1,14 +1,14 @@
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
-use crate::bitcoin::Blockchain;
+use crate::bitcoin::BlockchainId;
 use crate::p2p::peer::Peer;
-use crate::util::ACTOR_CHANNEL_SIZE;
+use crate::p2p::ACTOR_CHANNEL_SIZE;
 
 
 /// Configuration for a P2P Connection.
 pub struct ConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
-    pub blockchain: Blockchain,
+    pub blockchain: BlockchainId,
 }
 
 /// A Connection represents a logical connection to a peer and it manages sending and receiving P2P messages.

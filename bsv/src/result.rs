@@ -1,8 +1,8 @@
 use std::io;
 use hex::FromHexError;
 
-/// Standard error & result types.
-/// Code based on https://github.com/brentongunning/rust-sv
+// Standard error & result types.
+// Code based on `<https://github.com/brentongunning/rust-sv>`
 
 
 /// Standard Result used in the library

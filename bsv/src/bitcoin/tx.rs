@@ -3,21 +3,15 @@ use async_trait::async_trait;
 use futures::executor::block_on;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{Hash, VarInt};
+use crate::bitcoin::hash::Hash;
+use crate::bitcoin::var_int::VarInt;
 use crate::bitcoin::binary::Encodable;
 
 
+/// The TxHash is used to identify transactions and ensure immutability.
 pub type TxHash = Hash;
 
 /// A Bitcoin transaction.
-/// Often, when we read a transaction we dont know in advance how large it is and we have to
-/// parse through the transaction discovering its length as we go. This involves several memory
-/// allocations as we determine the size of each input and output script and read them in.
-/// So we might as well keep these around for later use and only serialize them to a single
-/// byte array when necessary.
-/// If we knew the size of the transaction in advance, we could allocate a single buffer and read
-/// it into that buffer in one go. This would be much faster and use less memory, but it is not the
-/// normal case.
 pub struct Tx {
     /// transaction version number
     pub version: u32,
@@ -100,7 +94,7 @@ impl Encodable for Tx {
     }
 }
 
-
+/// An Outpoint is a reference to a specific output of a specific transaction.
 pub struct Outpoint {
     raw: [u8; 36],
 }
@@ -122,6 +116,7 @@ impl Encodable for Outpoint {
     }
 }
 
+/// A TxInput is an input to a transaction.
 pub struct TxInput {
     pub outpoint: Outpoint,
     raw_script: Vec<u8>,
@@ -153,6 +148,7 @@ impl Encodable for TxInput {
     }
 }
 
+/// A TxOutput is an output from a transaction.
 pub struct TxOutput {
     pub value: u64,
     raw_script: Vec<u8>,

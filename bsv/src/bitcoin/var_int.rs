@@ -3,7 +3,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::binary::Encodable;
 
 /// The VarInt Bitcoin data type with async serialization.
-/// Code based on https://github.com/brentongunning/rust-sv
+// Code based on `<https://github.com/brentongunning/rust-sv>`
 pub struct VarInt {
     pub value: u64,
     pub raw: Vec<u8>,

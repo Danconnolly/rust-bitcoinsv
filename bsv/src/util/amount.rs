@@ -1,7 +1,7 @@
 use core::fmt;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-/// Amount in BSV format, with 10^8 satoshis per BSV.
+/// An Amount of BSV.
 #[derive(Debug, Clone, PartialEq)]
 pub struct  Amount(pub i64);
 
