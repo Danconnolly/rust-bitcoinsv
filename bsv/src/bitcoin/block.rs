@@ -132,7 +132,7 @@ mod tests {
     use super::*;
     use tokio::io::AsyncReadExt;
     use tokio_stream::StreamExt;
-    use crate::Hash;
+    use crate::bitcoin::hash::Hash;
 
     // Stream a block and check that we can read the transactions from it.
     #[tokio::test]

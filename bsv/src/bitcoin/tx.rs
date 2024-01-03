@@ -179,7 +179,8 @@ impl Encodable for TxOutput {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
-    use crate::bitcoin::{Hash, FromHex};
+    use crate::bitcoin::FromHex;
+    use crate::bitcoin::hash::Hash;
     use super::*;
 
 
