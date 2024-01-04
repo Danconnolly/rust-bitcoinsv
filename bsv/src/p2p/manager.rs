@@ -1,12 +1,13 @@
 use crate::bitcoin::BlockchainId;
 use std::collections::HashMap;
 use std::net::IpAddr;
-use tokio;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::peer::Peer;
+use crate::Result;
+
 
 /// Configuration for the P2PManager.
 pub struct P2PManagerConfig {
@@ -17,7 +18,7 @@ pub struct P2PManagerConfig {
     /// The target number of connections to maintain.
     pub connections_target: u16,
     /// The maximum number of connections to maintain.
-    pub connections_max: u16,
+    pub connections_max: Option<u16>,
     /// Whether to query the DNS Seeds.
     pub query_dns: bool,
     /// Whether to add connections based on advertisements.
@@ -27,12 +28,13 @@ pub struct P2PManagerConfig {
 }
 
 impl P2PManagerConfig {
+    /// Get default configuration for a particular blockchain.
     pub fn default(chain: BlockchainId) -> Self {
         P2PManagerConfig {
             blockchain: chain,
             paused: false,
-            connections_target: 10, // default small, designed for small client applications
-            connections_max: 20,    // default small, designed for small client applications
+            connections_target: 8,
+            connections_max: None,
             query_dns: true,
             add_addr_peers: true,
             known_peers: Vec::new(),
@@ -41,27 +43,30 @@ impl P2PManagerConfig {
 }
 
 impl Default for P2PManagerConfig {
-    // Default connects to mainnet
+    // Default configuration, connects to mainnet.
     fn default() -> Self {
         P2PManagerConfig::default(BlockchainId::Mainnet)
     }
 }
 
+/// A P2PManager manages P2P connections.
+///
+/// The P2PManager can manage many connections.
+///
+/// Normally, there should be only one manager per system but we allow more because its useful for testing purposes.
 pub struct P2PManager {
-    /// A P2PManager manages P2P connections.
-    ///
-    /// The P2PManager struct is actually a handle to an actor implemented in P2PManagerActor.
+    // The P2PManager struct is actually a handle to an actor implemented in P2PManagerActor.
     sender: Sender<P2PMgrMessage>,
 }
 
 impl P2PManager {
-    /// Create a new P2PManager. There should be only one manager per system but we allow more
-    /// because its useful for testing purposes.
+    /// Create a new P2PManager.
+    ///
+    /// This returns the P2PManager and a tokio join handle to the P2PManager actor.
     pub fn new(config: P2PManagerConfig) -> (P2PManager, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        let t2 = tx.clone();
-        let j = tokio::spawn(async move { P2PManagerActor::new(rx, t2, config).await });
-        (P2PManager { sender: tx }, j)
+        (P2PManager { sender: tx },
+         tokio::spawn(async move { P2PManagerActor::new(rx, tx.clone(), config).await }))
     }
 
     /// Stop the P2PManager, shutting down all connections.
@@ -83,9 +88,7 @@ impl P2PManager {
     /// Get the current state of the P2PManager.
     pub async fn state(&self) -> P2PManagerState {
         let (tx, rx) = oneshot::channel();
-        self.sender
-            .send(P2PMgrMessage::GetState { reply: tx })
-            .await;
+        self.sender.send(P2PMgrMessage::GetState { reply: tx }).await;
         rx.await.unwrap()
     }
 }
