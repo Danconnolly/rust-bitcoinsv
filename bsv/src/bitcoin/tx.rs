@@ -99,6 +99,18 @@ pub struct Outpoint {
     raw: [u8; 36],
 }
 
+impl Outpoint {
+    /// The hash of transaction.
+    pub fn tx_hash(&self) -> TxHash {
+        TxHash::from(&self.raw[..32])
+    }
+
+    /// The index of the output.
+    pub fn index(&self) -> u32 {
+        u32::from_le_bytes(self.raw[32..36].try_into().unwrap())
+    }
+}
+
 #[async_trait]
 impl Encodable for Outpoint {
     async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Outpoint> {
@@ -230,6 +242,19 @@ mod tests {
         let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
+    }
+
+    #[test]
+    fn check_deser() {
+        let (tx_bin, tx_hash) = get_tx1();
+        let tx = Tx::read_from_buf(&tx_bin).unwrap();
+        assert_eq!(tx.hash(), tx_hash);
+        assert_eq!(tx.version, 1);
+        assert_eq!(tx.inputs.len(), 1);
+        let i = tx.inputs.get(0).unwrap();
+        assert_eq!(i.outpoint.tx_hash(), Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a"));
+        assert_eq!(i.outpoint.index(), 1);
+        assert_eq!(tx.outputs.len(), 2);
     }
 
     fn get_tx1() -> (Vec<u8>, Hash) {
