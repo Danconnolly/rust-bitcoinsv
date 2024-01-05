@@ -65,6 +65,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bitcoinsv-examples"
+version = "0.2.0"
+dependencies = [
+ "bitcoinsv",
+ "tokio",
+]
+
+[[package]]
 name = "bitflags"
 version = "1.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"

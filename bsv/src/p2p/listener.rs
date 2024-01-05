@@ -101,9 +101,7 @@ impl ListenerActor {
 mod tests {
     use super::*;
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
-    use std::str::FromStr;
     use tokio::net::TcpStream;
-    use tokio::time;
 
     #[tokio::test]
     async fn listener_start_stop() {
