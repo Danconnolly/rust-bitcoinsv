@@ -92,6 +92,10 @@ impl Encodable for Tx {
         writer.write_u32_le(self.lock_time).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        todo!()
+    }
 }
 
 /// An Outpoint is a reference to a specific output of a specific transaction.
@@ -100,6 +104,8 @@ pub struct Outpoint {
 }
 
 impl Outpoint {
+    pub const SIZE: usize = 36;
+
     /// The hash of transaction.
     pub fn tx_hash(&self) -> TxHash {
         TxHash::from(&self.raw[..32])
@@ -125,6 +131,10 @@ impl Encodable for Outpoint {
     async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_all(&self.raw).await?;
         Ok(())
+    }
+
+    fn size(&self) -> usize {
+        Outpoint::SIZE
     }
 }
 
@@ -158,6 +168,10 @@ impl Encodable for TxInput {
         writer.write_u32_le(self.sequence).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        todo!()
+    }
 }
 
 /// A TxOutput is an output from a transaction.
@@ -185,6 +199,10 @@ impl Encodable for TxOutput {
         VarInt::new(self.raw_script.len() as u64).write(writer).await?;
         writer.write_all(&self.raw_script).await?;
         Ok(())
+    }
+
+    fn size(&self) -> usize {
+        todo!()
     }
 }
 

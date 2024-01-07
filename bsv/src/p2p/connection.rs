@@ -4,6 +4,7 @@ use tokio::task::JoinHandle;
 use crate::bitcoin::BlockchainId;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
+use crate::p2p::channel::PeerChannel;
 use crate::p2p::messages::P2PMessageChannelSender;
 
 
@@ -11,6 +12,10 @@ use crate::p2p::messages::P2PMessageChannelSender;
 pub struct ConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
     pub blockchain: BlockchainId,
+    /// the number of retries to attempt when connecting to a peer, or re-connecting
+    pub retries: u8,
+    /// the delay between retries, in seconds
+    pub retry_delay: u16,
 }
 
 impl ConnectionConfig {
@@ -18,6 +23,8 @@ impl ConnectionConfig {
     pub fn default(chain: BlockchainId) -> Self {
         ConnectionConfig {
             blockchain: chain,
+            retries: 5,
+            retry_delay: 10,
         }
     }
 }
@@ -50,15 +57,28 @@ pub enum ConnectionControlMessage {
     Close,
 }
 
+/// The actor for a connection.
+///
+/// At the moment we only support one channel per connection, but in the future we will support multiple channels.
 struct ConnectionActor {
+    // the actor inbox
     inbox: Receiver<ConnectionControlMessage>,
+    // the configuration for the connection, we'll need this when we support multiple channels
     config: Arc<ConnectionConfig>,
+    // the channel on which to send substantive P2P messages
     msg_channel: Option<P2PMessageChannelSender>,
+    // number of attempts to connect
+    attempts: u8,
+    // the primary communication channel
+    primary_channel: PeerChannel,
+    // the join handle for the primary channel
+    primary_join: Option<JoinHandle<()>>,
 }
 
 impl ConnectionActor {
     async fn new(inbox: Receiver<ConnectionControlMessage>, config: Arc<ConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) {
-        let mut actor = ConnectionActor { inbox, config, msg_channel };
+        let (channel, join_handle) = PeerChannel::new(config.clone(), msg_channel.clone());
+        let mut actor = ConnectionActor { inbox, config, msg_channel, attempts: 0, primary_channel: channel, primary_join: Some(join_handle) };
         actor.run().await;
     }
     
@@ -68,6 +88,9 @@ impl ConnectionActor {
                 Some(msg) = self.inbox.recv() => {
                     match msg {
                         ConnectionControlMessage::Close => {
+                            self.primary_channel.close().await;
+                            let h = self.primary_join.take().unwrap();
+                            let _ = h.await.unwrap();
                             break;
                         }
                     }

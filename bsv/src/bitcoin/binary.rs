@@ -24,5 +24,8 @@ pub trait Encodable {
     {
         block_on(Self::read(&mut Cursor::new(buf)))
     }
+
+    /// Return the size of the serialized form
+    fn size(&self) -> usize;
 }
 

@@ -17,10 +17,6 @@ impl VarInt {
         }
     }
 
-    pub fn size(&self) -> usize {
-        self.raw.len()
-    }
-
     fn raw_from_v(v: u64) -> Vec<u8> {
         match v {
             0..=252 => vec![v as u8],
@@ -36,7 +32,7 @@ impl VarInt {
             }
             _ => {
                 let mut o = vec![0xff];
-                o.extend_from_slice(&v.to_le_bytes());
+                o.extend_from_slice(&(v as u64).to_le_bytes());
                 o
             }
         }
@@ -61,6 +57,10 @@ impl Encodable for VarInt {
     async fn write<R: AsyncWrite + Unpin + Send>(&self, writer: &mut R) -> crate::Result<()> {
         writer.write_all(&self.raw).await.unwrap();
         Ok(())
+    }
+
+    fn size(&self) -> usize {
+        self.raw.len()
     }
 }
 

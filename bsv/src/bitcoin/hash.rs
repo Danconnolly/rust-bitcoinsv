@@ -51,6 +51,10 @@ impl Encodable for Hash {
         writer.write_all(&self.hash).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        Hash::BINARY_SIZE
+    }
 }
 
 impl FromHex for Hash {

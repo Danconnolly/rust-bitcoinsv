@@ -30,13 +30,8 @@ pub struct BlockHeader {
 
 impl BlockHeader {
     /// Size of the BlockHeader in bytes
-    pub const BINARY_SIZE: usize = 80;
-    pub const HEX_SIZE: usize = BlockHeader::BINARY_SIZE * 2;
-
-    /// Returns the size of the block header in bytes
-    pub fn binary_size(&self) -> usize {
-        BlockHeader::BINARY_SIZE
-    }
+    pub const SIZE: usize = 80;
+    pub const HEX_SIZE: usize = BlockHeader::SIZE * 2;
 
     /// Calculates the hash for this block header
     pub fn hash(&self) -> BlockHash {
@@ -68,6 +63,10 @@ impl Encodable for BlockHeader {
         writer.write_u32_le(self.nonce).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        BlockHeader::SIZE
+    }
 }
 
 impl FromHex for BlockHeader {
@@ -80,13 +79,13 @@ impl FromHex for BlockHeader {
 
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = Vec::with_capacity(BlockHeader::BINARY_SIZE);
+        let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
         block_on(self.write(&mut bytes)).unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = Vec::with_capacity(BlockHeader::BINARY_SIZE);
+        let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
         block_on(self.write(&mut bytes)).unwrap();
         bytes.encode_hex_upper()
     }

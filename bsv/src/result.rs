@@ -1,4 +1,5 @@
 use std::io;
+use std::string::FromUtf8Error;
 use hex::FromHexError;
 
 // Standard error & result types.
@@ -13,18 +14,24 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub enum Error {
     /// An argument provided is invalid
     BadArgument(String),
+    /// The data provided is invalid
+    BadData(String),
     /// Hex string could not be decoded
     FromHexError(FromHexError),
     /// Standard library IO error
     IOError(io::Error),
+    /// String conversion error
+    Utf8Error(FromUtf8Error),
 }
 
 impl std::fmt::Display for Error {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Error::BadArgument(s) => f.write_str(&format!("Bad argument: {}", s)),
+            Error::BadData(s) => f.write_str(&format!("Bad data: {}", s)),
             Error::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
+            Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
         }
     }
 }
@@ -33,8 +40,10 @@ impl std::error::Error for Error {
     fn description(&self) -> &str {
         match self {
             Error::BadArgument(_) => "Bad argument",
+            Error::BadData(_) => "Bad data",
             Error::FromHexError(_) => "Hex decoding error",
             Error::IOError(_) => "IO error",
+            Error::Utf8Error(_) => "UTF8 error",
         }
     }
 
@@ -56,5 +65,11 @@ impl From<FromHexError> for Error {
 impl From<io::Error> for Error {
     fn from(e: io::Error) -> Self {
         Error::IOError(e)
+    }
+}
+
+impl From<FromUtf8Error> for Error {
+    fn from(e: FromUtf8Error) -> Self {
+        Error::Utf8Error(e)
     }
 }
