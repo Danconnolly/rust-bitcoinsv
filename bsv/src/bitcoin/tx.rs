@@ -94,7 +94,15 @@ impl Encodable for Tx {
     }
 
     fn size(&self) -> usize {
-        todo!()
+        let mut sz = VarInt::new(self.inputs.len() as u64).size();
+        for input in self.inputs.iter() {
+            sz += input.size();
+        }
+        sz += VarInt::new(self.outputs.len() as u64).size();
+        for output in self.outputs.iter() {
+            sz += output.size();
+        }
+        sz + 8
     }
 }
 
@@ -170,7 +178,7 @@ impl Encodable for TxInput {
     }
 
     fn size(&self) -> usize {
-        todo!()
+        self.outpoint.size() + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len() + 4
     }
 }
 
@@ -202,7 +210,7 @@ impl Encodable for TxOutput {
     }
 
     fn size(&self) -> usize {
-        todo!()
+        8 + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len()
     }
 }
 
@@ -220,9 +228,9 @@ mod tests {
         let (tx_bin, tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin);
         let tx = Tx::read(&mut cursor).await.unwrap();
-        // assert_eq!(tx.size, 211);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
+        assert_eq!(tx_bin.len(), tx.size());
     }
 
     /// If the binary is incomplete, we should get an error
