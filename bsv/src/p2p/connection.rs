@@ -12,9 +12,9 @@ use crate::p2p::messages::P2PMessageChannelSender;
 pub struct ConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
     pub blockchain: BlockchainId,
-    /// the number of retries to attempt when connecting to a peer, or re-connecting
+    /// The number of retries to attempt when connecting to a peer, or re-connecting.
     pub retries: u8,
-    /// the delay between retries, in seconds
+    /// The delay between retries, in seconds.
     pub retry_delay: u16,
 }
 
@@ -97,5 +97,19 @@ impl ConnectionActor {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::bitcoin::BlockchainId::Mainnet;
+
+    #[tokio::test]
+    async fn start_stop_test() {
+        let address = PeerAddress::new("127.0.0.1:8321".parse().unwrap());
+        let (h, j) = Connection::new(address, Arc::new(ConnectionConfig::default(Mainnet)), None);
+        h.close().await;
+        j.await.expect("Connection failed");
     }
 }
