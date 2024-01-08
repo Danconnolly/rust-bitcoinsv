@@ -25,7 +25,10 @@ pub trait Encodable {
         block_on(Self::read(&mut Cursor::new(buf)))
     }
 
-    /// Return the size of the serialized form
+    /// Return the size of the serialized form.
+    // It is vital that implementations of this function use a method that does not just serialize the object
+    // and count the bytes. This is because this function is used to determine the size of the buffer to allocate
+    // for the serialization.
     fn size(&self) -> usize;
 }
 

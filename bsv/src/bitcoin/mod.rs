@@ -1,7 +1,7 @@
 /// The bsv.bitcoin module contains the bitcoin types and configuration for Bitcoin SV.
 
 mod binary;
-mod hash;
+pub mod hash;
 mod header;
 mod params;
 mod tx;

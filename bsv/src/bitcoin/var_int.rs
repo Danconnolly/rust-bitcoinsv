@@ -4,6 +4,9 @@ use crate::bitcoin::binary::Encodable;
 
 /// The VarInt Bitcoin data type with async serialization.
 // Code based on `<https://github.com/brentongunning/rust-sv>`
+// Improvement: implement a new function sizeof() which calculates the size without instantiating a VarInt object.
+//    * Also implement a function to just return the raw encoded form. Consider removing this as a struct, it doesn't
+//      seem very useful.
 pub struct VarInt {
     pub value: u64,
     pub raw: Vec<u8>,
