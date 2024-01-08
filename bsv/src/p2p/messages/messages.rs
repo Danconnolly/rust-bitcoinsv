@@ -16,7 +16,7 @@ use crate::p2p::messages::Version;
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
 
 /// Default max message payload size (32MB)
-pub const DEFAULT_MAX_PAYLOAD_SIZE: u32 = 0x02000000;
+pub const DEFAULT_MAX_PAYLOAD_SIZE: u64 = 0x02000000;
 
 /// Message commands for the header
 mod commands {
@@ -118,22 +118,26 @@ pub enum P2PMessage {
 
 impl P2PMessage {
     /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(magic: [u8; 4], max_size: u64, reader: &mut R) -> Result<Self> {
+    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u64) -> Result<Self> {
         let header = P2PMessageHeader::read(reader).await?;
         header.validate(magic, max_size)?;
         match header.command {
-            commands::VERSION => {
+            GETADDR => Ok(P2PMessage::GetAddr),
+            MEMPOOL => Ok(P2PMessage::Mempool),
+            SENDHEADERS => Ok(P2PMessage::SendHeaders),
+            VERACK => Ok(P2PMessage::Verack),
+            VERSION => {
                 let version = Version::read(reader).await?;
                 Ok(P2PMessage::Version(version))
-            }
+            },
             _ => {
-                P2PMessage::read_ignore_payload(header.payload_size as usize, &header.command, reader).await
-            }
+                P2PMessage::read_ignore_payload(reader, header.payload_size as usize, &header.command).await
+            },
         }
     }
 
     /// If we dont recognize the command, we read the payload and ignore it
-    async fn read_ignore_payload<R>(num_bytes: usize, command: &[u8; 12], reader: &mut R) -> Result<Self>
+    async fn read_ignore_payload<R>(reader: &mut R, num_bytes: usize, command: &[u8; 12]) -> Result<Self>
         where R: AsyncRead + Unpin + Send,
     {
         let mut v = vec![0u8; 1024];            // read up to 1KB at a time to avoid allocating a huge buffer
@@ -251,357 +255,313 @@ impl fmt::Debug for P2PMessage {
 }
 
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//     use crate::messages::block_header::BlockHeader;
-//     use crate::messages::inv_vect::{InvVect, INV_VECT_TX};
-//     use crate::messages::node_addr::NodeAddr;
-//     use crate::messages::node_addr_ex::NodeAddrEx;
-//     use crate::messages::out_point::OutPoint;
-//     use crate::messages::tx_in::TxIn;
-//     use crate::messages::tx_out::TxOut;
-//     use crate::messages::version::MIN_SUPPORTED_PROTOCOL_VERSION;
-//     use crate::messages::REJECT_INVALID;
-//     use crate::script::Script;
-//     use crate::util::{secs_since, BloomFilter, Hash256};
-//     use std::io::Cursor;
-//     use std::net::Ipv6Addr;
-//     use std::time::UNIX_EPOCH;
-//
-//     #[test]
-//     fn write_read() {
-//         let magic = [7, 8, 9, 0];
-//
-//         // Addr
-//         let mut v = Vec::new();
-//         let a = NodeAddrEx {
-//             last_connected_time: 700,
-//             addr: NodeAddr {
-//                 services: 900,
-//                 ip: Ipv6Addr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 9, 8, 7, 6, 5]),
-//                 port: 4000,
-//             },
-//         };
-//         let p = Addr { addrs: vec![a] };
-//         let m = Message::Addr(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Block
-//         let mut v = Vec::new();
-//         let p = Block {
-//             header: BlockHeader {
-//                 version: 0x00000001,
-//                 prev_hash: Hash256::decode(
-//                     "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234",
-//                 )
-//                     .unwrap(),
-//                 merkle_root: Hash256::decode(
-//                     "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
-//                 )
-//                     .unwrap(),
-//                 timestamp: 0x4dd7f5c7,
-//                 bits: 0x1a44b9f2,
-//                 nonce: 0x9546a142,
-//             },
-//             txns: vec![
-//                 Tx {
-//                     version: 0x44556677,
-//                     inputs: vec![TxIn {
-//                         prev_output: OutPoint {
-//                             hash: Hash256([5; 32]),
-//                             index: 3,
-//                         },
-//                         unlock_script: Script(vec![5; 5]),
-//                         sequence: 2,
-//                     }],
-//                     outputs: vec![TxOut {
-//                         satoshis: 42,
-//                         lock_script: Script(vec![9; 21]),
-//                     }],
-//                     lock_time: 0x12ff34aa,
-//                 },
-//                 Tx {
-//                     version: 0x99881122,
-//                     inputs: vec![TxIn {
-//                         prev_output: OutPoint {
-//                             hash: Hash256([6; 32]),
-//                             index: 4,
-//                         },
-//                         unlock_script: Script(vec![4; 4]),
-//                         sequence: 3,
-//                     }],
-//                     outputs: vec![TxOut {
-//                         satoshis: 43,
-//                         lock_script: Script(vec![10; 22]),
-//                     }],
-//                     lock_time: 0x44550011,
-//                 },
-//             ],
-//         };
-//         let m = Message::Block(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // FeeFilter
-//         let mut v = Vec::new();
-//         let p = FeeFilter { minfee: 1234 };
-//         let m = Message::FeeFilter(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // FilterAdd
-//         let mut v = Vec::new();
-//         let p = FilterAdd { data: vec![15; 45] };
-//         let m = Message::FilterAdd(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // FilterClear
-//         let mut v = Vec::new();
-//         let m = Message::FilterClear;
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // FilterLoad
-//         let mut v = Vec::new();
-//         let p = FilterLoad {
-//             bloom_filter: BloomFilter {
-//                 filter: vec![1, 2, 3],
-//                 num_hash_funcs: 2,
-//                 tweak: 1,
-//             },
-//             flags: 0,
-//         };
-//         let m = Message::FilterLoad(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // GetAddr
-//         let mut v = Vec::new();
-//         let m = Message::GetAddr;
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // GetBlocks
-//         let mut v = Vec::new();
-//         let p = BlockLocator {
-//             version: 567,
-//             block_locator_hashes: vec![Hash256([3; 32]), Hash256([4; 32])],
-//             hash_stop: Hash256([6; 32]),
-//         };
-//         let m = Message::GetBlocks(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // GetData
-//         let mut v = Vec::new();
-//         let p = Inv {
-//             objects: vec![InvVect {
-//                 obj_type: INV_VECT_TX,
-//                 hash: Hash256([0; 32]),
-//             }],
-//         };
-//         let m = Message::GetData(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // GetHeaders
-//         let mut v = Vec::new();
-//         let p = BlockLocator {
-//             version: 345,
-//             block_locator_hashes: vec![Hash256([1; 32]), Hash256([2; 32])],
-//             hash_stop: Hash256([3; 32]),
-//         };
-//         let m = Message::GetHeaders(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Headers
-//         let mut v = Vec::new();
-//         let p = Headers {
-//             headers: vec![BlockHeader {
-//                 ..Default::default()
-//             }],
-//         };
-//         let m = Message::Headers(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Mempool
-//         let mut v = Vec::new();
-//         let m = Message::Mempool;
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // MerkleBlock
-//         let mut v = Vec::new();
-//         let p = MerkleBlock {
-//             header: BlockHeader {
-//                 version: 12345,
-//                 prev_hash: Hash256::decode(
-//                     "7766009988776600998877660099887766009988776600998877660099887766",
-//                 )
-//                     .unwrap(),
-//                 merkle_root: Hash256::decode(
-//                     "2211554433221155443322115544332211554433221155443322115544332211",
-//                 )
-//                     .unwrap(),
-//                 timestamp: 66,
-//                 bits: 4488,
-//                 nonce: 9999,
-//             },
-//             total_transactions: 14,
-//             hashes: vec![Hash256([1; 32]), Hash256([3; 32]), Hash256([5; 32])],
-//             flags: vec![24, 125, 199],
-//         };
-//         let m = Message::MerkleBlock(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // NotFound
-//         let mut v = Vec::new();
-//         let p = Inv {
-//             objects: vec![InvVect {
-//                 obj_type: INV_VECT_TX,
-//                 hash: Hash256([0; 32]),
-//             }],
-//         };
-//         let m = Message::NotFound(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Inv
-//         let mut v = Vec::new();
-//         let p = Inv {
-//             objects: vec![InvVect {
-//                 obj_type: INV_VECT_TX,
-//                 hash: Hash256([0; 32]),
-//             }],
-//         };
-//         let m = Message::Inv(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Ping
-//         let mut v = Vec::new();
-//         let p = Ping { nonce: 7890 };
-//         let m = Message::Ping(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Pong
-//         let mut v = Vec::new();
-//         let p = Ping { nonce: 7890 };
-//         let m = Message::Pong(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Reject
-//         let mut v = Vec::new();
-//         let p = Reject {
-//             message: "getaddr\0\0\0\0\0".to_string(),
-//             code: REJECT_INVALID,
-//             reason: "womp womp".to_string(),
-//             data: vec![],
-//         };
-//         let m = Message::Reject(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // SendHeaders
-//         let mut v = Vec::new();
-//         let m = Message::SendHeaders;
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // SendCmpct
-//         let mut v = Vec::new();
-//         let p = SendCmpct {
-//             enable: 1,
-//             version: 1,
-//         };
-//         let m = Message::SendCmpct(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Tx
-//         let mut v = Vec::new();
-//         let p = Tx {
-//             version: 0x44556677,
-//             inputs: vec![TxIn {
-//                 prev_output: OutPoint {
-//                     hash: Hash256([5; 32]),
-//                     index: 3,
-//                 },
-//                 unlock_script: Script(vec![7; 7]),
-//                 sequence: 2,
-//             }],
-//             outputs: vec![TxOut {
-//                 satoshis: 42,
-//                 lock_script: Script(vec![8; 8]),
-//             }],
-//             lock_time: 0x12ff34aa,
-//         };
-//         let m = Message::Tx(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Verack
-//         let mut v = Vec::new();
-//         let m = Message::Verack;
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//
-//         // Version
-//         let mut v = Vec::new();
-//         let p = Version {
-//             version: MIN_SUPPORTED_PROTOCOL_VERSION,
-//             services: 77,
-//             timestamp: secs_since(UNIX_EPOCH) as i64,
-//             recv_addr: NodeAddr {
-//                 ..Default::default()
-//             },
-//             tx_addr: NodeAddr {
-//                 ..Default::default()
-//             },
-//             nonce: 99,
-//             user_agent: "dummy".to_string(),
-//             start_height: 22,
-//             relay: true,
-//         };
-//         let m = Message::Version(p);
-//         m.write(&mut v, magic).unwrap();
-//         assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-//     }
-//
-//     #[test]
-//     #[should_panic]
-//     fn write_other_errors() {
-//         let mut v = Vec::new();
-//         let m = Message::Other("Unknown message".to_string());
-//         m.write(&mut v, [7, 8, 9, 0]).unwrap();
-//     }
-//
-//     #[test]
-//     fn read_other() {
-//         let magic = [7, 8, 9, 0];
-//         let command = *b"unknowncmd\0\0";
-//         let header = MessageHeader {
-//             magic,
-//             command,
-//             payload_size: 0,
-//             checksum: NO_CHECKSUM,
-//         };
-//         let mut v = Vec::new();
-//         header.write(&mut v).unwrap();
-//         let mut cursor = Cursor::new(&v);
-//         let m = Message::read(&mut cursor, magic).unwrap();
-//         if let Message::Other(_) = m {
-//             // Success
-//         } else {
-//             assert!(false);
-//         }
-//     }
-// }
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Cursor;
+    use crate::p2p::messages::NodeAddr;
+    use crate::p2p::messages::version::PROTOCOL_VERSION;
+    use crate::util::epoch_secs;
+
+    #[tokio::test]
+    async fn write_read() {
+        let magic = [7, 8, 9, 0];
+
+        // Addr
+        // let mut v = Vec::new();
+        // let a = NodeAddrEx {
+        //     last_connected_time: 700,
+        //     addr: NodeAddr {
+        //         services: 900,
+        //         ip: Ipv6Addr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 9, 8, 7, 6, 5]),
+        //         port: 4000,
+        //     },
+        // };
+        // let p = Addr { addrs: vec![a] };
+        // let m = Message::Addr(p);
+        // m.write(&mut v, magic).unwrap();
+        // assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+
+        // Block
+        // let mut v = Vec::new();
+        // let p = Block {
+        //     header: BlockHeader {
+        //         version: 0x00000001,
+        //         prev_hash: Hash256::decode(
+        //             "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234",
+        //         )
+        //             .unwrap(),
+        //         merkle_root: Hash256::decode(
+        //             "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
+        //         )
+        //             .unwrap(),
+        //         timestamp: 0x4dd7f5c7,
+        //         bits: 0x1a44b9f2,
+        //         nonce: 0x9546a142,
+        //     },
+        //     txns: vec![
+        //         Tx {
+        //             version: 0x44556677,
+        //             inputs: vec![TxIn {
+        //                 prev_output: OutPoint {
+        //                     hash: Hash256([5; 32]),
+        //                     index: 3,
+        //                 },
+        //                 unlock_script: Script(vec![5; 5]),
+        //                 sequence: 2,
+        //             }],
+        //             outputs: vec![TxOut {
+        //                 satoshis: 42,
+        //                 lock_script: Script(vec![9; 21]),
+        //             }],
+        //             lock_time: 0x12ff34aa,
+        //         },
+        //         Tx {
+        //             version: 0x99881122,
+        //             inputs: vec![TxIn {
+        //                 prev_output: OutPoint {
+        //                     hash: Hash256([6; 32]),
+        //                     index: 4,
+        //                 },
+        //                 unlock_script: Script(vec![4; 4]),
+        //                 sequence: 3,
+        //             }],
+        //             outputs: vec![TxOut {
+        //                 satoshis: 43,
+        //                 lock_script: Script(vec![10; 22]),
+        //             }],
+        //             lock_time: 0x44550011,
+        //         },
+        //     ],
+        // };
+        // let m = Message::Block(p);
+        // m.write(&mut v, magic).unwrap();
+        // assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+
+        // GetAddr
+        let mut v = Vec::new();
+        let m = P2PMessage::GetAddr;
+        m.write(&mut v, magic).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+
+    //     // GetBlocks
+    //     let mut v = Vec::new();
+    //     let p = BlockLocator {
+    //         version: 567,
+    //         block_locator_hashes: vec![Hash256([3; 32]), Hash256([4; 32])],
+    //         hash_stop: Hash256([6; 32]),
+    //     };
+    //     let m = Message::GetBlocks(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // GetData
+    //     let mut v = Vec::new();
+    //     let p = Inv {
+    //         objects: vec![InvVect {
+    //             obj_type: INV_VECT_TX,
+    //             hash: Hash256([0; 32]),
+    //         }],
+    //     };
+    //     let m = Message::GetData(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // GetHeaders
+    //     let mut v = Vec::new();
+    //     let p = BlockLocator {
+    //         version: 345,
+    //         block_locator_hashes: vec![Hash256([1; 32]), Hash256([2; 32])],
+    //         hash_stop: Hash256([3; 32]),
+    //     };
+    //     let m = Message::GetHeaders(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // Headers
+    //     let mut v = Vec::new();
+    //     let p = Headers {
+    //         headers: vec![BlockHeader {
+    //             ..Default::default()
+    //         }],
+    //     };
+    //     let m = Message::Headers(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+
+        // Mempool
+        let mut v = Vec::new();
+        let m = P2PMessage::Mempool;
+        m.write(&mut v, magic).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+
+    //     // MerkleBlock
+    //     let mut v = Vec::new();
+    //     let p = MerkleBlock {
+    //         header: BlockHeader {
+    //             version: 12345,
+    //             prev_hash: Hash256::decode(
+    //                 "7766009988776600998877660099887766009988776600998877660099887766",
+    //             )
+    //                 .unwrap(),
+    //             merkle_root: Hash256::decode(
+    //                 "2211554433221155443322115544332211554433221155443322115544332211",
+    //             )
+    //                 .unwrap(),
+    //             timestamp: 66,
+    //             bits: 4488,
+    //             nonce: 9999,
+    //         },
+    //         total_transactions: 14,
+    //         hashes: vec![Hash256([1; 32]), Hash256([3; 32]), Hash256([5; 32])],
+    //         flags: vec![24, 125, 199],
+    //     };
+    //     let m = Message::MerkleBlock(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // NotFound
+    //     let mut v = Vec::new();
+    //     let p = Inv {
+    //         objects: vec![InvVect {
+    //             obj_type: INV_VECT_TX,
+    //             hash: Hash256([0; 32]),
+    //         }],
+    //     };
+    //     let m = Message::NotFound(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // Inv
+    //     let mut v = Vec::new();
+    //     let p = Inv {
+    //         objects: vec![InvVect {
+    //             obj_type: INV_VECT_TX,
+    //             hash: Hash256([0; 32]),
+    //         }],
+    //     };
+    //     let m = Message::Inv(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // Ping
+    //     let mut v = Vec::new();
+    //     let p = Ping { nonce: 7890 };
+    //     let m = Message::Ping(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // Pong
+    //     let mut v = Vec::new();
+    //     let p = Ping { nonce: 7890 };
+    //     let m = Message::Pong(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // Reject
+    //     let mut v = Vec::new();
+    //     let p = Reject {
+    //         message: "getaddr\0\0\0\0\0".to_string(),
+    //         code: REJECT_INVALID,
+    //         reason: "womp womp".to_string(),
+    //         data: vec![],
+    //     };
+    //     let m = Message::Reject(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+
+        // SendHeaders
+        let mut v = Vec::new();
+        let m = P2PMessage::SendHeaders;
+        m.write(&mut v, magic).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+
+    //     // SendCmpct
+    //     let mut v = Vec::new();
+    //     let p = SendCmpct {
+    //         enable: 1,
+    //         version: 1,
+    //     };
+    //     let m = Message::SendCmpct(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+    //
+    //     // Tx
+    //     let mut v = Vec::new();
+    //     let p = Tx {
+    //         version: 0x44556677,
+    //         inputs: vec![TxIn {
+    //             prev_output: OutPoint {
+    //                 hash: Hash256([5; 32]),
+    //                 index: 3,
+    //             },
+    //             unlock_script: Script(vec![7; 7]),
+    //             sequence: 2,
+    //         }],
+    //         outputs: vec![TxOut {
+    //             satoshis: 42,
+    //             lock_script: Script(vec![8; 8]),
+    //         }],
+    //         lock_time: 0x12ff34aa,
+    //     };
+    //     let m = Message::Tx(p);
+    //     m.write(&mut v, magic).unwrap();
+    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+
+        // Verack
+        let mut v = Vec::new();
+        let m = P2PMessage::Verack;
+        m.write(&mut v, magic).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+
+        // Version
+        let mut v = Vec::new();
+        let p = Version {
+            version: PROTOCOL_VERSION,
+            services: 77,
+            timestamp: epoch_secs(),
+            recv_addr: NodeAddr {
+                ..Default::default()
+            },
+            tx_addr: NodeAddr {
+                ..Default::default()
+            },
+            nonce: 99,
+            user_agent: "dummy".to_string(),
+            start_height: 22,
+            relay: true,
+        };
+        let m = P2PMessage::Version(p);
+        m.write(&mut v, magic).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+    }
+
+    // #[test]
+    // #[should_panic]
+    // fn write_other_errors() {
+    //     let mut v = Vec::new();
+    //     let m = Message::Other("Unknown message".to_string());
+    //     m.write(&mut v, [7, 8, 9, 0]).unwrap();
+    // }
+
+    // #[test]
+    // fn read_other() {
+    //     let magic = [7, 8, 9, 0];
+    //     let command = *b"unknowncmd\0\0";
+    //     let header = MessageHeader {
+    //         magic,
+    //         command,
+    //         payload_size: 0,
+    //         checksum: NO_CHECKSUM,
+    //     };
+    //     let mut v = Vec::new();
+    //     header.write(&mut v).unwrap();
+    //     let mut cursor = Cursor::new(&v);
+    //     let m = Message::read(&mut cursor, magic).unwrap();
+    //     if let Message::Other(_) = m {
+    //         // Success
+    //     } else {
+    //         assert!(false);
+    //     }
+    // }
+}
