@@ -9,6 +9,9 @@ use crate::p2p::messages::Version;
 
 // based on code imported from rust-sv but substantially modified
 
+// I wont be implementing the FEEFILTER related messages. These aren't scalable. As unknown messages,
+// they will just be ignored.
+
 /// Checksum to use when there is an empty payload
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
 
@@ -247,34 +250,6 @@ impl fmt::Debug for P2PMessage {
     }
 }
 
-// fn write_with_payload<T: Serializable<T>>(
-//     writer: &mut dyn Write,
-//     command: [u8; 12],
-//     payload: &dyn Payload<T>,
-//     magic: [u8; 4],
-// ) -> io::Result<()> {
-//     let mut bytes = Vec::with_capacity(payload.size());
-//     payload.write(&mut bytes)?;
-//     let hash = digest::digest(&digest::SHA256, bytes.as_ref());
-//     let hash = digest::digest(&digest::SHA256, &hash.as_ref());
-//     let h = &hash.as_ref();
-//     let checksum = [h[0], h[1], h[2], h[3]];
-//
-//     let header = MessageHeader {
-//         magic,
-//         command,
-//         payload_size: payload.size() as u32,
-//         checksum: checksum,
-//     };
-//
-//     header.write(writer)?;
-//     payload.write(writer)
-// }
-//
-// /// Message payload that is writable to bytes
-// pub trait Payload<T>: Serializable<T> + fmt::Debug {
-//     fn size(&self) -> usize;
-// }
 
 // #[cfg(test)]
 // mod tests {
