@@ -1,4 +1,3 @@
-use std::net::Ipv4Addr;
 use tokio::sync::mpsc::{channel, Sender, Receiver};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
@@ -67,10 +66,10 @@ impl ListenerActor {
     }
 
     async fn run(&mut self) {
-        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.port)).await.unwrap();
-        loop {
-            tokio::select! {
-                message = self.inbox.recv() => {
+        // let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.port)).await.unwrap();
+        // loop {
+            // tokio::select! {
+                // message = self.inbox.recv() => {
                     // match message {
                     //     Some(ListenerInternalMessage::Stop) => {
                     //         break;
@@ -83,8 +82,8 @@ impl ListenerActor {
                     //         break;
                     //     }
                     // }
-                }
-                a = listener.accept() => {
+                // }
+                // a = listener.accept() => {
                     // match a {
                         // Ok((stream, addr)) => {
                         //     self.outbox.send(ListenerMessage::AcceptConnection { socket: stream, address: addr }).await;
@@ -93,9 +92,9 @@ impl ListenerActor {
                         //     panic!("Error accepting connection: {}", e);        // todo: handle this better
                         // }
                     // }
-                }
-            }
-        }
+                // }
+            // }
+        // }
     }
 }
 

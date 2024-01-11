@@ -10,7 +10,10 @@ pub use node_addr::NodeAddr;
 pub use version::Version;
 
 // P2P message
-pub use messages::P2PMessage;
+pub use messages::{P2PMessage, P2PMessageType};
+
+// misc
+pub use messages::DEFAULT_MAX_PAYLOAD_SIZE;
 
 /// type alias for the P2P Message channel
 pub type P2PMessageChannelSender = Sender<P2PMessage>;

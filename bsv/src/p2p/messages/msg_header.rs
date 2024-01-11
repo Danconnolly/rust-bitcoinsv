@@ -32,7 +32,7 @@ impl P2PMessageHeader {
     /// `max_size` - Max size in bytes for the payload
     pub fn validate(&self, magic: [u8; 4], max_size: u64) -> Result<()> {
         if self.magic != magic {
-            let msg = format!("Bad magic: {:?}", self.magic);
+            let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
             return Err(Error::BadData(msg));
         }
         if self.payload_size as u64 > max_size {

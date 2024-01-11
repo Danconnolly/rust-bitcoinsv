@@ -1,21 +1,56 @@
 use crate::{Error, Result};
 use std::fmt;
+use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, SENDHEADERS, VERACK, VERSION};
+use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::Version;
 
 // based on code imported from rust-sv but substantially modified
 
 // I wont be implementing the FEEFILTER related messages. These aren't scalable. As unknown messages,
-// they will just be ignored.
+// they will be ignored.
+//
+// The Bitcoin P2P protocol is a message based protocol, where each message is a chunk of contiguous data.
+// Most of the messages represent a single fact but there are a few exceptions. However, on closer examination
+// most of the messages that contain lists of items attribute significance to the list itself and the position
+// of items within the list.
+//      ADDR - this is an exception, there's no significance to the ordering of the list
+//      INV (tx) - transactions are supposed to be in this list in order of dependence, with parent transactions
+//                  preceding children. This can not be relied upon though.
+//      GETDATA - like the inv, the order of transactions in this list is significant.
+//      NOTFOUND - ordering not significant
+//      GETBLOCKS - specifically relevant
+//      GETHEADERS - specifically relevant
+//      HEADERS - specifically relevant
+// Given the significance of ordering within these messages, there is no benefit from breaking the messages up
+// into smaller parts and streaming those parts.
+//
+// Most of the messages are also reasonably small, the messages are quickly transferred between
+// peers. There is also a maximum message size which limits the amount of memory that will be allocated to deal
+// with a message in its entirety.
+//
+// There is one exception to this, and one potential exception that I need to look into.
+//
+// The known exception is the BLOCK message, which transfers a block in its entirety. With large blocks
+// (up to 4GB at the time of writing), this can cause a significant memory issue and we will eventually have special
+// handling for this message.  <IMPROVEMENT - do this>
+//
+// The TX message is a potential concern. Transactions can get large but there is also a policy on the SV Node
+// regarding the maximum size of transactions.  <IMPROVEMENT - check this and adjust>
+//
+// Each message consists of a header and a payload. The header starts with a set of "magic" bytes that identify both
+// the blockchain to which these messages apply (mainnet, testnet, regtest, stn). The header also contains the size of
+// the payload. Our code needs to protect against cases where the payload size specified in the header is incorrect.
 
-/// Checksum to use when there is an empty payload
+
+/// Checksum to use when there is an empty payload.
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
 
-/// Default max message payload size (32MB)
+/// Default max message payload size (32MB).
 pub const DEFAULT_MAX_PAYLOAD_SIZE: u64 = 0x02000000;
 
 /// Message commands for the header
@@ -121,19 +156,26 @@ impl P2PMessage {
     pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u64) -> Result<Self> {
         let header = P2PMessageHeader::read(reader).await?;
         header.validate(magic, max_size)?;
-        match header.command {
-            GETADDR => Ok(P2PMessage::GetAddr),
-            MEMPOOL => Ok(P2PMessage::Mempool),
-            SENDHEADERS => Ok(P2PMessage::SendHeaders),
-            VERACK => Ok(P2PMessage::Verack),
+        let (msg, payload_size) = match header.command {
+            GETADDR => (P2PMessage::GetAddr, 0),
+            MEMPOOL => (P2PMessage::Mempool, 0),
+            SENDHEADERS => (P2PMessage::SendHeaders, 0),
+            VERACK => (P2PMessage::Verack, 0),
             VERSION => {
                 let version = Version::read(reader).await?;
-                Ok(P2PMessage::Version(version))
+                let sz = version.size();
+                (P2PMessage::Version(version), sz)
             },
             _ => {
-                P2PMessage::read_ignore_payload(reader, header.payload_size as usize, &header.command).await
-            },
+                (P2PMessage::read_ignore_payload(reader, header.payload_size as usize, &header.command).await.unwrap(), header.payload_size as usize)
+            }
+        };
+        if payload_size < header.payload_size as usize {
+            warn!("received larger payload than msg, ignoring rest: command={:?}, reported size={}, received size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, payload_size);
+            let mut v = vec![0u8; header.payload_size as usize - payload_size];
+            let _ = reader.read_exact(&mut v).await.unwrap();
         }
+        Ok(msg)
     }
 
     /// If we dont recognize the command, we read the payload and ignore it
@@ -254,6 +296,28 @@ impl fmt::Debug for P2PMessage {
     }
 }
 
+
+/// We define several different types of P2P Messages
+/// These types will be expanded as I flesh out the implementation
+pub enum P2PMessageType {
+    /// A Data message contains Bitcoin information
+    Data,
+    /// A ConnectionControl message configures the connection with the peer
+    ConnectionControl,
+}
+
+impl From<P2PMessage> for P2PMessageType {
+    fn from(value: P2PMessage) -> Self {
+        match value {
+            P2PMessage::GetAddr => Data,
+            P2PMessage::Mempool => Data,
+            P2PMessage::SendHeaders => Data,
+            P2PMessage::Verack => ConnectionControl,
+            P2PMessage::Version(_) => ConnectionControl,
+            P2PMessage::Unknown(_) => Data,
+        }
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -382,7 +446,7 @@ mod tests {
     //     let mut v = Vec::new();
     //     let p = Headers {
     //         headers: vec![BlockHeader {
-    //             ..Default::default()
+    //             ..default::default()
     //         }],
     //     };
     //     let m = Message::Headers(p);

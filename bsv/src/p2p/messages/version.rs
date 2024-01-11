@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use async_trait::async_trait;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use log::warn;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{Error, Result};
 use crate::bitcoin::{Encodable, VarInt};
@@ -21,7 +22,7 @@ pub const NODE_NONE: u64 = 0;
 pub const NODE_NETWORK: u64 = 1;
 
 /// Version payload defining a node's capabilities
-#[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Version {
     /// The protocol version being used by the node.
     pub version: u32,
@@ -52,6 +53,8 @@ impl Version {
     pub fn validate(&self) -> Result<()> {
         if self.version < MIN_SUPPORTED_PROTOCOL_VERSION {
             return Err(Error::BadData(format!("Unsupported protocol version: {}", self.version)));
+        } else if self.version > PROTOCOL_VERSION {
+            warn!("unknown protocol version: {}", self.version);
         }
         if (self.timestamp - epoch_secs()).abs() > 2 * 60 * 60 {
             return Err(Error::BadData(format!("Timestamp too old: {}", self.timestamp)));
@@ -91,6 +94,22 @@ impl Version {
         }
         writer.write_u16(node_addr.port).await?;
         Ok(())
+    }
+}
+
+impl Default for Version {
+    fn default() -> Self {
+        Self {
+            version: PROTOCOL_VERSION,
+            services: NODE_NONE,
+            timestamp: epoch_secs(),
+            recv_addr: Default::default(),
+            tx_addr: Default::default(),
+            nonce: 0,
+            user_agent: "rust-bitcoinsv".to_string(),
+            start_height: 0,
+            relay: false,
+        }
     }
 }
 

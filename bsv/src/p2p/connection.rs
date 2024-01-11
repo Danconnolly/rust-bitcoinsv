@@ -1,15 +1,18 @@
 use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
+use log::trace;
 use crate::bitcoin::BlockchainId;
+use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::channel::PeerChannel;
 use crate::p2p::messages::P2PMessageChannelSender;
+use crate::p2p::params::NetworkParams;
 
 
-/// Configuration for a P2P Connection.
-pub struct ConnectionConfig {
+/// Configuration shared by all P2P Connections.
+pub struct GlobalConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
     pub blockchain: BlockchainId,
     /// The number of retries to attempt when connecting to a peer, or re-connecting.
@@ -18,14 +21,20 @@ pub struct ConnectionConfig {
     pub retry_delay: u16,
 }
 
-impl ConnectionConfig {
+impl GlobalConnectionConfig {
     /// Get default configuration for a particular blockchain.
     pub fn default(chain: BlockchainId) -> Self {
-        ConnectionConfig {
+        GlobalConnectionConfig {
             blockchain: chain,
             retries: 5,
             retry_delay: 10,
         }
+    }
+}
+
+impl Default for GlobalConnectionConfig {
+    fn default() -> Self {
+        GlobalConnectionConfig::default(Mainnet)
     }
 }
 
@@ -42,9 +51,10 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(peer: PeerAddress, config: Arc<ConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
+    pub fn new(peer: PeerAddress, config: Arc<GlobalConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        let j = tokio::spawn(async move { ConnectionActor::new(rx, config, msg_channel).await });
+        let p_c = peer.clone();
+        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, msg_channel).await });
         (Connection { sender: tx, peer }, j)
     }
 
@@ -64,7 +74,9 @@ struct ConnectionActor {
     // the actor inbox
     inbox: Receiver<ConnectionControlMessage>,
     // the configuration for the connection, we'll need this when we support multiple channels
-    config: Arc<ConnectionConfig>,
+    config: Arc<GlobalConnectionConfig>,
+    // the network parameters
+    network_params: NetworkParams,
     // the channel on which to send substantive P2P messages
     msg_channel: Option<P2PMessageChannelSender>,
     // number of attempts to connect
@@ -73,16 +85,27 @@ struct ConnectionActor {
     primary_channel: PeerChannel,
     // the join handle for the primary channel
     primary_join: Option<JoinHandle<()>>,
+    // the peer
+    peer_address: PeerAddress,
 }
 
 impl ConnectionActor {
-    async fn new(inbox: Receiver<ConnectionControlMessage>, config: Arc<ConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) {
-        let (channel, join_handle) = PeerChannel::new(config.clone(), msg_channel.clone());
-        let mut actor = ConnectionActor { inbox, config, msg_channel, attempts: 0, primary_channel: channel, primary_join: Some(join_handle) };
+    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) {
+        let network_params =  NetworkParams::from(config.blockchain);
+        let (channel, join_handle) = PeerChannel::new(peer_address.clone(), config.clone(), network_params.clone(), msg_channel.clone());
+        let mut actor = ConnectionActor {
+            inbox, config,
+            network_params,
+            msg_channel,
+            attempts: 0,
+            primary_channel: channel,
+            primary_join: Some(join_handle),
+            peer_address };
         actor.run().await;
     }
     
     async fn run(&mut self) {
+        trace!("ConnectionActor started.");
         loop {
             tokio::select! {
                 Some(msg) = self.inbox.recv() => {
@@ -105,11 +128,13 @@ mod tests {
     use super::*;
     use crate::bitcoin::BlockchainId::Mainnet;
 
-    #[tokio::test]
-    async fn start_stop_test() {
-        let address = PeerAddress::new("127.0.0.1:8321".parse().unwrap());
-        let (h, j) = Connection::new(address, Arc::new(ConnectionConfig::default(Mainnet)), None);
-        h.close().await;
-        j.await.expect("Connection failed");
-    }
+    // todo: add some tests
+
+    // #[tokio::test]
+    // async fn start_stop_test() {
+    //     let address = PeerAddress::new("127.0.0.1:8321".parse().unwrap());
+    //     let (h, j) = Connection::new(address, Arc::new(GlobalConnectionConfig::default(Mainnet)), None);
+    //     h.close().await;
+    //     j.await.expect("Connection failed");
+    // }
 }

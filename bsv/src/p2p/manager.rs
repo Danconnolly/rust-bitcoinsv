@@ -6,7 +6,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
-use crate::p2p::connection::{Connection, ConnectionConfig};
+use crate::p2p::connection::{Connection, GlobalConnectionConfig};
 use crate::p2p::messages::P2PMessageChannelSender;
 use crate::p2p::peer::PeerAddress;
 
@@ -44,7 +44,7 @@ impl P2PManagerConfig {
 }
 
 impl Default for P2PManagerConfig {
-    // Default configuration, connects to mainnet.
+    // default configuration, connects to mainnet.
     fn default() -> Self {
         P2PManagerConfig::default(BlockchainId::Mainnet)
     }
@@ -151,7 +151,7 @@ struct P2PManagerActor {
     /// next connection id
     next_c_id: u64,
     /// configuration for connections
-    connection_config: Arc<ConnectionConfig>,
+    connection_config: Arc<GlobalConnectionConfig>,
     // current connections
     connections: HashMap<u64, (Connection, JoinHandle<()>)>,
     /// index of IP -> connection id
@@ -165,7 +165,7 @@ impl P2PManagerActor {
         status_channel: Option<P2PManagerStatusChannelSender>,
         msg_channel: Option<P2PMessageChannelSender>,
     ) {
-        let connection_config = Arc::new(ConnectionConfig::default(config.blockchain));
+        let connection_config = Arc::new(GlobalConnectionConfig::default(config.blockchain));
         let mut actor = P2PManagerActor {
             inbox,
             config,

@@ -4,6 +4,7 @@ mod channel;
 mod peer;
 mod listener;
 mod messages;
+mod params;
 
 
 pub use self::manager::{P2PManagerConfig, P2PManager};
