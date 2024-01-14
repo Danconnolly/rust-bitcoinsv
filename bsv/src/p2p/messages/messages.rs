@@ -1,7 +1,8 @@
 use crate::{Error, Result};
 use std::fmt;
+use std::io::Cursor;
 use log::warn;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, SENDHEADERS, VERACK, VERSION};
@@ -157,32 +158,43 @@ pub enum P2PMessage {
 impl P2PMessage {
     /// Read a full P2P message from the reader
     pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u64) -> Result<Self> {
-        let header = P2PMessageHeader::read(reader).await?;
+        let mut v = vec![0u8; P2PMessageHeader::SIZE];
+        let _ = reader.read_exact(&mut v).await?;
+        let header = P2PMessageHeader::read(&mut Cursor::new(&v))?;
         header.validate(magic, max_size)?;
-        let (msg, payload_size) = match header.command {
-            GETADDR => (P2PMessage::GetAddr, 0),
-            MEMPOOL => (P2PMessage::Mempool, 0),
-            SENDHEADERS => (P2PMessage::SendHeaders, 0),
-            VERACK => (P2PMessage::Verack, 0),
-            VERSION => {
-                let version = Version::read(reader).await?;
-                let sz = version.size();
-                (P2PMessage::Version(version), sz)
-            },
-            _ => {
-                (P2PMessage::read_ignore_payload(reader, header.payload_size as usize, &header.command).await.unwrap(), header.payload_size as usize)
-            }
-        };
-        if payload_size < header.payload_size as usize {
-            warn!("received larger payload than msg, ignoring rest: command={:?}, reported size={}, received size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, payload_size);
-            let mut v = vec![0u8; header.payload_size as usize - payload_size];
-            let _ = reader.read_exact(&mut v).await.unwrap();
+        // payload size has been checked for max limit in header.validate()
+        let mut payload = vec![0u8; header.payload_size as usize];
+        if header.payload_size > 0 {
+            let _ = reader.read_exact(&mut payload).await?;
         }
+        let mut p_cursor = Cursor::new(&payload);
+        let msg= match header.command {
+            GETADDR => P2PMessage::GetAddr,
+            MEMPOOL => P2PMessage::Mempool,
+            SENDHEADERS => P2PMessage::SendHeaders,
+            VERACK => P2PMessage::Verack,
+            VERSION => P2PMessage::Version(Version::read(&mut p_cursor).unwrap()),
+            _ => {
+                if header.payload_size == 0 {
+                    warn!("received unknown command={:?} with empty payload", std::str::from_utf8(&header.command).unwrap());
+                    P2PMessage::Unknown(format!("Unknown command: {}", std::str::from_utf8(&header.command).unwrap()))
+                } else {
+                    warn!("received unknown command={:?} with payload size: {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size);
+                    P2PMessage::read_ignore_payload(reader, header.payload_size as usize).await?;
+                    P2PMessage::Unknown(format!("Unknown command: {:?}, payload size {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size))
+                }
+            },
+        };
+        // if msg.size() < header.payload_size as usize {       todo
+        //     warn!("received larger payload than msg, ignoring rest: command={:?}, reported size={}, received size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, payload_size);
+        //     let mut v = vec![0u8; header.payload_size as usize - payload_size];
+        //     let _ = reader.read_exact(&mut v).await.unwrap();
+        // }
         Ok(msg)
     }
 
     /// If we dont recognize the command, we read the payload and ignore it
-    async fn read_ignore_payload<R>(reader: &mut R, num_bytes: usize, command: &[u8; 12]) -> Result<Self>
+    async fn read_ignore_payload<R>(reader: &mut R, num_bytes: usize) -> Result<()>
         where R: AsyncRead + Unpin + Send,
     {
         let mut v = vec![0u8; 1024];            // read up to 1KB at a time to avoid allocating a huge buffer
@@ -191,8 +203,7 @@ impl P2PMessage {
             let bytes_to_read = std::cmp::min(num_bytes - bytes_read, v.len());
             bytes_read += reader.read_exact(&mut v[..bytes_to_read]).await?;
         }
-        let s = format!("Unknown command: {:?}, payload size {}", std::str::from_utf8(command).unwrap(), num_bytes);
-        Ok(P2PMessage::Unknown(s))
+        Ok(())
     }
 
     /// Writes a Bitcoin P2P message with its payload to bytes
@@ -232,7 +243,10 @@ impl P2PMessage {
             payload_size: 0,
             checksum: NO_CHECKSUM,
         };
-        header.write(writer).await
+        let mut v = vec![0u8; P2PMessageHeader::SIZE];
+        header.write(&mut v)?;
+        let _ = writer.write(&v).await?;
+        Ok(())
     }
 
     /// Write a P2P message that has a payload
@@ -249,7 +263,7 @@ impl P2PMessage {
     {
         let sz = payload.size();
         let mut buf: Vec<u8> = Vec::with_capacity(sz);
-        payload.write(&mut buf).await?;
+        payload.write(&mut buf)?;
         let hash = Hash::sha256d(&buf);
         let header = P2PMessageHeader {
             magic,
@@ -257,8 +271,11 @@ impl P2PMessage {
             payload_size: sz as u32,
             checksum: hash.hash[..4].try_into().unwrap(),
         };
-        header.write(writer).await?;
-        payload.write(writer).await
+        let mut v = vec![0u8; P2PMessageHeader::SIZE];
+        header.write(&mut v)?;
+        let _ = writer.write(&v).await?;
+        let _ = writer.write(&buf).await;
+        Ok(())
     }
 }
 
