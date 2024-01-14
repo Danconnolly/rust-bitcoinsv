@@ -43,7 +43,7 @@ impl P2PMessageHeader {
 }
 
 impl Encodable for P2PMessageHeader {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
         println!("read header:");
         let mut magic = vec![0u8; 4];
         let _ = reader.read_exact(&mut *magic)?;
@@ -57,7 +57,7 @@ impl Encodable for P2PMessageHeader {
             payload_size, checksum: checksum.try_into().unwrap(), })
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> Result<()> {
         writer.write(&self.magic)?;
         writer.write(&self.command)?;
         writer.write_u32::<LittleEndian>(self.payload_size)?;
@@ -94,7 +94,7 @@ mod tests {
     #[test]
     fn read_bytes() {
         let b = hex::decode("f9beb4d976657273696f6e00000000007a0000002a1957bb".as_bytes()).unwrap();
-        let h = P2PMessageHeader::read(&mut Cursor::new(&b)).unwrap();
+        let h = P2PMessageHeader::decode(&mut Cursor::new(&b)).unwrap();
         assert_eq!(h.magic, [0xf9, 0xbe, 0xb4, 0xd9]);
         assert_eq!(h.command, *b"version\0\0\0\0\0");
         assert_eq!(h.payload_size, 122);
@@ -110,9 +110,9 @@ mod tests {
             payload_size: 42,
             checksum: [0xa0, 0xa1, 0xa2, 0xa3],
         };
-        h.write(&mut v).unwrap();
+        h.encode_into(&mut v).unwrap();
         assert_eq!(v.len(), h.size());
-        assert_eq!(P2PMessageHeader::read(&mut Cursor::new(&v)).unwrap(), h);
+        assert_eq!(P2PMessageHeader::decode(&mut Cursor::new(&v)).unwrap(), h);
     }
 
     #[test]

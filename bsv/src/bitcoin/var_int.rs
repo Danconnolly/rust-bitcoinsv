@@ -42,7 +42,7 @@ impl VarInt {
 }
 
 impl Encodable for VarInt {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<VarInt> {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<VarInt> {
         let n0 = reader.read_u8().unwrap();
         let v = match n0 {
             0xff => reader.read_u64::<LittleEndian>().unwrap(),
@@ -55,7 +55,7 @@ impl Encodable for VarInt {
         })
     }
 
-    fn write<R: WriteBytesExt + Send>(&self, writer: &mut R) -> crate::Result<()> {
+    fn encode_into<R: WriteBytesExt + Send>(&self, writer: &mut R) -> crate::Result<()> {
         writer.write_all(&self.raw).unwrap();
         Ok(())
     }
@@ -93,50 +93,50 @@ mod tests {
     fn write_read_value(n: u64) {
         let vi = VarInt::new(n);
         let mut v = Vec::new();
-        vi.write(&mut v).unwrap();
-        assert_eq!(VarInt::read(&mut Cursor::new(&v)).unwrap().value, n);
+        vi.encode_into(&mut v).unwrap();
+        assert_eq!(VarInt::decode(&mut Cursor::new(&v)).unwrap().value, n);
     }
 
     #[test]
     fn test_known_values() {
         let mut v = Vec::new();
-        VarInt::new(0).write(&mut v).unwrap();
+        VarInt::new(0).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![0]);
         v.clear();
-        VarInt::new(1).write(&mut v).unwrap();
+        VarInt::new(1).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![1]);
         v.clear();
-        VarInt::new(252).write(&mut v).unwrap();
+        VarInt::new(252).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![252]);
         v.clear();
-        VarInt::new(253).write(&mut v).unwrap();
+        VarInt::new(253).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![253, 253, 0]);
         v.clear();
-        VarInt::new(254).write(&mut v).unwrap();
+        VarInt::new(254).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![253, 254, 0]);
         v.clear();
-        VarInt::new(255).write(&mut v).unwrap();
+        VarInt::new(255).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![253, 255, 0]);
         v.clear();
-        VarInt::new(256).write(&mut v).unwrap();
+        VarInt::new(256).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![253, 0, 1]);
         v.clear();
-        VarInt::new(65535).write(&mut v).unwrap();
+        VarInt::new(65535).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![253, 255, 255]);
         v.clear();
-        VarInt::new(65536).write(&mut v).unwrap();
+        VarInt::new(65536).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![254, 0, 0, 1, 0]);
         v.clear();
-        VarInt::new(65537).write(&mut v).unwrap();
+        VarInt::new(65537).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![254, 1, 0, 1, 0]);
         v.clear();
-        VarInt::new(4294967295).write(&mut v).unwrap();
+        VarInt::new(4294967295).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![254, 255, 255, 255, 255]);
         v.clear();
-        VarInt::new(4294967296).write(&mut v).unwrap();
+        VarInt::new(4294967296).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![255, 0, 0, 0, 0, 1, 0, 0, 0]);
         v.clear();
-        VarInt::new(4294967297).write(&mut v).unwrap();
+        VarInt::new(4294967297).encode_into(&mut v).unwrap();
         assert_eq!(v, vec![255, 1, 0, 0, 0, 1, 0, 0, 0]);
     }
 }

@@ -33,27 +33,27 @@ impl BlockHeader {
     /// Calculates the hash for this block header
     pub fn hash(&self) -> BlockHash {
         let mut v = Vec::with_capacity(80);
-        self.write(&mut v).unwrap();
+        self.encode_into(&mut v).unwrap();
         Hash::sha256d(&v)
     }
 }
 
 impl Encodable for BlockHeader {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<BlockHeader> {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<BlockHeader> {
         Ok(BlockHeader {
             version: reader.read_u32::<LittleEndian>()?,
-            prev_hash: Hash::read(reader)?,
-            merkle_root: Hash::read(reader)?,
+            prev_hash: Hash::decode(reader)?,
+            merkle_root: Hash::decode(reader)?,
             timestamp: reader.read_u32::<LittleEndian>()?,
             bits: reader.read_u32::<LittleEndian>()?,
             nonce: reader.read_u32::<LittleEndian>()?,
         })
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32::<LittleEndian>(self.version)?;
-        self.prev_hash.write(writer)?;
-        self.merkle_root.write(writer)?;
+        self.prev_hash.encode_into(writer)?;
+        self.merkle_root.encode_into(writer)?;
         writer.write_u32::<LittleEndian>(self.timestamp)?;
         writer.write_u32::<LittleEndian>(self.bits)?;
         writer.write_u32::<LittleEndian>(self.nonce)?;
@@ -69,20 +69,20 @@ impl FromHex for BlockHeader {
     type Error = crate::Error;
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
-        BlockHeader::read(&mut bytes.as_slice())
+        BlockHeader::decode(&mut bytes.as_slice())
     }
 }
 
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
-        self.write(&mut bytes).unwrap();
+        self.encode_into(&mut bytes).unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
-        self.write(&mut bytes).unwrap();
+        self.encode_into(&mut bytes).unwrap();
         bytes.encode_hex_upper()
     }
 }
@@ -97,7 +97,7 @@ mod tests {
     fn block_header_read() {
         let (block_header_bin, block_header_hash) = get_block_header824962();
         let mut cursor = std::io::Cursor::new(&block_header_bin);
-        let block_header = BlockHeader::read(&mut cursor).unwrap();
+        let block_header = BlockHeader::decode(&mut cursor).unwrap();
         assert_eq!(block_header.version, 609435648);
         assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce, 1285270638);

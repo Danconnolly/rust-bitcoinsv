@@ -47,7 +47,7 @@ impl Default for NodeAddr {
 }
 
 impl Encodable for NodeAddr {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let timestamp = reader.read_u32::<LittleEndian>()?;
         let services = reader.read_u64::<LittleEndian>()?;
         let mut ip_bin = [0u8; 16];
@@ -63,7 +63,7 @@ impl Encodable for NodeAddr {
         Ok(NodeAddr { timestamp, services, ip, port, })
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32::<LittleEndian>(self.timestamp)?;
         writer.write_u64::<LittleEndian>(self.services)?;
         match self.ip {
@@ -100,7 +100,7 @@ mod tests {
                                 "00000000000000000000ffff2d32bffb", // ip = 45.50.191.251, hex = 2d32bffb, ipv6 mapped = 0000:0000:0000:0000:0000:ffff:2d32:bffb
                                 "ddd3")             // port = 56787
                                 .as_bytes()).unwrap();
-        let a = NodeAddr::read(&mut Cursor::new(&b)).unwrap();
+        let a = NodeAddr::decode(&mut Cursor::new(&b)).unwrap();
         assert_eq!(a.timestamp, 1_704_625_247);
         assert_eq!(a.services, 37);
         assert_eq!(a.ip, "45.50.191.251".parse::<Ipv4Addr>().unwrap());
@@ -116,8 +116,8 @@ mod tests {
             ip: IpAddr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
             port: 123,
         };
-        a.write(&mut v).unwrap();
+        a.encode_into(&mut v).unwrap();
         assert_eq!(v.len(), NodeAddr::SIZE);
-        assert_eq!(NodeAddr::read(&mut Cursor::new(&v)).unwrap(), a);
+        assert_eq!(NodeAddr::decode(&mut Cursor::new(&v)).unwrap(), a);
     }
 }

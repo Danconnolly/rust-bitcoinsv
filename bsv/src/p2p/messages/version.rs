@@ -113,14 +113,14 @@ impl Default for Version {
 }
 
 impl Encodable for Version {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
         let version = reader.read_u32::<LittleEndian>()?;
         let services = reader.read_u64::<LittleEndian>()?;
         let timestamp = reader.read_i64::<LittleEndian>()?;
         let recv_addr = Version::read_version_addr(reader)?;
         let tx_addr = Version::read_version_addr(reader)?;
         let nonce = reader.read_u64::<LittleEndian>()?;
-        let user_agent_size = VarInt::read(reader)?;
+        let user_agent_size = VarInt::decode(reader)?;
         let mut user_agent_bytes = vec![0; user_agent_size.value as usize];
         reader.read_exact(&mut user_agent_bytes)?;
         let user_agent = String::from_utf8(user_agent_bytes)?;
@@ -129,14 +129,14 @@ impl Encodable for Version {
         Ok(Version { version, services, timestamp, recv_addr, tx_addr, nonce, user_agent, start_height, relay, })
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> Result<()> {
         writer.write_u32::<LittleEndian>(self.version)?;
         writer.write_u64::<LittleEndian>(self.services)?;
         writer.write_i64::<LittleEndian>(self.timestamp)?;
         Version::write_version_addr(&self.recv_addr, writer)?;
         Version::write_version_addr(&self.tx_addr, writer)?;
         writer.write_u64::<LittleEndian>(self.nonce)?;
-        VarInt::new(self.user_agent.as_bytes().len() as u64).write(writer)?;
+        VarInt::new(self.user_agent.as_bytes().len() as u64).encode_into(writer)?;
         writer.write_all(&self.user_agent.as_bytes())?;
         writer.write_i32::<LittleEndian>(self.start_height)?;
         writer.write_u8(if self.relay { 0x01 } else { 0x00 })?;
@@ -161,7 +161,7 @@ mod tests {
     #[test]
     fn read_bytes() {
         let b = hex::decode("7f1101002500000000000000f2d2d25a00000000000000000000000000000000000000000000ffff2d32bffbdd1725000000000000000000000000000000000000000000000000008d501d3bb5369deb242f426974636f696e204142433a302e31362e30284542382e303b20626974636f7265292f6606080001".as_bytes()).unwrap();
-        let v = Version::read(&mut Cursor::new(&b)).unwrap();
+        let v = Version::decode(&mut Cursor::new(&b)).unwrap();
         assert_eq!(v.version, 70015);
         assert_eq!(v.services, 37);
         assert_eq!(v.timestamp, 1523766002);
@@ -179,7 +179,6 @@ mod tests {
 
     #[test]
     fn write_read() {
-        let mut v = Vec::new();
         let m = Version {
             version: MIN_SUPPORTED_PROTOCOL_VERSION,
             services: 77,
@@ -195,9 +194,9 @@ mod tests {
             start_height: 22,
             relay: true,
         };
-        m.write(&mut v).unwrap();
+        let v = m.encode().unwrap();
         assert_eq!(v.len(), m.size());
-        assert_eq!(Version::read(&mut Cursor::new(&v)).unwrap(), m);
+        assert_eq!(Version::decode(&mut Cursor::new(&v)).unwrap(), m);
     }
 
     #[test]

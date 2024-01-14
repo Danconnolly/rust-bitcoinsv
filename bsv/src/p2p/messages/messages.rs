@@ -160,7 +160,7 @@ impl P2PMessage {
     pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u64) -> Result<Self> {
         let mut v = vec![0u8; P2PMessageHeader::SIZE];
         let _ = reader.read_exact(&mut v).await?;
-        let header = P2PMessageHeader::read(&mut Cursor::new(&v))?;
+        let header = P2PMessageHeader::decode(&mut Cursor::new(&v))?;
         header.validate(magic, max_size)?;
         // payload size has been checked for max limit in header.validate()
         let mut payload = vec![0u8; header.payload_size as usize];
@@ -173,7 +173,7 @@ impl P2PMessage {
             MEMPOOL => P2PMessage::Mempool,
             SENDHEADERS => P2PMessage::SendHeaders,
             VERACK => P2PMessage::Verack,
-            VERSION => P2PMessage::Version(Version::read(&mut p_cursor).unwrap()),
+            VERSION => P2PMessage::Version(Version::decode(&mut p_cursor).unwrap()),
             _ => {
                 if header.payload_size == 0 {
                     warn!("received unknown command={:?} with empty payload", std::str::from_utf8(&header.command).unwrap());
@@ -244,7 +244,7 @@ impl P2PMessage {
             checksum: NO_CHECKSUM,
         };
         let mut v = vec![0u8; P2PMessageHeader::SIZE];
-        header.write(&mut Cursor::new(&mut v))?;
+        header.encode_into(&mut Cursor::new(&mut v))?;
         let _ = writer.write(&v).await?;
         Ok(())
     }
@@ -263,7 +263,7 @@ impl P2PMessage {
     {
         let sz = payload.size();
         let mut buf: Vec<u8> = Vec::with_capacity(sz);
-        payload.write(&mut Cursor::new(&mut buf))?;
+        payload.encode_into(&mut Cursor::new(&mut buf))?;
         let hash = Hash::sha256d(&buf);
         let header = P2PMessageHeader {
             magic,
@@ -272,7 +272,7 @@ impl P2PMessage {
             checksum: hash.hash[..4].try_into().unwrap(),
         };
         let mut v = vec![0u8; P2PMessageHeader::SIZE];
-        header.write(&mut Cursor::new(&mut v))?;
+        header.encode_into(&mut Cursor::new(&mut v))?;
         let _ = writer.write(&v).await?;
         let _ = writer.write(&buf).await;
         Ok(())

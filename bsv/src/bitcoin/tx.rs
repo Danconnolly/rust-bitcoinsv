@@ -22,7 +22,7 @@ pub struct Tx {
 impl Tx {
     pub fn hash(&self) -> Hash {
         let mut v = Vec::new();
-        self.write(&mut v).unwrap();
+        self.encode_into(&mut v).unwrap();
         Hash::sha256d(&v)
     }
 }
@@ -33,7 +33,7 @@ impl FromHex for Tx {
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let mut bytes = hex::decode(hex)?;
         let mut cursor = Cursor::new(&mut bytes);
-        let tx = Tx::read(&mut cursor)?;
+        let tx = Tx::decode(&mut cursor)?;
         Ok(tx)
     }
 }
@@ -41,30 +41,30 @@ impl FromHex for Tx {
 impl ToHex for Tx {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::new();
-        self.write(&mut bytes).unwrap();
+        self.encode_into(&mut bytes).unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::new();
-        self.write(&mut bytes).unwrap();
+        self.encode_into(&mut bytes).unwrap();
         bytes.encode_hex_upper()
     }
 }
 
 impl Encodable for Tx {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Tx> {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Tx> {
         let version = reader.read_u32::<LittleEndian>()?;
-        let num_inputs = VarInt::read(reader)?;
+        let num_inputs = VarInt::decode(reader)?;
         let mut inputs = Vec::new();
         for _i in 0..num_inputs.value {
-            let input= TxInput::read(reader)?;
+            let input= TxInput::decode(reader)?;
             inputs.push(input);
         }
-        let num_outputs = VarInt::read(reader)?;
+        let num_outputs = VarInt::decode(reader)?;
         let mut outputs = Vec::new();
         for _i in 0..num_outputs.value {
-            let output = TxOutput::read(reader)?;
+            let output = TxOutput::decode(reader)?;
             outputs.push(output);
         }
         let lock_time = reader.read_u32::<LittleEndian>()?;
@@ -76,15 +76,15 @@ impl Encodable for Tx {
         });
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32::<LittleEndian>(self.version)?;
-        VarInt::new(self.inputs.len() as u64).write(writer)?;
+        VarInt::new(self.inputs.len() as u64).encode_into(writer)?;
         for input in self.inputs.iter() {
-            input.write(writer)?;
+            input.encode_into(writer)?;
         }
-        VarInt::new(self.outputs.len() as u64).write(writer)?;
+        VarInt::new(self.outputs.len() as u64).encode_into(writer)?;
         for output in self.outputs.iter() {
-            output.write(writer)?;
+            output.encode_into(writer)?;
         }
         writer.write_u32::<LittleEndian>(self.lock_time)?;
         Ok(())
@@ -123,7 +123,7 @@ impl Outpoint {
 }
 
 impl Encodable for Outpoint {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Outpoint> {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Outpoint> {
         let mut outpoint: [u8; 36] = [0; 36];
         reader.read_exact(&mut outpoint)?;
         return Ok(Outpoint {
@@ -131,7 +131,7 @@ impl Encodable for Outpoint {
         });
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_all(&self.raw)?;
         Ok(())
     }
@@ -149,9 +149,9 @@ pub struct TxInput {
 }
 
 impl Encodable for TxInput {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxInput> {
-        let outpoint = Outpoint::read(reader)?;
-        let script_size = VarInt::read(reader)?;
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxInput> {
+        let outpoint = Outpoint::decode(reader)?;
+        let script_size = VarInt::decode(reader)?;
         let mut script = vec![0u8; script_size.value as usize];
         reader.read_exact(&mut script)?;
         let sequence = reader.read_u32::<LittleEndian>()?;
@@ -162,9 +162,9 @@ impl Encodable for TxInput {
         });
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        self.outpoint.write(writer)?;
-        VarInt::new(self.raw_script.len() as u64).write(writer)?;
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        self.outpoint.encode_into(writer)?;
+        VarInt::new(self.raw_script.len() as u64).encode_into(writer)?;
         writer.write_all(&self.raw_script)?;
         writer.write_u32::<LittleEndian>(self.sequence)?;
         Ok(())
@@ -182,9 +182,9 @@ pub struct TxOutput {
 }
 
 impl Encodable for TxOutput {
-    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxOutput> {
+    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxOutput> {
         let value = reader.read_u64::<LittleEndian>()?;
-        let script_size = VarInt::read(reader)?;
+        let script_size = VarInt::decode(reader)?;
         let mut script = vec![0u8; script_size.value as usize];
         reader.read_exact(&mut script)?;
         return Ok(TxOutput {
@@ -193,9 +193,9 @@ impl Encodable for TxOutput {
         });
     }
 
-    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u64::<LittleEndian>(self.value)?;
-        VarInt::new(self.raw_script.len() as u64).write(writer)?;
+        VarInt::new(self.raw_script.len() as u64).encode_into(writer)?;
         writer.write_all(&self.raw_script)?;
         Ok(())
     }
@@ -218,7 +218,7 @@ mod tests {
     fn tx_read() {
         let (tx_bin, tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin);
-        let tx = Tx::read(&mut cursor).unwrap();
+        let tx = Tx::decode(&mut cursor).unwrap();
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx_bin.len(), tx.size());
@@ -229,7 +229,7 @@ mod tests {
     fn read_short() {
         let (tx_bin, _tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin[0..200]);
-        assert!(Tx::read(&mut cursor).is_err());
+        assert!(Tx::decode(&mut cursor).is_err());
     }
 
     /// If we supply too many bytes, then the read should succeed and we should have some bytes left over.
@@ -238,7 +238,7 @@ mod tests {
         let (mut tx_bin, tx_hash) = get_tx1();
         tx_bin.append(&mut vec![0u8; 100]);
         let mut cursor = Cursor::new(&tx_bin[0..300]);
-        let tx = Tx::read(&mut cursor).unwrap();
+        let tx = Tx::decode(&mut cursor).unwrap();
         assert_eq!(cursor.position(), 211);
         // assert_eq!(tx.size, 211);
         assert_eq!(tx.version, 1);
@@ -248,7 +248,7 @@ mod tests {
     #[test]
     fn read_from_hex() {
         let (mut tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::read(&mut Cursor::new(&tx_bin)).unwrap();
+        let tx = Tx::decode(&mut Cursor::new(&tx_bin)).unwrap();
         let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn check_deser() {
         let (mut tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::read(&mut Cursor::new(&tx_bin)).unwrap();
+        let tx = Tx::decode(&mut Cursor::new(&tx_bin)).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);
