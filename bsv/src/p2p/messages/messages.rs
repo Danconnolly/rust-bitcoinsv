@@ -250,13 +250,6 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that has a payload
-    // This code shows very nicely why I have been objecting to the checksum in the message header
-    // for the last several years. The checksum is useless and even worse, it is at the beginning of
-    // the message. So for every message, we have to serialize the message to bytes, then calculate
-    // the checksum and only then can we start sending the message header, followed by the payload.
-    // Without the checksum we could just start sending the message as we constructed it.
-    // Improvement: There is a cumbersome workaround for blocks, the biggest messages, which I'll
-    // get around to implementing at some point.
     async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], magic: [u8; 4], payload: &X) -> Result<()>
         where W: AsyncWrite + Unpin + Send,
             X: Encodable,
