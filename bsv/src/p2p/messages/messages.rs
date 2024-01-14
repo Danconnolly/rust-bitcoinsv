@@ -152,7 +152,7 @@ pub enum P2PMessage {
     // Tx(Tx),
     Verack,
     Version(Version),
-    Unknown(String),
+    Unknown(String, usize),
 }
 
 impl P2PMessage {
@@ -181,6 +181,7 @@ impl P2PMessage {
         let mut payload = vec![0u8; header.payload_size as usize];
         if header.payload_size > 0 {
             let _ = reader.read_exact(&mut payload).await?;
+            // todo: calc checksum
         }
         let mut p_cursor = Cursor::new(&payload);
         let msg= match header.command {
@@ -192,18 +193,16 @@ impl P2PMessage {
             _ => {
                 if header.payload_size == 0 {
                     trace!("received unknown command={:?} with empty payload", std::str::from_utf8(&header.command).unwrap());
-                    P2PMessage::Unknown(format!("Unknown command: {}", std::str::from_utf8(&header.command).unwrap()))
+                    P2PMessage::Unknown(format!("Unknown command: {}", std::str::from_utf8(&header.command).unwrap()), 0)
                 } else {
                     trace!("received unknown command={:?} with payload size: {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size);
-                    P2PMessage::Unknown(format!("Unknown command: {:?}, payload size {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size))
+                    P2PMessage::Unknown(format!("Unknown command: {:?}, payload size {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size), header.payload_size as usize)
                 }
             },
         };
-        // if msg.size() < header.payload_size as usize {       todo
-        //     warn!("received larger payload than msg, ignoring rest: command={:?}, reported size={}, received size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, payload_size);
-        //     let mut v = vec![0u8; header.payload_size as usize - payload_size];
-        //     let _ = reader.read_exact(&mut v).await.unwrap();
-        // }
+        if msg.size() < header.payload_size as usize {
+            warn!("received larger payload than msg: command={:?}, payload size={}, msg size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, msg.size());
+        }
         Ok(msg)
     }
 
@@ -229,10 +228,36 @@ impl P2PMessage {
             // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
             P2PMessage::Verack => self.write_without_payload(writer, VERACK, magic).await,
             P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, magic, v).await,
-            P2PMessage::Unknown(s) => {
+            P2PMessage::Unknown(s, _size) => {
                 let msg = format!("Unknown command: {:?}", s);
                 return Err(Error::BadData(msg));
             }
+        }
+    }
+
+    /// Get the size of the payload of the message
+    pub fn size(&self) -> usize {
+        match self {
+            // P2PMessage::Addr(p) => write_with_payload(writer, ADDR, p, magic),
+            // P2PMessage::Block(p) => write_with_payload(writer, BLOCK, p, magic),
+            P2PMessage::GetAddr => 0,
+            // P2PMessage::GetBlocks(p) => write_with_payload(writer, GETBLOCKS, p, magic),
+            // P2PMessage::GetData(p) => write_with_payload(writer, GETDATA, p, magic),
+            // P2PMessage::GetHeaders(p) => write_with_payload(writer, GETHEADERS, p, magic),
+            // P2PMessage::Headers(p) => write_with_payload(writer, HEADERS, p, magic),
+            P2PMessage::Mempool => 0,
+            // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
+            // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
+            // P2PMessage::Inv(p) => write_with_payload(writer, INV, p, magic),
+            // P2PMessage::Ping(p) => write_with_payload(writer, PING, p, magic),
+            // P2PMessage::Pong(p) => write_with_payload(writer, PONG, p, magic),
+            // P2PMessage::Reject(p) => write_with_payload(writer, REJECT, p, magic),
+            P2PMessage::SendHeaders => 0,
+            // P2PMessage::SendCmpct(p) => write_with_payload(writer, SENDCMPCT, p, magic),
+            // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
+            P2PMessage::Verack => 0,
+            P2PMessage::Version(v) => v.size(),
+            P2PMessage::Unknown(s, size) => *size,
         }
     }
 
@@ -301,7 +326,7 @@ impl fmt::Debug for P2PMessage {
             // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Verack => f.write_str("Verack"),
             P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
-            P2PMessage::Unknown(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Unknown(p, size) => f.write_str(&format!("{:#?}", p)),
         }
     }
 }
@@ -324,7 +349,7 @@ impl From<P2PMessage> for P2PMessageType {
             P2PMessage::SendHeaders => Data,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
-            P2PMessage::Unknown(_) => Data,
+            P2PMessage::Unknown(_, _) => Data,
         }
     }
 }

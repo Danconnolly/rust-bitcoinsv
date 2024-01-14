@@ -17,7 +17,7 @@ async fn main() {
     loop {
         match rx.recv().await {
             Some(msg) => {
-                println!("Received message: {:?}", msg);
+                println!("{:?}", msg);
             }
             None => {
                 break;

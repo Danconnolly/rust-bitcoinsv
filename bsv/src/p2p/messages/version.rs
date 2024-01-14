@@ -107,7 +107,7 @@ impl Default for Version {
             nonce: 0,
             user_agent: "rust-bitcoinsv".to_string(),
             start_height: 0,
-            relay: false,
+            relay: true,
         }
     }
 }
