@@ -243,8 +243,7 @@ impl P2PMessage {
             payload_size: 0,
             checksum: NO_CHECKSUM,
         };
-        let mut v = vec![0u8; P2PMessageHeader::SIZE];
-        header.encode_into(&mut Cursor::new(&mut v))?;
+        let v = header.encode()?;
         let _ = writer.write(&v).await?;
         Ok(())
     }
@@ -261,18 +260,15 @@ impl P2PMessage {
         where W: AsyncWrite + Unpin + Send,
             X: Encodable,
     {
-        let sz = payload.size();
-        let mut buf: Vec<u8> = Vec::with_capacity(sz);
-        payload.encode_into(&mut Cursor::new(&mut buf))?;
+        let buf = payload.encode()?;
         let hash = Hash::sha256d(&buf);
         let header = P2PMessageHeader {
             magic,
             command,
-            payload_size: sz as u32,
+            payload_size: buf.len() as u32,
             checksum: hash.hash[..4].try_into().unwrap(),
         };
-        let mut v = vec![0u8; P2PMessageHeader::SIZE];
-        header.encode_into(&mut Cursor::new(&mut v))?;
+        let v = header.encode()?;
         let _ = writer.write(&v).await?;
         let _ = writer.write(&buf).await;
         Ok(())
