@@ -46,6 +46,9 @@ use crate::p2p::messages::Version;
 // the blockchain to which these messages apply (mainnet, testnet, regtest, stn). The header also contains the size of
 // the payload. Our code needs to protect against cases where the payload size specified in the header is incorrect.
 
+// Given the above, I'm going to treat every packet in its entirety by default, and not implement a streaming read
+// trait. The exception to this is the Block, I will add a streaming interface to this at some point.
+
 
 /// Checksum to use when there is an empty payload.
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];

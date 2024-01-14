@@ -1,8 +1,5 @@
-use async_trait::async_trait;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use hex::{FromHex, ToHex};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use futures::executor::block_on;
-
 use crate::bitcoin::binary::Encodable;
 use crate::bitcoin::hash::Hash;
 
@@ -36,31 +33,30 @@ impl BlockHeader {
     /// Calculates the hash for this block header
     pub fn hash(&self) -> BlockHash {
         let mut v = Vec::with_capacity(80);
-        block_on(self.write(&mut v)).unwrap();
+        self.write(&mut v).unwrap();
         Hash::sha256d(&v)
     }
 }
 
-#[async_trait]
 impl Encodable for BlockHeader {
-    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<BlockHeader> {
+    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<BlockHeader> {
         Ok(BlockHeader {
-            version: reader.read_u32_le().await?,
-            prev_hash: Hash::read(reader).await?,
-            merkle_root: Hash::read(reader).await?,
-            timestamp: reader.read_u32_le().await?,
-            bits: reader.read_u32_le().await?,
-            nonce: reader.read_u32_le().await?,
+            version: reader.read_u32::<LittleEndian>()?,
+            prev_hash: Hash::read(reader)?,
+            merkle_root: Hash::read(reader)?,
+            timestamp: reader.read_u32::<LittleEndian>()?,
+            bits: reader.read_u32::<LittleEndian>()?,
+            nonce: reader.read_u32::<LittleEndian>()?,
         })
     }
 
-    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u32_le(self.version).await?;
-        self.prev_hash.write(writer).await?;
-        self.merkle_root.write(writer).await?;
-        writer.write_u32_le(self.timestamp).await?;
-        writer.write_u32_le(self.bits).await?;
-        writer.write_u32_le(self.nonce).await?;
+    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_u32::<LittleEndian>(self.version)?;
+        self.prev_hash.write(writer)?;
+        self.merkle_root.write(writer)?;
+        writer.write_u32::<LittleEndian>(self.timestamp)?;
+        writer.write_u32::<LittleEndian>(self.bits)?;
+        writer.write_u32::<LittleEndian>(self.nonce)?;
         Ok(())
     }
 
@@ -73,20 +69,20 @@ impl FromHex for BlockHeader {
     type Error = crate::Error;
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
-        block_on(BlockHeader::read(&mut bytes.as_slice()))
+        BlockHeader::read(&mut bytes.as_slice())
     }
 }
 
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
-        block_on(self.write(&mut bytes)).unwrap();
+        self.write(&mut bytes).unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
-        block_on(self.write(&mut bytes)).unwrap();
+        self.write(&mut bytes).unwrap();
         bytes.encode_hex_upper()
     }
 }
@@ -97,11 +93,11 @@ mod tests {
     use super::*;
 
     /// Read a block header from a byte array and check it
-    #[tokio::test]
-    async fn block_header_read() {
+    #[test]
+    fn block_header_read() {
         let (block_header_bin, block_header_hash) = get_block_header824962();
         let mut cursor = std::io::Cursor::new(&block_header_bin);
-        let block_header = BlockHeader::read(&mut cursor).await.unwrap();
+        let block_header = BlockHeader::read(&mut cursor).unwrap();
         assert_eq!(block_header.version, 609435648);
         assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce, 1285270638);
@@ -124,8 +120,8 @@ mod tests {
         assert_eq!(bh.version, 609435648);
     }
 
-    #[tokio::test]
-    async fn from_hex_async() {
+    #[test]
+    fn from_hex_async() {
         let bh = BlockHeader::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
         assert_eq!(bh.version, 609435648);
     }

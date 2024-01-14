@@ -1,11 +1,9 @@
 use std::io::Cursor;
-use async_trait::async_trait;
-use futures::executor::block_on;
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use hex::{FromHex, ToHex};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
-use crate::bitcoin::var_int::VarInt;
 use crate::bitcoin::binary::Encodable;
+use crate::bitcoin::VarInt;
 
 
 /// The TxHash is used to identify transactions and ensure immutability.
@@ -24,7 +22,7 @@ pub struct Tx {
 impl Tx {
     pub fn hash(&self) -> Hash {
         let mut v = Vec::new();
-        block_on(self.write(&mut v)).unwrap();
+        self.write(&mut v).unwrap();
         Hash::sha256d(&v)
     }
 }
@@ -35,7 +33,7 @@ impl FromHex for Tx {
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let mut bytes = hex::decode(hex)?;
         let mut cursor = Cursor::new(&mut bytes);
-        let tx = block_on(Tx::read(&mut cursor))?;
+        let tx = Tx::read(&mut cursor)?;
         Ok(tx)
     }
 }
@@ -43,34 +41,33 @@ impl FromHex for Tx {
 impl ToHex for Tx {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::new();
-        block_on(self.write(&mut bytes)).unwrap();
+        self.write(&mut bytes).unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         let mut bytes = Vec::new();
-        block_on(self.write(&mut bytes)).unwrap();
+        self.write(&mut bytes).unwrap();
         bytes.encode_hex_upper()
     }
 }
 
-#[async_trait]
 impl Encodable for Tx {
-    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Tx> {
-        let version = reader.read_u32_le().await?;
-        let num_inputs = VarInt::read(reader).await?;
+    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Tx> {
+        let version = reader.read_u32::<LittleEndian>()?;
+        let num_inputs = VarInt::read(reader)?;
         let mut inputs = Vec::new();
         for _i in 0..num_inputs.value {
-            let input= TxInput::read(reader).await?;
+            let input= TxInput::read(reader)?;
             inputs.push(input);
         }
-        let num_outputs = VarInt::read(reader).await?;
+        let num_outputs = VarInt::read(reader)?;
         let mut outputs = Vec::new();
         for _i in 0..num_outputs.value {
-            let output = TxOutput::read(reader).await?;
+            let output = TxOutput::read(reader)?;
             outputs.push(output);
         }
-        let lock_time = reader.read_u32_le().await?;
+        let lock_time = reader.read_u32::<LittleEndian>()?;
         return Ok(Tx {
             version,
             inputs,
@@ -79,17 +76,17 @@ impl Encodable for Tx {
         });
     }
 
-    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u32_le(self.version).await?;
-        VarInt::new(self.inputs.len() as u64).write(writer).await?;
+    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_u32::<LittleEndian>(self.version)?;
+        VarInt::new(self.inputs.len() as u64).write(writer)?;
         for input in self.inputs.iter() {
-            input.write(writer).await?;
+            input.write(writer)?;
         }
-        VarInt::new(self.outputs.len() as u64).write(writer).await?;
+        VarInt::new(self.outputs.len() as u64).write(writer)?;
         for output in self.outputs.iter() {
-            output.write(writer).await?;
+            output.write(writer)?;
         }
-        writer.write_u32_le(self.lock_time).await?;
+        writer.write_u32::<LittleEndian>(self.lock_time)?;
         Ok(())
     }
 
@@ -125,19 +122,17 @@ impl Outpoint {
     }
 }
 
-#[async_trait]
 impl Encodable for Outpoint {
-    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Outpoint> {
+    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Outpoint> {
         let mut outpoint: [u8; 36] = [0; 36];
-        let _bytes_read = reader.read_exact(&mut outpoint).await?;
-        assert_eq!(_bytes_read, 36);
+        reader.read_exact(&mut outpoint)?;
         return Ok(Outpoint {
             raw: outpoint,
         });
     }
 
-    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_all(&self.raw).await?;
+    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_all(&self.raw)?;
         Ok(())
     }
 
@@ -153,15 +148,13 @@ pub struct TxInput {
     pub sequence: u32,
 }
 
-#[async_trait]
 impl Encodable for TxInput {
-    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<TxInput> {
-        let outpoint = Outpoint::read(reader).await?;
-        let script_size = VarInt::read(reader).await?;
+    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxInput> {
+        let outpoint = Outpoint::read(reader)?;
+        let script_size = VarInt::read(reader)?;
         let mut script = vec![0u8; script_size.value as usize];
-        let _bytes_read = reader.read_exact(&mut script).await?;
-        assert_eq!(_bytes_read, script_size.value as usize);
-        let sequence = reader.read_u32_le().await?;
+        reader.read_exact(&mut script)?;
+        let sequence = reader.read_u32::<LittleEndian>()?;
         return Ok(TxInput {
             outpoint,
             raw_script: script,
@@ -169,11 +162,11 @@ impl Encodable for TxInput {
         });
     }
 
-    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        self.outpoint.write(writer).await?;
-        VarInt::new(self.raw_script.len() as u64).write(writer).await?;
-        writer.write_all(&self.raw_script).await?;
-        writer.write_u32_le(self.sequence).await?;
+    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        self.outpoint.write(writer)?;
+        VarInt::new(self.raw_script.len() as u64).write(writer)?;
+        writer.write_all(&self.raw_script)?;
+        writer.write_u32::<LittleEndian>(self.sequence)?;
         Ok(())
     }
 
@@ -188,24 +181,22 @@ pub struct TxOutput {
     raw_script: Vec<u8>,
 }
 
-#[async_trait]
 impl Encodable for TxOutput {
-    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<TxOutput> {
-        let value = reader.read_u64_le().await?;
-        let script_size = VarInt::read(reader).await?;
+    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxOutput> {
+        let value = reader.read_u64::<LittleEndian>()?;
+        let script_size = VarInt::read(reader)?;
         let mut script = vec![0u8; script_size.value as usize];
-        let _bytes_read = reader.read_exact(&mut script).await?;
-        assert_eq!(_bytes_read, script_size.value as usize);
+        reader.read_exact(&mut script)?;
         return Ok(TxOutput {
             value,
             raw_script: script,
         });
     }
 
-    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u64_le(self.value).await?;
-        VarInt::new(self.raw_script.len() as u64).write(writer).await?;
-        writer.write_all(&self.raw_script).await?;
+    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_u64::<LittleEndian>(self.value)?;
+        VarInt::new(self.raw_script.len() as u64).write(writer)?;
+        writer.write_all(&self.raw_script)?;
         Ok(())
     }
 
@@ -223,31 +214,31 @@ mod tests {
 
 
     /// Read a transaction from a byte array and check it
-    #[tokio::test]
-    async fn tx_read() {
+    #[test]
+    fn tx_read() {
         let (tx_bin, tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin);
-        let tx = Tx::read(&mut cursor).await.unwrap();
+        let tx = Tx::read(&mut cursor).unwrap();
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx_bin.len(), tx.size());
     }
 
     /// If the binary is incomplete, we should get an error
-    #[tokio::test]
-    async fn read_short() {
+    #[test]
+    fn read_short() {
         let (tx_bin, _tx_hash) = get_tx1();
         let mut cursor = Cursor::new(&tx_bin[0..200]);
-        assert!(Tx::read(&mut cursor).await.is_err());
+        assert!(Tx::read(&mut cursor).is_err());
     }
 
     /// If we supply too many bytes, then the read should succeed and we should have some bytes left over.
-    #[tokio::test]
-    async fn tx_long() {
+    #[test]
+    fn tx_long() {
         let (mut tx_bin, tx_hash) = get_tx1();
         tx_bin.append(&mut vec![0u8; 100]);
         let mut cursor = Cursor::new(&tx_bin[0..300]);
-        let tx = Tx::read(&mut cursor).await.unwrap();
+        let tx = Tx::read(&mut cursor).unwrap();
         assert_eq!(cursor.position(), 211);
         // assert_eq!(tx.size, 211);
         assert_eq!(tx.version, 1);
@@ -255,16 +246,9 @@ mod tests {
     }
 
     #[test]
-    fn read_non_async_from_ram() {
-        let (tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::read_from_buf(&tx_bin).unwrap();
-        assert_eq!(tx.hash(), tx_hash);
-    }
-
-    #[test]
     fn read_from_hex() {
-        let (tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::read_from_buf(&tx_bin).unwrap();
+        let (mut tx_bin, tx_hash) = get_tx1();
+        let tx = Tx::read(&mut Cursor::new(&tx_bin)).unwrap();
         let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
@@ -272,8 +256,8 @@ mod tests {
 
     #[test]
     fn check_deser() {
-        let (tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::read_from_buf(&tx_bin).unwrap();
+        let (mut tx_bin, tx_hash) = get_tx1();
+        let tx = Tx::read(&mut Cursor::new(&tx_bin)).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);

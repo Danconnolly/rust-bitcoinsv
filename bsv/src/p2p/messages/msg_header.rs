@@ -1,8 +1,7 @@
 use crate::{Error, Result};
 use std::fmt;
 use std::str;
-use async_trait::async_trait;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::bitcoin::Encodable;
 
 // based on code imported from rust-sv but substantially modified
@@ -43,25 +42,24 @@ impl P2PMessageHeader {
     }
 }
 
-#[async_trait]
 impl Encodable for P2PMessageHeader {
-    async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    fn read<R: ReadBytesExt + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
         let mut magic = vec![0u8; 4];
-        let _ = reader.read_exact(magic.as_mut()).await?;
+        let _ = reader.read_exact(magic.as_mut())?;
         let mut command = vec![0u8; 12];
-        let _ = reader.read_exact(command.as_mut()).await?;
-        let payload_size = reader.read_u32_le().await?;
+        let _ = reader.read_exact(command.as_mut())?;
+        let payload_size = reader.read_u32::<LittleEndian>()?;
         let mut checksum = vec![0u8; 4];
-        let _ = reader.read_exact(checksum.as_mut()).await?;
+        let _ = reader.read_exact(checksum.as_mut())?;
         Ok(P2PMessageHeader { magic: magic.try_into().unwrap(), command: command.try_into().unwrap(),
             payload_size, checksum: checksum.try_into().unwrap(), })
     }
 
-    async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
-        writer.write(&self.magic).await?;
-        writer.write(&self.command).await?;
-        writer.write_u32_le(self.payload_size).await?;
-        writer.write(&self.checksum).await?;
+    fn write<W: WriteBytesExt + Send>(&self, writer: &mut W) -> Result<()> {
+        writer.write(&self.magic)?;
+        writer.write(&self.command)?;
+        writer.write_u32::<LittleEndian>(self.payload_size)?;
+        writer.write(&self.checksum)?;
         Ok(())
     }
 
@@ -91,18 +89,18 @@ mod tests {
     use hex;
     use std::io::Cursor;
 
-    #[tokio::test]
-    async fn read_bytes() {
+    #[test]
+    fn read_bytes() {
         let b = hex::decode("f9beb4d976657273696f6e00000000007a0000002a1957bb".as_bytes()).unwrap();
-        let h = P2PMessageHeader::read(&mut Cursor::new(&b)).await.unwrap();
+        let h = P2PMessageHeader::read(&mut Cursor::new(&b)).unwrap();
         assert_eq!(h.magic, [0xf9, 0xbe, 0xb4, 0xd9]);
         assert_eq!(h.command, *b"version\0\0\0\0\0");
         assert_eq!(h.payload_size, 122);
         assert_eq!(h.checksum, [0x2a, 0x19, 0x57, 0xbb]);
     }
 
-    #[tokio::test]
-    async fn write_read() {
+    #[test]
+    fn write_read() {
         let mut v = Vec::new();
         let h = P2PMessageHeader {
             magic: [0x00, 0x01, 0x02, 0x03],
@@ -110,9 +108,9 @@ mod tests {
             payload_size: 42,
             checksum: [0xa0, 0xa1, 0xa2, 0xa3],
         };
-        h.write(&mut v).await.unwrap();
+        h.write(&mut v).unwrap();
         assert_eq!(v.len(), h.size());
-        assert_eq!(P2PMessageHeader::read(&mut Cursor::new(&v)).await.unwrap(), h);
+        assert_eq!(P2PMessageHeader::read(&mut Cursor::new(&v)).unwrap(), h);
     }
 
     #[test]
