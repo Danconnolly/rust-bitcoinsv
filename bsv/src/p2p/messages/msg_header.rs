@@ -44,10 +44,8 @@ impl P2PMessageHeader {
 
 impl Encodable for P2PMessageHeader {
     fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
-        println!("read header:");
         let mut magic = vec![0u8; 4];
         let _ = reader.read_exact(&mut *magic)?;
-        println!("read magic: {:?}", magic);
         let mut command = vec![0u8; 12];
         let _ = reader.read_exact(&mut *command)?;
         let payload_size = reader.read_u32::<LittleEndian>()?;
