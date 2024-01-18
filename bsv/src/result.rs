@@ -16,6 +16,8 @@ pub enum Error {
     BadArgument(String),
     /// The data provided is invalid
     BadData(String),
+    /// Internal error
+    Internal(String),
     /// Hex string could not be decoded
     FromHexError(FromHexError),
     /// Standard library IO error
@@ -29,6 +31,7 @@ impl std::fmt::Display for Error {
         match self {
             Error::BadArgument(s) => f.write_str(&format!("Bad argument: {}", s)),
             Error::BadData(s) => f.write_str(&format!("Bad data: {}", s)),
+            Error::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
             Error::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
@@ -41,6 +44,7 @@ impl std::error::Error for Error {
         match self {
             Error::BadArgument(_) => "Bad argument",
             Error::BadData(_) => "Bad data",
+            Error::Internal(_) => "Internal error", // Added this line
             Error::FromHexError(_) => "Hex decoding error",
             Error::IOError(_) => "IO error",
             Error::Utf8Error(_) => "UTF8 error",

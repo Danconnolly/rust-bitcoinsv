@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use crate::Result;
+use crate::{Error, Result};
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, GlobalConnectionConfig};
 use crate::p2p::messages::P2PMessageChannelSender;
@@ -121,7 +121,7 @@ impl P2PManager {
     ///
     /// The P2PManager can not be re-started after this command.
     pub async fn stop(&self) -> Result<()> {
-        self.sender.send(P2PMgrControlMessage::Stop).await?;
+        self.sender.send(P2PMgrControlMessage::Stop).await.map_err(|_| Error::Internal("Failed to send stop message".parse().unwrap()))?;
         Ok(())
     }
 
@@ -130,21 +130,21 @@ impl P2PManager {
     /// Existing connections continue to be maintained but will not re-connect if disconnected.
     /// Incoming connections will be rejected.
     pub async fn pause(&self) -> Result<()> {
-        self.sender.send(P2PMgrControlMessage::Pause).await?;
+        self.sender.send(P2PMgrControlMessage::Pause).await.map_err(|_| Error::Internal("Failed to send pause message".parse().unwrap()))?;
         Ok(())
     }
 
     /// Resume the paused P2PManager.
     pub async fn resume(&self) -> Result<()> {
-        self.sender.send(P2PMgrControlMessage::Resume).await?;
+        self.sender.send(P2PMgrControlMessage::Resume).await.map_err(|_| Error::Internal("Failed to send resume message".parse().unwrap()))?;
         Ok(())
     }
 
     /// Get the current state of the P2PManager.
     pub async fn get_state(&self) -> Result<P2PManagerState> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(P2PMgrControlMessage::GetState { reply: tx }).await?;
-        let r = rx.await?;
+        self.sender.send(P2PMgrControlMessage::GetState { reply: tx }).await.map_err(|_| Error::Internal("Failed to send message".parse().unwrap()))?;
+        let r = rx.await.map_err(|_| Error::Internal("Failed to receive message".parse().unwrap()))?;
         Ok(r)
     }
 }
@@ -301,7 +301,8 @@ mod tests {
     async fn start_stop_test() {
         let (h, j) = P2PManager::new(P2PManagerConfig::default(Mainnet), None, None);
         let s = h.get_state().await;
-        assert_eq!(s, P2PManagerState::Running);
+        assert!(s.is_ok());
+        assert_eq!(s.unwrap(), P2PManagerState::Running);
         h.stop().await;
         j.await.expect("P2PManager failed");
     }
