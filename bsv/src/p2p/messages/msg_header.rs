@@ -1,5 +1,6 @@
 use crate::{Error, Result};
 use std::fmt;
+use std::io::Write;
 use std::str;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::bitcoin::Encodable;
@@ -56,10 +57,10 @@ impl Encodable for P2PMessageHeader {
     }
 
     fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> Result<()> {
-        writer.write(&self.magic)?;
-        writer.write(&self.command)?;
+        writer.write_all(&self.magic)?;
+        writer.write_all(&self.command)?;
         writer.write_u32::<LittleEndian>(self.payload_size)?;
-        writer.write(&self.checksum)?;
+        writer.write_all(&self.checksum)?;
         Ok(())
     }
 

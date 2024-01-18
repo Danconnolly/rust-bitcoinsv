@@ -83,11 +83,11 @@ impl Version {
         writer.write_u64::<LittleEndian>(node_addr.services)?;
         match node_addr.ip {
             IpAddr::V4(v4) => {
-                writer.write(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255])?;
-                writer.write(&v4.octets())?;
+                writer.write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255])?;
+                writer.write_all(&v4.octets())?;
             },
             IpAddr::V6(v6) => {
-                writer.write(&v6.octets())?;
+                writer.write_all(&v6.octets())?;
             },
         }
         writer.write_u16::<BigEndian>(node_addr.port)?;
