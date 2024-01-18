@@ -35,7 +35,7 @@ impl fmt::Display for Amount {
 
 impl Serialize for Amount {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
-        Ok(f64::serialize(&self.as_bsv(), serializer)?)
+        f64::serialize(&self.as_bsv(), serializer)
     }
 }
 

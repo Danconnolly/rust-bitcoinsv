@@ -5,7 +5,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use crate::p2p::{ACTOR_CHANNEL_SIZE, PeerAddress};
 use crate::p2p::connection::GlobalConnectionConfig;
-use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Version, P2PMessageType};
+use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Version};
 use crate::p2p::params::NetworkParams;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
@@ -84,18 +84,18 @@ impl PeerChannelActor {
         trace!("PeerChannelActor started.");
         self.channel_state = ChannelState::Connecting;
         // todo: failure & retry logic
-        let stream = TcpStream::connect(self.peer.address.clone()).await.unwrap();
+        let stream = TcpStream::connect(self.peer.address).await.unwrap();
         trace!("PeerChannelActor connected to {:?}", self.peer);
         let (reader, writer) = stream.into_split();
-        let r_handle = {
+        let _r_handle = {
             // start the reader task
-            let magic = self.network_params.magic.clone();
+            let magic = self.network_params.magic;
             let r_tx = self.reader_tx.clone();
             tokio::spawn(async move { PeerChannelActor::reader(r_tx, reader, magic).await })
         };
-        let w_handle = {
+        let _w_handle = {
             // start the writer task
-            let magic = self.network_params.magic.clone();
+            let magic = self.network_params.magic;
             let w_rx = self.writer_rx.take().unwrap();
             tokio::spawn(async move { PeerChannelActor::writer(w_rx, writer, magic).await })
         };
@@ -187,7 +187,7 @@ impl PeerChannelActor {
     }
 
     /// The reader task. It continually reads from the socket and writes to the channel.
-    async fn reader(mut tx: Sender<P2PMessage>, mut reader: tokio::net::tcp::OwnedReadHalf, magic: [u8; 4]) {
+    async fn reader(tx: Sender<P2PMessage>, mut reader: tokio::net::tcp::OwnedReadHalf, magic: [u8; 4]) {
         trace!("reader task started.");
         loop {
             match P2PMessage::read(&mut reader, magic, DEFAULT_MAX_PAYLOAD_SIZE).await {
@@ -216,10 +216,10 @@ impl PeerChannelActor {
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-    use tokio::time::sleep;
-    use super::*;
-    use crate::bitcoin::BlockchainId::Mainnet;
+    
+    
+    
+    
 
     // todo: get some tests where it is talking to itself once a listener has been implemented
     

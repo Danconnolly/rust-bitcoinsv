@@ -1,6 +1,6 @@
-use std::time::Duration;
+
 use tokio::sync::mpsc::channel;
-use tokio::time::sleep;
+
 use bitcoinsv::bitcoin::BlockchainId;
 use bitcoinsv::p2p::{P2PManager, P2PManagerConfig, PeerAddress};
 

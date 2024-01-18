@@ -118,7 +118,7 @@ impl ConnectionActor {
                         ConnectionControlMessage::Close => {
                             self.primary_channel.close().await;
                             let h = self.primary_join.take().unwrap();
-                            let _ = h.await.unwrap();
+                            h.await.unwrap();
                             break;
                         },
                         ConnectionControlMessage::Pause => {
@@ -133,8 +133,8 @@ impl ConnectionActor {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::bitcoin::BlockchainId::Mainnet;
+    
+    
 
     // todo: add some tests
 

@@ -136,7 +136,7 @@ impl Encodable for Version {
         Version::write_version_addr(&self.tx_addr, writer)?;
         writer.write_u64::<LittleEndian>(self.nonce)?;
         VarInt::new(self.user_agent.as_bytes().len() as u64).encode_into(writer)?;
-        writer.write_all(&self.user_agent.as_bytes())?;
+        writer.write_all(self.user_agent.as_bytes())?;
         writer.write_i32::<LittleEndian>(self.start_height)?;
         writer.write_u8(if self.relay { 0x01 } else { 0x00 })?;
         Ok(())
@@ -173,7 +173,7 @@ mod tests {
         assert_eq!(v.nonce, 16977786322265395341);
         assert_eq!(v.user_agent, "/Bitcoin ABC:0.16.0(EB8.0; bitcore)/");
         assert_eq!(v.start_height, 525926);
-        assert_eq!(v.relay, true);
+        assert!(v.relay);
     }
 
     #[test]

@@ -247,7 +247,7 @@ mod tests {
 
     #[test]
     fn read_from_hex() {
-        let (mut tx_bin, tx_hash) = get_tx1();
+        let (tx_bin, tx_hash) = get_tx1();
         let tx = Tx::decode(&mut Cursor::new(&tx_bin)).unwrap();
         let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
         assert_eq!(tx.hash(), tx_hash);
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn check_deser() {
-        let (mut tx_bin, tx_hash) = get_tx1();
+        let (tx_bin, tx_hash) = get_tx1();
         let tx = Tx::decode(&mut Cursor::new(&tx_bin)).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);

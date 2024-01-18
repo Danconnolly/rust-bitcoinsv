@@ -39,10 +39,10 @@ impl Hash {
 impl Encodable for Hash {
     fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Hash> {
         let mut hash_value: [u8; 32] = [0; 32];
-        let _bytes_read = reader.read_exact(&mut hash_value)?;
-        return Ok(Hash {
+        reader.read_exact(&mut hash_value)?;
+        Ok(Hash {
             hash: hash_value,
-        });
+        })
     }
 
     fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
@@ -147,7 +147,7 @@ impl Serialize for Hash {
 impl<'de> Deserialize<'de> for Hash {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
         let s = String::deserialize(deserializer)?;
-        Hash::from_hex(&s).map_err(|e| serde::de::Error::custom(e.to_string()))
+        Hash::from_hex(s).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
 }
 
@@ -208,12 +208,10 @@ mod tests {
     /// Test binary read of hash
     #[test]
     fn hash_read() {
-        let b = vec![
-            0xbe, 0xc7, 0x7b, 0x08, 0x3c, 0xf7, 0xb7, 0x5c,
+        let b = [0xbe, 0xc7, 0x7b, 0x08, 0x3c, 0xf7, 0xb7, 0x5c,
             0x97, 0xcc, 0xfa, 0x0c, 0x4b, 0x0c, 0x0c, 0x40,
             0xa6, 0xe5, 0xae, 0x6b, 0x05, 0xab, 0x12, 0xc9,
-            0x38, 0x81, 0xaf, 0x7f, 0x8a, 0x04, 0x53, 0xf2
-        ];
+            0x38, 0x81, 0xaf, 0x7f, 0x8a, 0x04, 0x53, 0xf2];
         let h = Hash::decode(&mut &b[..]).unwrap();
         assert_eq!(h.encode_hex::<String>(), "f253048a7faf8138c912ab056baee5a6400c0c4b0cfacc975cb7f73c087bc7be");
     }

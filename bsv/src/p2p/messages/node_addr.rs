@@ -51,7 +51,7 @@ impl Encodable for NodeAddr {
         let timestamp = reader.read_u32::<LittleEndian>()?;
         let services = reader.read_u64::<LittleEndian>()?;
         let mut ip_bin = [0u8; 16];
-        let _bytes_read = reader.read_exact(&mut ip_bin)?;    // big endian order
+        reader.read_exact(&mut ip_bin)?;    // big endian order
         let ip;
         if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
             // ipv4 mapped ipv6 address

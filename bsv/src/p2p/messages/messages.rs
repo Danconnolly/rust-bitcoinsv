@@ -230,7 +230,7 @@ impl P2PMessage {
             P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, magic, v).await,
             P2PMessage::Unknown(s, _size) => {
                 let msg = format!("Unknown command: {:?}", s);
-                return Err(Error::BadData(msg));
+                Err(Error::BadData(msg))
             }
         }
     }
@@ -257,7 +257,7 @@ impl P2PMessage {
             // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
             P2PMessage::Verack => 0,
             P2PMessage::Version(v) => v.size(),
-            P2PMessage::Unknown(s, size) => *size,
+            P2PMessage::Unknown(_s, size) => *size,
         }
     }
 
@@ -326,7 +326,7 @@ impl fmt::Debug for P2PMessage {
             // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Verack => f.write_str("Verack"),
             P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
-            P2PMessage::Unknown(p, size) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Unknown(p, _size) => f.write_str(&format!("{:#?}", p)),
         }
     }
 }

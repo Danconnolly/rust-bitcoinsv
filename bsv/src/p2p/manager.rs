@@ -270,11 +270,11 @@ impl P2PManagerActor {
     }
 
     async fn connect(&mut self, p: PeerAddress) {
-        if ! self.ip_index.contains_key(&p.ip()) {
+        if let std::collections::hash_map::Entry::Vacant(e) = self.ip_index.entry(p.ip()) {
             let (c, j) = Connection::new(p.clone(), self.connection_config.clone(),
                         self.msg_channel.clone());
             self.connections.insert(self.next_c_id, (c, j));
-            self.ip_index.insert(p.ip(), self.next_c_id);
+            e.insert(self.next_c_id);
             self.next_c_id += 1
         }
     }
