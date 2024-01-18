@@ -66,14 +66,13 @@ impl Version {
     fn read_version_addr<R: ReadBytesExt + Send>(reader: &mut R) -> Result<NodeAddr> where NodeAddr: Sized {
         let services = reader.read_u64::<LittleEndian>()?;
         let mut ip_bin = [0u8; 16];
-        let _bytes_read = reader.read_exact(&mut ip_bin)?;    // big endian order
-        let ip;
-        if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
+        reader.read_exact(&mut ip_bin)?;    // big endian order
+        let ip= if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
             // ipv4 mapped ipv6 address
-            ip = IpAddr::V4(Ipv4Addr::from([ip_bin[12], ip_bin[13], ip_bin[14], ip_bin[15]]));
+            IpAddr::V4(Ipv4Addr::from([ip_bin[12], ip_bin[13], ip_bin[14], ip_bin[15]]))
         } else {
-            ip = IpAddr::V6(Ipv6Addr::from(ip_bin));
-        }
+            IpAddr::V6(Ipv6Addr::from(ip_bin))
+        };
         let port = reader.read_u16::<BigEndian>()?;        // big endian order
         Ok(NodeAddr { timestamp: epoch_secs_u32(), services, ip, port, })
     }

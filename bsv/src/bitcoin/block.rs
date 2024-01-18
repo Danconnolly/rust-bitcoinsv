@@ -1,12 +1,8 @@
-use std::pin::Pin;
-use std::task::{Context, Poll};
 use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use tokio_stream::Stream;
 pub use tokio_stream::StreamExt;
-use crate::bitcoin::{BlockHeader, Encodable, Tx};
-use crate::bitcoin::var_int::VarInt;
+use crate::bitcoin::{BlockHeader, Tx};
 
 
 /// Deserialize the bytes in a block and produce a stream of the transactions.

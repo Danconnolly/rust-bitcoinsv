@@ -64,7 +64,8 @@ impl Connection {
 }
 
 pub enum ConnectionControlMessage {
-    Close,
+    Close,          // close the connection
+    Pause,          // pause the connection, i.e. dont re-connect if it fails
 }
 
 /// The actor for a connection.
@@ -87,6 +88,8 @@ struct ConnectionActor {
     primary_join: Option<JoinHandle<()>>,
     // the peer
     peer_address: PeerAddress,
+    // whether the connection is paused
+    paused: bool,
 }
 
 impl ConnectionActor {
@@ -100,7 +103,9 @@ impl ConnectionActor {
             attempts: 0,
             primary_channel: channel,
             primary_join: Some(join_handle),
-            peer_address };
+            peer_address,
+            paused: false,
+        };
         actor.run().await;
     }
     
@@ -115,6 +120,9 @@ impl ConnectionActor {
                             let h = self.primary_join.take().unwrap();
                             let _ = h.await.unwrap();
                             break;
+                        },
+                        ConnectionControlMessage::Pause => {
+                            self.paused = true;
                         }
                     }
                 }

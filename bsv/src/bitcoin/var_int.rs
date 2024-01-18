@@ -34,7 +34,7 @@ impl VarInt {
             }
             _ => {
                 let mut o = vec![0xff];
-                o.extend_from_slice(&(v as u64).to_le_bytes());
+                o.extend_from_slice(&(v).to_le_bytes());
                 o
             }
         }

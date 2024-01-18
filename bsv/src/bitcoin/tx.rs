@@ -68,12 +68,12 @@ impl Encodable for Tx {
             outputs.push(output);
         }
         let lock_time = reader.read_u32::<LittleEndian>()?;
-        return Ok(Tx {
+        Ok(Tx {
             version,
             inputs,
             outputs,
             lock_time
-        });
+        })
     }
 
     fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
@@ -126,9 +126,9 @@ impl Encodable for Outpoint {
     fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Outpoint> {
         let mut outpoint: [u8; 36] = [0; 36];
         reader.read_exact(&mut outpoint)?;
-        return Ok(Outpoint {
+        Ok(Outpoint {
             raw: outpoint,
-        });
+        })
     }
 
     fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
@@ -155,11 +155,11 @@ impl Encodable for TxInput {
         let mut script = vec![0u8; script_size.value as usize];
         reader.read_exact(&mut script)?;
         let sequence = reader.read_u32::<LittleEndian>()?;
-        return Ok(TxInput {
+        Ok(TxInput {
             outpoint,
             raw_script: script,
             sequence,
-        });
+        })
     }
 
     fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
@@ -187,10 +187,10 @@ impl Encodable for TxOutput {
         let script_size = VarInt::decode(reader)?;
         let mut script = vec![0u8; script_size.value as usize];
         reader.read_exact(&mut script)?;
-        return Ok(TxOutput {
+        Ok(TxOutput {
             value,
             raw_script: script,
-        });
+        })
     }
 
     fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
