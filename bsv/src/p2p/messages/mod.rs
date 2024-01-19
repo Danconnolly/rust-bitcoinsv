@@ -5,9 +5,11 @@ mod version;
 mod messages;
 mod msg_header;
 mod protoconf;
+mod ping;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;
+pub use ping::Ping;
 pub use protoconf::Protoconf;
 pub use version::Version;
 
