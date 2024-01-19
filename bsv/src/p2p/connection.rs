@@ -7,7 +7,7 @@ use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::channel::PeerChannel;
-use crate::p2p::messages::P2PMessageChannelSender;
+use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::params::NetworkParams;
 
 
@@ -40,22 +40,54 @@ impl Default for GlobalConnectionConfig {
 
 /// A Connection represents a logical connection to a peer and it manages sending and receiving P2P messages.
 ///
+/// The Connection can be used to establish a connectivity with a peer. Bitcoin data messages will be emitted to the
+/// data channel, where they can be acted upon by other sub-systems.
+///
+/// In this library we distinguish between "data" messages and "control" P2P messages. The data messages are those
+/// messages which pertain to the blockchain itself, such as transaction advertisements, transactions,
+/// block announcements, etc. The control messages are those messages that pertain to the establishment of the
+/// connection (protoconf, setheaders, etc) and the management of the network (addr messages). The data messages
+/// are sent to the data channel. By default, the control messages are not sent to this channel but this can be
+/// configured. To subscribe to the data channel, use the subscribe() method. This uses the tokio::sync::broadcast
+/// channel.
+///
+/// The Connection can be "paused" and "resumed". In the paused state, the Connection will maintain the existing
+/// connection but it will not re-establish the connection if it is broken.
+///
+/// The P2PManager is the recommended structure for managing multiple connections.
+///
 /// A logical connection to a peer can consist of multiple channels which enables the separation
 /// of messages based on priority and prevents the logical connection from being swamped with
-/// large data messages. 
+/// large data messages. (todo: not implemented)
 /// 
 /// The Connection is actually a handle to an actor implemented in ConnectionActor.
 pub struct Connection {
+    // used to send connection control messages to the actor
     sender: Sender<ConnectionControlMessage>,
-    peer: PeerAddress,
+    /// The address to which the Connection is attempting to connect.
+    pub peer: PeerAddress,
+    data_channel: P2PMessageChannelSender,
 }
 
 impl Connection {
-    pub fn new(peer: PeerAddress, config: Arc<GlobalConnectionConfig>, data_channel: P2PMessageChannelSender) -> (Connection, JoinHandle<()>) {
+    pub fn new(peer: PeerAddress, config: Arc<GlobalConnectionConfig>, data_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         let p_c = peer.clone();
-        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, data_channel).await });
-        (Connection { sender: tx, peer }, j)
+        let d_channel = if data_channel.is_none() {
+            let (tx, _rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
+            tx
+        } else {
+            data_channel.unwrap()
+        };
+        let d_chan2 = d_channel.clone();
+        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, d_chan2).await });
+        (Connection {
+            sender: tx, peer, data_channel: d_channel, }, j)
+    }
+
+    /// Subscribe to the data channel.
+    pub fn subscribe(&self) -> P2PMessageChannelReceiver {
+        self.data_channel.subscribe()
     }
 
     pub async fn close(&self) {
@@ -93,13 +125,14 @@ struct ConnectionActor {
 }
 
 impl ConnectionActor {
-    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>, data_channel: P2PMessageChannelSender) {
+    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
+                 data_channel: P2PMessageChannelSender) {
         let network_params =  NetworkParams::from(config.blockchain);
         let (channel, join_handle) = PeerChannel::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
         let mut actor = ConnectionActor {
             inbox, config,
             network_params,
-            data_channel: data_channel,
+            data_channel,
             attempts: 0,
             primary_channel: channel,
             primary_join: Some(join_handle),

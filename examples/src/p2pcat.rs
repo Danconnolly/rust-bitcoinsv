@@ -11,7 +11,7 @@ async fn main() {
     config.add_peers = false;
     config.initial_peers.insert(0, peer);
     let (m, handle) = P2PManager::new(config);
-    let mut rx = m.subscribe_data();
+    let mut rx = m.subscribe();
     loop {
         match rx.recv().await {
             Ok(msg) => {

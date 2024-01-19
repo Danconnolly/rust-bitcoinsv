@@ -38,6 +38,8 @@ pub struct P2PManagerConfig {
     pub initial_peers: Vec<PeerAddress>,
     /// If true then start in the paused state.
     pub start_paused: bool,
+    /// Send control messages to the data channel.
+    pub control_to_data: bool,
 }
 
 impl P2PManagerConfig {
@@ -52,6 +54,7 @@ impl P2PManagerConfig {
             add_peers: true,
             initial_peers: Vec::new(),
             start_paused: false,
+            control_to_data: false,
         }
     }
 }
@@ -67,24 +70,16 @@ impl Default for P2PManagerConfig {
 ///
 /// The P2PManager is the normal method for establishing connectivity with the Bitcoin network. When started, the
 /// P2PManager will discover peers and connect to several of them. It will also create a listener to accept inbound
-/// connections. Bitcoin data messages will be emitted to the data broadcast channel, where they can be acted upon
+/// connections. Bitcoin data messages will be emitted to the data channel, where they can be acted upon
 /// by other sub-systems. (todo: implement listener)
 ///
 /// In this library we distinguish between "data" messages and "control" P2P messages. The data messages are those
 /// messages which pertain to the blockchain itself, such as transaction advertisements, transactions,
 /// block announcements, etc. The control messages are those messages that pertain to the establishment of the
 /// connection (protoconf, setheaders, etc) and the management of the network (addr messages). The data messages
-/// are sent to the data channel. The control messages are sent to the control channel.
-///
-/// To subscribe to the data channel, use the subscribe_data() method on the P2PManager. To subscribe to the
-/// control channel, use the subscribe_control() method on the P2PManager. These use the tokio::sync::broadcast
-/// channels.
-///
-/// A trace channel can also be configured. If configured, all sent & received P2P messages will be broadcast to
-/// this channel. (todo: implement)
-///
-/// The status of the P2PManager can be queried at any time through the status() method and detailed status events
-/// will also be sent to the status broadcast channel if it is configured.  (todo:implement)
+/// are sent to the data channel. By default, the control messages are not sent to this channel but this can be
+/// configured. To subscribe to the data channel, use the subscribe() method. This uses the tokio::sync::broadcast
+/// channel.
 ///
 /// The P2PManager can be "paused" and "resumed". In the paused state, the P2PManager will maintain existing
 /// connections but it will not create new connections, re-establish broken connections, or accept new incoming
@@ -105,8 +100,6 @@ pub struct P2PManager {
     mgr_sender: Sender<P2PMgrControlMessage>,
     // The data channel
     data_channel: P2PMessageChannelSender,
-    // The control channel
-    control_channel: P2PMessageChannelSender,
 }
 
 impl P2PManager {
@@ -120,23 +113,15 @@ impl P2PManager {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         let (data_tx, _data_rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
         let d_tx2 = data_tx.clone();
-        let (control_tx, _control_rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
-        let c_tx2 = control_tx.clone();
         (P2PManager {
             mgr_sender: tx,
             data_channel: data_tx,
-            control_channel: control_tx,
-        }, tokio::spawn(async move { P2PManagerActor::new(rx, config, d_tx2, c_tx2).await }))
+        }, tokio::spawn(async move { P2PManagerActor::new(rx, config, d_tx2).await }))
     }
 
     /// Subscribe to the data channel.
-    pub fn subscribe_data(&self) -> P2PMessageChannelReceiver {
+    pub fn subscribe(&self) -> P2PMessageChannelReceiver {
         self.data_channel.subscribe()
-    }
-
-    /// Subscribe to the control channel.
-    pub fn subscribe_control(&self) -> P2PMessageChannelReceiver {
-        self.control_channel.subscribe()
     }
 
     /// Stop the P2PManager, shutting down all connections and terminating all processes.
@@ -194,7 +179,6 @@ struct P2PManagerActor {
     config: P2PManagerConfig,
     state: P2PManagerState,
     data_channel: P2PMessageChannelSender,
-    control_channel: P2PMessageChannelSender,
     /// next connection id
     next_c_id: u64,
     /// configuration for connections
@@ -210,7 +194,6 @@ impl P2PManagerActor {
         inbox: Receiver<P2PMgrControlMessage>,
         config: P2PManagerConfig,
         data_channel: P2PMessageChannelSender,
-        control_channel: P2PMessageChannelSender,
     ) {
         let connection_config = Arc::new(GlobalConnectionConfig::default(config.blockchain));
         let mut actor = P2PManagerActor {
@@ -218,7 +201,6 @@ impl P2PManagerActor {
             config,
             state: P2PManagerState::Starting,
             data_channel,
-            control_channel,
             next_c_id: 0,
             connection_config,
             connections: HashMap::new(),
@@ -271,7 +253,7 @@ impl P2PManagerActor {
     async fn connect(&mut self, p: PeerAddress) {
         if let std::collections::hash_map::Entry::Vacant(e) = self.ip_index.entry(p.ip()) {
             let (c, j) = Connection::new(p.clone(), self.connection_config.clone(),
-                        self.data_channel.clone());
+                        Some(self.data_channel.clone()));
             self.connections.insert(self.next_c_id, (c, j));
             e.insert(self.next_c_id);
             self.next_c_id += 1
