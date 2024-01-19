@@ -1,3 +1,4 @@
+use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender};
 
 mod node_addr;
@@ -20,5 +21,5 @@ pub use messages::{P2PMessage, P2PMessageType};
 pub use messages::DEFAULT_MAX_PAYLOAD_SIZE;
 
 /// type aliases for the P2P Message channel
-pub type P2PMessageChannelSender = Sender<P2PMessage>;
-pub type P2PMessageChannelReceiver = Receiver<P2PMessage>;
+pub type P2PMessageChannelSender = Sender<Arc<P2PMessage>>;
+pub type P2PMessageChannelReceiver = Receiver<Arc<P2PMessage>>;

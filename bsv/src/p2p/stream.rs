@@ -60,8 +60,8 @@ struct PeerStreamActor {
     data_channel: P2PMessageChannelSender,               // P2P Data messages are sent on this channel
     writer_rx: Option<Receiver<P2PMessage>>,
     writer_tx: Sender<P2PMessage>,
-    reader_rx: Receiver<P2PMessage>,
-    reader_tx: Sender<P2PMessage>,
+    reader_rx: Receiver<Arc<P2PMessage>>,
+    reader_tx: Sender<Arc<P2PMessage>>,
     version_received: bool,                             // true if we have received a version message
     verack_received: bool,                              // true if we have received a verack message in response to our version
     max_payload_size: u32,                              // the maximum payload size we can send
@@ -116,7 +116,7 @@ impl PeerStreamActor {
         loop {
             tokio::select! {
                 Some(msg) = self.reader_rx.recv() => {
-                    self.handle_received(&msg).await;
+                    self.handle_received(msg.clone()).await;
                 },
                 Some(msg) = self.inbox.recv() => {
                     match msg {
@@ -130,10 +130,10 @@ impl PeerStreamActor {
     }
 
     /// Handle the received P2P Message
-    async fn handle_received(&mut self, msg: &P2PMessage) {
+    async fn handle_received(&mut self, msg: Arc<P2PMessage>) {
         match self.stream_state {
             StreamState::Handshaking => {
-                match msg {
+                match *msg {
                     P2PMessage::Version(_) => {
                         let va = P2PMessage::Verack;
                         self.send_msg(va).await;
@@ -156,12 +156,12 @@ impl PeerStreamActor {
             },
             StreamState::Connected => {
                 trace!("connected state msg received: {:?}", msg);
-                match P2PMessageType::from(msg) {
+                match P2PMessageType::from(msg.clone()) {
                     P2PMessageType::Data => {
-                        let _ = self.data_channel.send(msg.clone());
+                        let _ = self.data_channel.send(msg);
                     }
                     P2PMessageType::ConnectionControl => {
-                        match msg {
+                        match &*msg {
                             P2PMessage::Protoconf(p) => {
                                 self.max_payload_size = p.max_recv_payload_length;
                             },
@@ -215,12 +215,12 @@ impl PeerStreamActor {
     }
 
     // The reader task. It continually reads from the socket and writes to the channel.
-    async fn reader(tx: Sender<P2PMessage>, mut reader: tokio::net::tcp::OwnedReadHalf, magic: [u8; 4], max_payload_size: u32) {
+    async fn reader(tx: Sender<Arc<P2PMessage>>, mut reader: tokio::net::tcp::OwnedReadHalf, magic: [u8; 4], max_payload_size: u32) {
         trace!("reader task started.");
         loop {
             match P2PMessage::read(&mut reader, magic, max_payload_size).await {
                 Ok(msg) => {
-                    match tx.send(msg).await {
+                    match tx.send(Arc::new(msg)).await {
                         Ok(_) => {}
                         Err(e) => {
                             warn!("channel reader: error sending message to tokio channel, error: {}", e);

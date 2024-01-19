@@ -58,7 +58,7 @@ impl Default for ConnectionConfig {
 /// connection (protoconf, setheaders, etc) and the management of the network (addr messages). The data messages
 /// are sent to the data channel. By default, the control messages are not sent to this channel but this can be
 /// configured. To subscribe to the data channel, use the subscribe() method. This uses the tokio::sync::broadcast
-/// channel.
+/// channel. The P2P Messages are encapsulated in an Arc to avoid excessive cloning.
 ///
 /// The Connection can be "paused" and "resumed". In the paused state, the Connection will maintain the existing
 /// connection but it will not re-establish the connection if it is broken.

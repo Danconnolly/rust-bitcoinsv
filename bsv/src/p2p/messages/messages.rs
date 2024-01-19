@@ -1,6 +1,7 @@
 use crate::{Error, Result};
 use std::fmt;
 use std::io::Cursor;
+use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
@@ -358,6 +359,22 @@ pub enum P2PMessageType {
 impl From<&P2PMessage> for P2PMessageType {
     fn from(value: &P2PMessage) -> Self {
         match value {
+            P2PMessage::GetAddr => Data,
+            P2PMessage::Mempool => Data,
+            P2PMessage::Ping(_) => ConnectionControl,
+            P2PMessage::Pong(_) => ConnectionControl,
+            P2PMessage::Protoconf(_) => ConnectionControl,
+            P2PMessage::SendHeaders => ConnectionControl,
+            P2PMessage::Verack => ConnectionControl,
+            P2PMessage::Version(_) => ConnectionControl,
+            P2PMessage::Unknown(_, _) => Data,
+        }
+    }
+}
+
+impl From<Arc<P2PMessage>> for P2PMessageType {
+    fn from(value: Arc<P2PMessage>) -> Self {
+        match *value {
             P2PMessage::GetAddr => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
