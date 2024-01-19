@@ -1,6 +1,6 @@
 mod manager;
 mod connection;
-mod channel;
+mod stream;
 mod peer;
 mod listener;
 mod messages;

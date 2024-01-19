@@ -13,5 +13,5 @@ pub use self::block::FullBlockStream;
 pub use self::header::{BlockHash, MerkleRoot, BlockHeader};
 pub use self::params::BlockchainId;
 pub use self::tx::{TxHash, Tx, TxInput, TxOutput, Outpoint};
-pub use self::var_int::VarInt;
+pub use self::var_int::{varint_decode, varint_encode, varint_size, VarInt};
 pub use hex::{FromHex, ToHex};

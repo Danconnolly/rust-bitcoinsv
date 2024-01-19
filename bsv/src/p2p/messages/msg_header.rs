@@ -1,9 +1,9 @@
 use crate::{Error, Result};
 use std::fmt;
-use std::io::Write;
 use std::str;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::bitcoin::Encodable;
+use crate::p2p::messages::messages::PROTOCONF;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -39,7 +39,13 @@ impl P2PMessageHeader {
             let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
             return Err(Error::BadData(msg));
         }
-        if self.payload_size as u64 > max_size {
+        if self.command == PROTOCONF {
+            // strange exception for protoconf messages
+            if self.payload_size > 1_048_576 {
+                let msg = format!("Bad size for protoconf message: {:?}", self.payload_size);
+                return Err(Error::BadData(msg));
+            }
+        } else if self.payload_size as u64 > max_size {
             let msg = format!("Bad size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));
         }

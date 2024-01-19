@@ -10,6 +10,8 @@ use crate::p2p::params::NetworkParams;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
+// todo: implement support for protoconf, including inv limits
+
 /// A PeerStream is a single TCP connection to a peer.
 ///
 /// The PeerStream only handles sending and receiving messages. The higher level Connection

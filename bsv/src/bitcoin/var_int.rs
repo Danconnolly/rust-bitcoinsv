@@ -1,6 +1,49 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::bitcoin::binary::Encodable;
 
+
+/// Decode a variable length integer from a byte stream.
+pub fn varint_decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<u64> {
+    let n0 = reader.read_u8().unwrap();
+    let v = match n0 {
+        0xff => reader.read_u64::<LittleEndian>().unwrap(),
+        0xfe => reader.read_u32::<LittleEndian>().unwrap() as u64,
+        0xfd => reader.read_u16::<LittleEndian>().unwrap() as u64,
+        _ => n0 as u64 };
+    Ok(v)
+}
+
+/// Encode a variable length integer into a byte stream.
+pub fn varint_encode<W: WriteBytesExt + Send>(writer: &mut W, value: u64) -> crate::Result<()> {
+    match value {
+        0..=252 => writer.write_u8(value as u8)?,
+        253..=0xffff => {
+            writer.write_u8(0xfd).unwrap();
+            writer.write_u16::<LittleEndian>(value as u16)?;
+        }
+        0x10000..=0xffffffff => {
+            writer.write_u8(0xfe).unwrap();
+            writer.write_u32::<LittleEndian>(value as u32)?;
+        }
+        _ => {
+            writer.write_u8(0xff).unwrap();
+            writer.write_u64::<LittleEndian>(value)?;
+        }
+    };
+    Ok(())
+}
+
+/// The size of the value encoded as a varint.
+pub fn varint_size(value: u64) -> usize {
+    match value {
+        0..=252 => 1,
+        253..=0xffff => 3,
+        0x10000..=0xffffffff => 5,
+        _ => 9,
+    }
+}
+
+
 /// The VarInt Bitcoin data type with async serialization.
 // Code based on `<https://github.com/brentongunning/rust-sv>`
 // Improvement: implement a new function sizeof() which calculates the size without instantiating a VarInt object.

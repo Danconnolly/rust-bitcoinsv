@@ -6,7 +6,7 @@ use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
-use crate::p2p::channel::PeerStream;
+use crate::p2p::stream::PeerStream;
 use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::params::NetworkParams;
 

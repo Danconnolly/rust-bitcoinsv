@@ -4,6 +4,7 @@ mod node_addr;
 mod version;
 mod messages;
 mod msg_header;
+mod protoconf;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;

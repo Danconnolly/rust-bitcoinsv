@@ -5,9 +5,11 @@ use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
+pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
+use crate::p2p::messages::protoconf::Protoconf;
 use crate::p2p::messages::Version;
 
 // based on code imported from rust-sv but substantially modified
@@ -58,7 +60,7 @@ pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
 pub const DEFAULT_MAX_PAYLOAD_SIZE: u64 = 0x02000000;
 
 /// Message commands for the header
-mod commands {
+pub mod commands {
     /// [Addr command](https://en.bitcoin.it/wiki/Protocol_documentation#addr)
     pub const ADDR: [u8; 12] = *b"addr\0\0\0\0\0\0\0\0";
 
@@ -110,6 +112,9 @@ mod commands {
     /// [Pong command](https://en.bitcoin.it/wiki/Protocol_documentation#pong)
     pub const PONG: [u8; 12] = *b"pong\0\0\0\0\0\0\0\0";
 
+    /// [Protoconf command](https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/protoconf.md)
+    pub const PROTOCONF: [u8; 12] = *b"protoconf\0\0\0";
+
     /// [Reject command](https://en.bitcoin.it/wiki/Protocol_documentation#reject)
     pub const REJECT: [u8; 12] = *b"reject\0\0\0\0\0\0";
 
@@ -146,6 +151,7 @@ pub enum P2PMessage {
     // Partial(MessageHeader),
     // Ping(Ping),
     // Pong(Ping),
+    Protoconf(Protoconf),
     // Reject(Reject),
     SendHeaders,
     // SendCmpct(SendCmpct),
@@ -181,12 +187,13 @@ impl P2PMessage {
         let mut payload = vec![0u8; header.payload_size as usize];
         if header.payload_size > 0 {
             let _ = reader.read_exact(&mut payload).await?;
-            // todo: calc checksum
+            // we dont bother with the checksum
         }
         let mut p_cursor = Cursor::new(&payload);
         let msg= match header.command {
             GETADDR => P2PMessage::GetAddr,
             MEMPOOL => P2PMessage::Mempool,
+            PROTOCONF => P2PMessage::Protoconf(Protoconf::decode(&mut p_cursor).unwrap()),
             SENDHEADERS => P2PMessage::SendHeaders,
             VERACK => P2PMessage::Verack,
             VERSION => P2PMessage::Version(Version::decode(&mut p_cursor).unwrap()),
@@ -222,6 +229,7 @@ impl P2PMessage {
             // P2PMessage::Inv(p) => write_with_payload(writer, INV, p, magic),
             // P2PMessage::Ping(p) => write_with_payload(writer, PING, p, magic),
             // P2PMessage::Pong(p) => write_with_payload(writer, PONG, p, magic),
+            P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, magic, p).await,
             // P2PMessage::Reject(p) => write_with_payload(writer, REJECT, p, magic),
             P2PMessage::SendHeaders => self.write_without_payload(writer, SENDHEADERS, magic).await,
             // P2PMessage::SendCmpct(p) => write_with_payload(writer, SENDCMPCT, p, magic),
@@ -251,6 +259,7 @@ impl P2PMessage {
             // P2PMessage::Inv(p) => write_with_payload(writer, INV, p, magic),
             // P2PMessage::Ping(p) => write_with_payload(writer, PING, p, magic),
             // P2PMessage::Pong(p) => write_with_payload(writer, PONG, p, magic),
+            P2PMessage::Protoconf(p) => p.size(),
             // P2PMessage::Reject(p) => write_with_payload(writer, REJECT, p, magic),
             P2PMessage::SendHeaders => 0,
             // P2PMessage::SendCmpct(p) => write_with_payload(writer, SENDCMPCT, p, magic),
@@ -320,6 +329,7 @@ impl fmt::Debug for P2PMessage {
             // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
             // Message::Ping(p) => f.write_str(&format!("{:#?}", p)),
             // Message::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
+            P2PMessage::Protoconf(p) => f.write_str(&format!("{:#?}", p)),
             // Message::Reject(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendHeaders => f.write_str("SendHeaders"),
             // Message::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
@@ -346,6 +356,7 @@ impl From<P2PMessage> for P2PMessageType {
         match value {
             P2PMessage::GetAddr => Data,
             P2PMessage::Mempool => Data,
+            P2PMessage::Protoconf(_) => ConnectionControl,
             P2PMessage::SendHeaders => Data,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
