@@ -9,11 +9,14 @@ use crate::bitcoin::{varint_decode, Encodable, varint_size, varint_encode};
 /// fact that the specification specifies this implies that this is true even if the protoconf
 /// message is not explicitly supported, which is kind of strange.
 ///
+/// Note that the protoconf does not require an acknoledgement. Which means it is a statement of intent
+/// and the peer that sent the message must respect it.
+///
 /// Specification: https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/protoconf.md
 // IMPROVEMENT: the strange size exception could be a mis-interpretation of the spec. Check the
 //              SV Node code to see if it has the same exception. Note the exception is also
 //              encoded in the message header validation code.
-// IMPROVEMENT: should we make this more resilient? able to handle only one field?
+// IMPROVEMENT: should we make this more resilient? able to handle only one field? how many fields does a 70015 node send?
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Protoconf {
     /// Max Receive Payload Length.
@@ -28,10 +31,10 @@ pub struct Protoconf {
 
 impl Protoconf {
     /// Creates a new `Protoconf` message.
-    pub fn new(max_recv_payload_length: u32, stream_policies: String) -> Protoconf {
+    pub fn new(max_recv_payload_length: u32) -> Protoconf {
         Protoconf {
             max_recv_payload_length,
-            stream_policies,
+            stream_policies: String::from("Default"),
         }
     }
 }

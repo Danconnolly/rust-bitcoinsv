@@ -6,6 +6,7 @@ use tokio::task::JoinHandle;
 use crate::p2p::{ACTOR_CHANNEL_SIZE, PeerAddress};
 use crate::p2p::connection::ConnectionConfig;
 use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Version, P2PMessageType};
+use crate::p2p::messages::Protoconf;
 use crate::p2p::params::NetworkParams;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
@@ -95,7 +96,8 @@ impl PeerStreamActor {
             // start the reader task
             let magic = self.network_params.magic;
             let r_tx = self.reader_tx.clone();
-            tokio::spawn(async move { PeerStreamActor::reader(r_tx, reader, magic).await })
+            let max_payload_size = self.config.max_recv_payload_size;
+            tokio::spawn(async move { PeerStreamActor::reader(r_tx, reader, magic, max_payload_size).await })
         };
         let _w_handle = {
             // start the writer task
@@ -157,6 +159,14 @@ impl PeerStreamActor {
                         let _ = self.data_channel.send(msg.clone());
                     }
                     P2PMessageType::ConnectionControl => {
+                        match msg {
+                            P2PMessage::Protoconf(p) => {
+                                self.max_payload_size = p.max_recv_payload_length;
+                            },
+                            _ => {
+                                warn!("received unexpected connection control message in connected state, message: {:?}", msg);
+                            },
+                        }
                         if self.config.send_control_messages {
                             let _ = self.data_channel.send(msg.clone());
                         }
@@ -169,12 +179,12 @@ impl PeerStreamActor {
         }
     }
 
-    /// Send a message to the peer
+    // Send a message to the peer
     async fn send_msg(&mut self, msg: P2PMessage) {
         let _ = self.writer_tx.send(msg).await;
     }
 
-    ///  The writer task. It continually reads from the channel and writes to the socket.
+    //  The writer task. It continually reads from the channel and writes to the socket.
     async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf, magic: [u8; 4]) {
         trace!("writer task started.");
         loop {
@@ -194,11 +204,11 @@ impl PeerStreamActor {
         }
     }
 
-    /// The reader task. It continually reads from the socket and writes to the channel.
-    async fn reader(tx: Sender<P2PMessage>, mut reader: tokio::net::tcp::OwnedReadHalf, magic: [u8; 4]) {
+    // The reader task. It continually reads from the socket and writes to the channel.
+    async fn reader(tx: Sender<P2PMessage>, mut reader: tokio::net::tcp::OwnedReadHalf, magic: [u8; 4], max_payload_size: u32) {
         trace!("reader task started.");
         loop {
-            match P2PMessage::read(&mut reader, magic, DEFAULT_MAX_PAYLOAD_SIZE).await {
+            match P2PMessage::read(&mut reader, magic, max_payload_size).await {
                 Ok(msg) => {
                     match tx.send(msg).await {
                         Ok(_) => {}
@@ -215,20 +225,21 @@ impl PeerStreamActor {
         }
     }
 
-    /// Send initial configuration messages after the handshake
+    // Send initial configuration messages after the handshake
     async fn send_config(&mut self) {
-        // todo:
+        // maybe send the protoconf message
+        if self.config.max_recv_payload_size > DEFAULT_MAX_PAYLOAD_SIZE {
+            let protoconf = Protoconf::new(self.config.max_recv_payload_size);
+            let protoconf_msg = P2PMessage::Protoconf(protoconf);
+            self.send_msg(protoconf_msg).await;
+        }
+        self.send_msg(P2PMessage::SendHeaders).await;
     }
 
 }
 
 #[cfg(test)]
 mod tests {
-    
-    
-    
-    
-
     // todo: get some tests where it is talking to itself once a listener has been implemented
     
     // #[tokio::test]

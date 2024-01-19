@@ -22,6 +22,10 @@ pub struct ConnectionConfig {
     pub retry_delay: u16,
     /// Should control mmessages be sent to the data channel?
     pub send_control_messages: bool,
+    /// The maximum payload size we will receive
+    ///
+    /// Note that this limit does not apply to block messages.
+    pub max_recv_payload_size: u32,
 }
 
 impl ConnectionConfig {
@@ -32,6 +36,7 @@ impl ConnectionConfig {
             retries: 5,
             retry_delay: 10,
             send_control_messages: false,
+            max_recv_payload_size: 2_097_152,       // 2MB
         }
     }
 }

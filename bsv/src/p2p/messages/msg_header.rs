@@ -3,6 +3,7 @@ use std::fmt;
 use std::str;
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use crate::bitcoin::Encodable;
+use crate::p2p::messages::messages::commands::BLOCK;
 use crate::p2p::messages::messages::PROTOCONF;
 
 // based on code imported from rust-sv but substantially modified
@@ -45,6 +46,8 @@ impl P2PMessageHeader {
                 let msg = format!("Bad size for protoconf message: {:?}", self.payload_size);
                 return Err(Error::BadData(msg));
             }
+        } else if self.command == BLOCK {       // payload size limit does not apply to block messages - todo: this should be maxecessiveblocksize
+            return Ok(());
         } else if self.payload_size > max_size {
             let msg = format!("Bad size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));

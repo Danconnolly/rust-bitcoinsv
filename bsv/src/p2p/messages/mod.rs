@@ -8,6 +8,7 @@ mod protoconf;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;
+pub use protoconf::Protoconf;
 pub use version::Version;
 
 // P2P message

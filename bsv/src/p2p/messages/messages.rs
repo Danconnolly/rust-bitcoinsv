@@ -163,7 +163,7 @@ pub enum P2PMessage {
 
 impl P2PMessage {
     /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u32) -> Result<Self> {
+    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_payload_size: u32) -> Result<Self> {
         let mut v = vec![0u8; P2PMessageHeader::SIZE];
         match reader.read_exact(&mut v).await {
             Ok(_) => {},
@@ -175,7 +175,7 @@ impl P2PMessage {
         }
         let header = P2PMessageHeader::decode(&mut Cursor::new(&v))?;
         trace!("P2PMessage::read() - header: {:?}", header);
-        match header.validate(magic, max_size) {
+        match header.validate(magic, max_payload_size) {
             Ok(_) => {},
             Err(e) => {
                 trace!("P2PMessage::read() - Error validating message header: {}, header: {:?}", e, header);
