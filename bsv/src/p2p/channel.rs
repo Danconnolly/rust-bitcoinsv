@@ -10,47 +10,47 @@ use crate::p2p::params::NetworkParams;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
-/// A PeerChannel is a single TCP connection to a peer.
+/// A PeerStream is a single TCP connection to a peer.
 ///
-/// The PeerChannel only handles sending and receiving messages. The higher level Connection
+/// The PeerStream only handles sending and receiving messages. The higher level Connection
 /// handles either dealing with the messages or handing the message off.
 ///
-/// A peer channel is complete in the sense that it can send and receive any type of message. The
-/// higher-level Connection is responsible for prioritizing messages between different peer channels.
-pub struct PeerChannel {
-    sender: Sender<ChannelControlMessage>,
+/// A peer stream is complete in the sense that it can send and receive any type of message. The
+/// higher-level Connection is responsible for prioritizing messages between different peer streams.
+pub struct PeerStream {
+    sender: Sender<StreamControlMessage>,
 }
 
-impl PeerChannel {
+impl PeerStream {
     pub fn new(address: PeerAddress, config: Arc<GlobalConnectionConfig>, network_params: NetworkParams, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        let j = tokio::spawn(async move { PeerChannelActor::new(rx, address, config, network_params, data_channel).await });
-        (PeerChannel { sender: tx }, j)
+        let j = tokio::spawn(async move { PeerStreamActor::new(rx, address, config, network_params, data_channel).await });
+        (PeerStream { sender: tx }, j)
     }
 
     pub async fn close(&self) {
-        self.sender.send(ChannelControlMessage::Close).await.unwrap();
+        self.sender.send(StreamControlMessage::Close).await.unwrap();
     }
 }
 
-pub enum ChannelControlMessage {
+pub enum StreamControlMessage {
     Close,
 }
 
-/// The state of the channel.
+/// The state of the stream.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub enum ChannelState {
-    Starting,           // the channel is starting up
+pub enum StreamState {
+    Starting,           // the stream is starting up
     Connecting,         // establishing TCP connection
     Handshaking,        // performing Bitcoin handshake
     Connected,          // connection fully established
     WaitForRetry,       // waiting for a retry
 }
 
-/// The channel actor.
-struct PeerChannelActor {
-    inbox: Receiver<ChannelControlMessage>,             // control of the Channel
-    channel_state: ChannelState,                        // current state of the channel
+/// The stream actor.
+struct PeerStreamActor {
+    inbox: Receiver<StreamControlMessage>,             // control of the stream
+    stream_state: StreamState,                        // current state of the stream
     peer: PeerAddress,
     config: Arc<GlobalConnectionConfig>,
     network_params: NetworkParams,
@@ -64,15 +64,15 @@ struct PeerChannelActor {
 
 }
 
-impl PeerChannelActor {
-    async fn new(receiver: Receiver<ChannelControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
+impl PeerStreamActor {
+    async fn new(receiver: Receiver<StreamControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
                  network_params: NetworkParams, data_channel: P2PMessageChannelSender) {
         // prepare the channels, we will need these later
         let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
-        let mut p = PeerChannelActor {
+        let mut p = PeerStreamActor {
             inbox: receiver, peer: peer_address,
-            channel_state: ChannelState::Starting,
+            stream_state: StreamState::Starting,
             config, network_params,
             data_channel, writer_rx: Some(writer_rx), writer_tx, reader_rx, reader_tx,
             version_received: false,
@@ -82,8 +82,8 @@ impl PeerChannelActor {
     }
 
     async fn main(&mut self) {
-        trace!("PeerChannelActor started.");
-        self.channel_state = ChannelState::Connecting;
+        trace!("PeerStreamActor started.");
+        self.stream_state = StreamState::Connecting;
         // todo: failure & retry logic
         let stream = TcpStream::connect(self.peer.address).await.unwrap();
         trace!("PeerChannelActor connected to {:?}", self.peer);
@@ -92,15 +92,15 @@ impl PeerChannelActor {
             // start the reader task
             let magic = self.network_params.magic;
             let r_tx = self.reader_tx.clone();
-            tokio::spawn(async move { PeerChannelActor::reader(r_tx, reader, magic).await })
+            tokio::spawn(async move { PeerStreamActor::reader(r_tx, reader, magic).await })
         };
         let _w_handle = {
             // start the writer task
             let magic = self.network_params.magic;
             let w_rx = self.writer_rx.take().unwrap();
-            tokio::spawn(async move { PeerChannelActor::writer(w_rx, writer, magic).await })
+            tokio::spawn(async move { PeerStreamActor::writer(w_rx, writer, magic).await })
         };
-        self.channel_state = ChannelState::Handshaking;
+        self.stream_state = StreamState::Handshaking;
         // we send our version straightaway
         let v = Version::default();
         let v_msg = P2PMessage::Version(v);
@@ -113,7 +113,7 @@ impl PeerChannelActor {
                 },
                 Some(msg) = self.inbox.recv() => {
                     match msg {
-                        ChannelControlMessage::Close => {
+                        StreamControlMessage::Close => {
                             break;
                         },
                     }
@@ -124,8 +124,8 @@ impl PeerChannelActor {
 
     /// Handle the received P2P Message
     async fn handle_received(&mut self, msg: &P2PMessage) {
-        match self.channel_state {
-            ChannelState::Handshaking => {
+        match self.stream_state {
+            StreamState::Handshaking => {
                 match msg {
                     P2PMessage::Version(_) => {
                         let va = P2PMessage::Verack;
@@ -143,16 +143,16 @@ impl PeerChannelActor {
                 };
                 if self.version_received && self.verack_received {
                     info!("connected to peer: {}", self.peer.id);
-                    self.channel_state = ChannelState::Connected;
+                    self.stream_state = StreamState::Connected;
                     self.send_config().await;
                 }
             },
-            ChannelState::Connected => {
+            StreamState::Connected => {
                 trace!("connected state msg received: {:?}", msg);
                 let _ = self.data_channel.send(msg.clone());
             },
             _ => {
-                warn!("received message in anomalous state, state: {:?}, peer: {}", self.channel_state, self.peer.id);
+                warn!("received message in anomalous state, state: {:?}, peer: {}", self.stream_state, self.peer.id);
             },
         }
     }

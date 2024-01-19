@@ -6,7 +6,7 @@ use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
-use crate::p2p::channel::PeerChannel;
+use crate::p2p::channel::PeerStream;
 use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::params::NetworkParams;
 
@@ -115,7 +115,7 @@ struct ConnectionActor {
     // number of attempts to connect
     attempts: u8,
     // the primary communication channel
-    primary_channel: PeerChannel,
+    primary_channel: PeerStream,
     // the join handle for the primary channel
     primary_join: Option<JoinHandle<()>>,
     // the peer
@@ -128,7 +128,7 @@ impl ConnectionActor {
     async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
                  data_channel: P2PMessageChannelSender) {
         let network_params =  NetworkParams::from(config.blockchain);
-        let (channel, join_handle) = PeerChannel::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
+        let (channel, join_handle) = PeerStream::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
         let mut actor = ConnectionActor {
             inbox, config,
             network_params,

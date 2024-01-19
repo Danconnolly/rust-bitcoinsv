@@ -22,6 +22,7 @@ pub const NODE_NONE: u64 = 0;
 pub const NODE_NETWORK: u64 = 1;
 
 /// Version payload defining a node's capabilities
+/// todo: add support for message streams: https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/multistreams.md
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Version {
     /// The protocol version being used by the node.
