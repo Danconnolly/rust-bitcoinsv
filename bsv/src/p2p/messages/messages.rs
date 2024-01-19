@@ -208,7 +208,9 @@ impl P2PMessage {
             },
         };
         if msg.size() < header.payload_size as usize {
-            warn!("received larger payload than msg: command={:?}, payload size={}, msg size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, msg.size());
+            if header.command != VERSION {      // todo: 70016 version message is larger. remove this when we support 70016
+                warn!("received larger payload than msg: command={:?}, payload size={}, msg size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, msg.size());
+            }
         }
         Ok(msg)
     }
