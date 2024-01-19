@@ -57,7 +57,7 @@ use crate::p2p::messages::Version;
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
 
 /// Default max message payload size (32MB).
-pub const DEFAULT_MAX_PAYLOAD_SIZE: u64 = 0x02000000;
+pub const DEFAULT_MAX_PAYLOAD_SIZE: u32 = 0x02000000;
 
 /// Message commands for the header
 pub mod commands {
@@ -163,7 +163,7 @@ pub enum P2PMessage {
 
 impl P2PMessage {
     /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u64) -> Result<Self> {
+    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_size: u32) -> Result<Self> {
         let mut v = vec![0u8; P2PMessageHeader::SIZE];
         match reader.read_exact(&mut v).await {
             Ok(_) => {},
@@ -353,13 +353,13 @@ pub enum P2PMessageType {
     ConnectionControl,
 }
 
-impl From<P2PMessage> for P2PMessageType {
-    fn from(value: P2PMessage) -> Self {
+impl From<&P2PMessage> for P2PMessageType {
+    fn from(value: &P2PMessage) -> Self {
         match value {
             P2PMessage::GetAddr => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Protoconf(_) => ConnectionControl,
-            P2PMessage::SendHeaders => Data,
+            P2PMessage::SendHeaders => ConnectionControl,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
             P2PMessage::Unknown(_, _) => Data,

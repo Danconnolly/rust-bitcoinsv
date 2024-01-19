@@ -30,7 +30,7 @@ impl P2PMessageHeader {
     ///
     /// `magic` - Expected magic bytes for the network
     /// `max_size` - Max size in bytes for the payload
-    pub fn validate(&self, magic: [u8; 4], max_size: u64) -> Result<()> {
+    pub fn validate(&self, magic: [u8; 4], max_size: u32) -> Result<()> {
         if self.payload_size == 0xffffffff {
             let msg = format!("Extended Message Header, not implemented, size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));
@@ -45,7 +45,7 @@ impl P2PMessageHeader {
                 let msg = format!("Bad size for protoconf message: {:?}", self.payload_size);
                 return Err(Error::BadData(msg));
             }
-        } else if self.payload_size as u64 > max_size {
+        } else if self.payload_size > max_size {
             let msg = format!("Bad size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));
         }

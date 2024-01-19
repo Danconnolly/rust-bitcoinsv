@@ -7,12 +7,13 @@ use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 use crate::{Error, Result};
 use crate::p2p::ACTOR_CHANNEL_SIZE;
-use crate::p2p::connection::{Connection, GlobalConnectionConfig};
+use crate::p2p::connection::{Connection, ConnectionConfig};
 use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::peer::PeerAddress;
 
 
 /// Configuration for the P2PManager.
+#[derive(Debug, Clone)]
 pub struct P2PManagerConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
     pub blockchain: BlockchainId,
@@ -39,7 +40,7 @@ pub struct P2PManagerConfig {
     /// If true then start in the paused state.
     pub start_paused: bool,
     /// Send control messages to the data channel.
-    pub control_to_data: bool,
+    pub send_control_msgs: bool,
 }
 
 impl P2PManagerConfig {
@@ -54,7 +55,7 @@ impl P2PManagerConfig {
             add_peers: true,
             initial_peers: Vec::new(),
             start_paused: false,
-            control_to_data: false,
+            send_control_msgs: false,
         }
     }
 }
@@ -63,6 +64,16 @@ impl Default for P2PManagerConfig {
     // Default configuration, connects to mainnet, targets 8 peers.
     fn default() -> Self {
         P2PManagerConfig::default(BlockchainId::Mainnet)
+    }
+}
+
+impl From<&P2PManagerConfig> for ConnectionConfig {
+    fn from(value: &P2PManagerConfig) -> Self {
+        ConnectionConfig {
+            blockchain: value.blockchain,
+            send_control_messages: value.send_control_msgs,
+            ..Default::default()
+        }
     }
 }
 
@@ -182,7 +193,7 @@ struct P2PManagerActor {
     /// next connection id
     next_c_id: u64,
     /// configuration for connections
-    connection_config: Arc<GlobalConnectionConfig>,
+    connection_config: Arc<ConnectionConfig>,
     // current connections
     connections: HashMap<u64, (Connection, JoinHandle<()>)>,
     /// index of IP -> connection id
@@ -195,7 +206,7 @@ impl P2PManagerActor {
         config: P2PManagerConfig,
         data_channel: P2PMessageChannelSender,
     ) {
-        let connection_config = Arc::new(GlobalConnectionConfig::default(config.blockchain));
+        let connection_config = Arc::new(ConnectionConfig::from(&config));
         let mut actor = P2PManagerActor {
             inbox,
             config,

@@ -12,29 +12,33 @@ use crate::p2p::params::NetworkParams;
 
 
 /// Configuration shared by all P2P Connections.
-pub struct GlobalConnectionConfig {
+#[derive(Debug, Clone)]
+pub struct ConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
     pub blockchain: BlockchainId,
     /// The number of retries to attempt when connecting to a peer, or re-connecting.
     pub retries: u8,
     /// The delay between retries, in seconds.
     pub retry_delay: u16,
+    /// Should control mmessages be sent to the data channel?
+    pub send_control_messages: bool,
 }
 
-impl GlobalConnectionConfig {
+impl ConnectionConfig {
     /// Get default configuration for a particular blockchain.
     pub fn default(chain: BlockchainId) -> Self {
-        GlobalConnectionConfig {
+        ConnectionConfig {
             blockchain: chain,
             retries: 5,
             retry_delay: 10,
+            send_control_messages: false,
         }
     }
 }
 
-impl Default for GlobalConnectionConfig {
+impl Default for ConnectionConfig {
     fn default() -> Self {
-        GlobalConnectionConfig::default(Mainnet)
+        ConnectionConfig::default(Mainnet)
     }
 }
 
@@ -70,7 +74,7 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(peer: PeerAddress, config: Arc<GlobalConnectionConfig>, data_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
+    pub fn new(peer: PeerAddress, config: Arc<ConnectionConfig>, data_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         let p_c = peer.clone();
         let d_channel = if data_channel.is_none() {
@@ -100,22 +104,22 @@ pub enum ConnectionControlMessage {
     Pause,          // pause the connection, i.e. dont re-connect if it fails
 }
 
-/// The actor for a connection.
-///
-/// At the moment we only support one channel per connection, but in the future we will support multiple channels.
+// The actor for a connection.
+//
+// At the moment we only support one stream per connection, but in the future we will support multiple streams.
 struct ConnectionActor {
     // the actor inbox
     inbox: Receiver<ConnectionControlMessage>,
     // the configuration for the connection, we'll need this when we support multiple channels
-    config: Arc<GlobalConnectionConfig>,
+    config: Arc<ConnectionConfig>,
     // the network parameters
     network_params: NetworkParams,
     // the channel on which to send substantive P2P messages
     data_channel: P2PMessageChannelSender,
     // number of attempts to connect
     attempts: u8,
-    // the primary communication channel
-    primary_channel: PeerStream,
+    // the primary communication stream
+    primary_stream: PeerStream,
     // the join handle for the primary channel
     primary_join: Option<JoinHandle<()>>,
     // the peer
@@ -125,16 +129,16 @@ struct ConnectionActor {
 }
 
 impl ConnectionActor {
-    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
+    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<ConnectionConfig>,
                  data_channel: P2PMessageChannelSender) {
         let network_params =  NetworkParams::from(config.blockchain);
-        let (channel, join_handle) = PeerStream::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
+        let (stream, join_handle) = PeerStream::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
         let mut actor = ConnectionActor {
             inbox, config,
             network_params,
             data_channel,
             attempts: 0,
-            primary_channel: channel,
+            primary_stream: stream,
             primary_join: Some(join_handle),
             peer_address,
             paused: false,
@@ -149,7 +153,7 @@ impl ConnectionActor {
                 Some(msg) = self.inbox.recv() => {
                     match msg {
                         ConnectionControlMessage::Close => {
-                            self.primary_channel.close().await;
+                            self.primary_stream.close().await;
                             let h = self.primary_join.take().unwrap();
                             h.await.unwrap();
                             break;

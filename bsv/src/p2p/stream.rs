@@ -4,8 +4,8 @@ use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use crate::p2p::{ACTOR_CHANNEL_SIZE, PeerAddress};
-use crate::p2p::connection::GlobalConnectionConfig;
-use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Version};
+use crate::p2p::connection::ConnectionConfig;
+use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Version, P2PMessageType};
 use crate::p2p::params::NetworkParams;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
@@ -24,7 +24,7 @@ pub struct PeerStream {
 }
 
 impl PeerStream {
-    pub fn new(address: PeerAddress, config: Arc<GlobalConnectionConfig>, network_params: NetworkParams, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
+    pub fn new(address: PeerAddress, config: Arc<ConnectionConfig>, network_params: NetworkParams, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         let j = tokio::spawn(async move { PeerStreamActor::new(rx, address, config, network_params, data_channel).await });
         (PeerStream { sender: tx }, j)
@@ -54,7 +54,7 @@ struct PeerStreamActor {
     inbox: Receiver<StreamControlMessage>,             // control of the stream
     stream_state: StreamState,                        // current state of the stream
     peer: PeerAddress,
-    config: Arc<GlobalConnectionConfig>,
+    config: Arc<ConnectionConfig>,
     network_params: NetworkParams,
     data_channel: P2PMessageChannelSender,               // P2P Data messages are sent on this channel
     writer_rx: Option<Receiver<P2PMessage>>,
@@ -63,11 +63,11 @@ struct PeerStreamActor {
     reader_tx: Sender<P2PMessage>,
     version_received: bool,                             // true if we have received a version message
     verack_received: bool,                              // true if we have received a verack message in response to our version
-
+    max_payload_size: u32,                              // the maximum payload size we can send
 }
 
 impl PeerStreamActor {
-    async fn new(receiver: Receiver<StreamControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
+    async fn new(receiver: Receiver<StreamControlMessage>, peer_address: PeerAddress, config: Arc<ConnectionConfig>,
                  network_params: NetworkParams, data_channel: P2PMessageChannelSender) {
         // prepare the channels, we will need these later
         let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
@@ -79,6 +79,7 @@ impl PeerStreamActor {
             data_channel, writer_rx: Some(writer_rx), writer_tx, reader_rx, reader_tx,
             version_received: false,
             verack_received: false,
+            max_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
         };
         p.main().await;
     }
@@ -151,7 +152,16 @@ impl PeerStreamActor {
             },
             StreamState::Connected => {
                 trace!("connected state msg received: {:?}", msg);
-                let _ = self.data_channel.send(msg.clone());
+                match P2PMessageType::from(msg) {
+                    P2PMessageType::Data => {
+                        let _ = self.data_channel.send(msg.clone());
+                    }
+                    P2PMessageType::ConnectionControl => {
+                        if self.config.send_control_messages {
+                            let _ = self.data_channel.send(msg.clone());
+                        }
+                    }
+                }
             },
             _ => {
                 warn!("received message in anomalous state, state: {:?}, peer: {}", self.stream_state, self.peer.id);
