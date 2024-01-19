@@ -8,7 +8,7 @@ use tokio::task::JoinHandle;
 use crate::{Error, Result};
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, GlobalConnectionConfig};
-use crate::p2p::messages::P2PMessageChannelSender;
+use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::peer::PeerAddress;
 
 
@@ -70,12 +70,15 @@ impl Default for P2PManagerConfig {
 /// connections. Bitcoin data messages will be emitted to the data broadcast channel, where they can be acted upon
 /// by other sub-systems. (todo: implement listener)
 ///
-/// In this library we distinguish between "data" messages and "control" messages. The data messages are those
+/// In this library we distinguish between "data" messages and "control" P2P messages. The data messages are those
 /// messages which pertain to the blockchain itself, such as transaction advertisements, transactions,
 /// block announcements, etc. The control messages are those messages that pertain to the establishment of the
 /// connection (protoconf, setheaders, etc) and the management of the network (addr messages). The data messages
-/// are sent to the data broadcast channel. The control messages are only sent to the control broadcast channel if
-/// this is configured. (todo: implement control channel).
+/// are sent to the data channel. The control messages are sent to the control channel.
+///
+/// To subscribe to the data channel, use the subscribe_data() method on the P2PManager. To subscribe to the
+/// control channel, use the subscribe_control() method on the P2PManager. These use the tokio::sync::broadcast
+/// channels.
 ///
 /// A trace channel can also be configured. If configured, all sent & received P2P messages will be broadcast to
 /// this channel. (todo: implement)
@@ -97,8 +100,13 @@ impl Default for P2PManagerConfig {
 /// Although normally there should be only one manager per system, we allow more because its useful for testing
 /// purposes.
 pub struct P2PManager {
-    // The P2PManager struct is actually a handle to an actor implemented in P2PManagerActor.
-    sender: Sender<P2PMgrControlMessage>,
+    // The P2PManager struct is actually a handle to an actor implemented in P2PManagerActor. The mgr_sender
+    // is used to send messages to the actor.
+    mgr_sender: Sender<P2PMgrControlMessage>,
+    // The data channel
+    data_channel: P2PMessageChannelSender,
+    // The control channel
+    control_channel: P2PMessageChannelSender,
 }
 
 impl P2PManager {
@@ -107,21 +115,35 @@ impl P2PManager {
     /// This returns the P2PManager and a tokio join handle to the P2PManager actor.
     ///
     /// The join handle should be awaited at termination to ensure that the P2PManager is stopped in a normal fashion.
-    ///
-    /// The P2PManager emits status messages to the status_channel and ensures that data messages are emitted to to the
-    /// data_channel.
-    pub fn new(config: P2PManagerConfig, status_channel: Option<P2PManagerStatusChannelSender>, msg_channel: Option<P2PMessageChannelSender>)
+    pub fn new(config: P2PManagerConfig)
                 -> (P2PManager, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        (P2PManager { sender: tx },
-         tokio::spawn(async move { P2PManagerActor::new(rx, config, status_channel, msg_channel).await }))
+        let (data_tx, _data_rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
+        let d_tx2 = data_tx.clone();
+        let (control_tx, _control_rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
+        let c_tx2 = control_tx.clone();
+        (P2PManager {
+            mgr_sender: tx,
+            data_channel: data_tx,
+            control_channel: control_tx,
+        }, tokio::spawn(async move { P2PManagerActor::new(rx, config, d_tx2, c_tx2).await }))
+    }
+
+    /// Subscribe to the data channel.
+    pub fn subscribe_data(&self) -> P2PMessageChannelReceiver {
+        self.data_channel.subscribe()
+    }
+
+    /// Subscribe to the control channel.
+    pub fn subscribe_control(&self) -> P2PMessageChannelReceiver {
+        self.control_channel.subscribe()
     }
 
     /// Stop the P2PManager, shutting down all connections and terminating all processes.
     ///
     /// The P2PManager can not be re-started after this command.
     pub async fn stop(&self) -> Result<()> {
-        self.sender.send(P2PMgrControlMessage::Stop).await.map_err(|_| Error::Internal("Failed to send stop message".parse().unwrap()))?;
+        self.mgr_sender.send(P2PMgrControlMessage::Stop).await.map_err(|_| Error::Internal("Failed to send stop message".parse().unwrap()))?;
         Ok(())
     }
 
@@ -130,37 +152,23 @@ impl P2PManager {
     /// Existing connections continue to be maintained but will not re-connect if disconnected.
     /// Incoming connections will be rejected.
     pub async fn pause(&self) -> Result<()> {
-        self.sender.send(P2PMgrControlMessage::Pause).await.map_err(|_| Error::Internal("Failed to send pause message".parse().unwrap()))?;
+        self.mgr_sender.send(P2PMgrControlMessage::Pause).await.map_err(|_| Error::Internal("Failed to send pause message".parse().unwrap()))?;
         Ok(())
     }
 
     /// Resume the paused P2PManager.
     pub async fn resume(&self) -> Result<()> {
-        self.sender.send(P2PMgrControlMessage::Resume).await.map_err(|_| Error::Internal("Failed to send resume message".parse().unwrap()))?;
+        self.mgr_sender.send(P2PMgrControlMessage::Resume).await.map_err(|_| Error::Internal("Failed to send resume message".parse().unwrap()))?;
         Ok(())
     }
 
     /// Get the current state of the P2PManager.
     pub async fn get_state(&self) -> Result<P2PManagerState> {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(P2PMgrControlMessage::GetState { reply: tx }).await.map_err(|_| Error::Internal("Failed to send message".parse().unwrap()))?;
+        self.mgr_sender.send(P2PMgrControlMessage::GetState { reply: tx }).await.map_err(|_| Error::Internal("Failed to send message".parse().unwrap()))?;
         let r = rx.await.map_err(|_| Error::Internal("Failed to receive message".parse().unwrap()))?;
         Ok(r)
     }
-}
-
-/// type alias for the P2PManager status channel
-pub type P2PManagerStatusChannelSender = Sender<P2PManagerStatusMessage>;
-
-/// Status messages emitted by the P2PManager.
-pub enum P2PManagerStatusMessage {
-    Paused,
-    Resumed,
-    Stopping,
-    PeerConnected,
-    PeerDisconnected,
-    PeerConnectionFailed,
-    PeerDiscovered(PeerAddress),
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -185,8 +193,8 @@ struct P2PManagerActor {
     inbox: Receiver<P2PMgrControlMessage>,
     config: P2PManagerConfig,
     state: P2PManagerState,
-    status_channel: Option<P2PManagerStatusChannelSender>,
-    msg_channel: Option<P2PMessageChannelSender>,
+    data_channel: P2PMessageChannelSender,
+    control_channel: P2PMessageChannelSender,
     /// next connection id
     next_c_id: u64,
     /// configuration for connections
@@ -201,16 +209,16 @@ impl P2PManagerActor {
     async fn new(
         inbox: Receiver<P2PMgrControlMessage>,
         config: P2PManagerConfig,
-        status_channel: Option<P2PManagerStatusChannelSender>,
-        msg_channel: Option<P2PMessageChannelSender>,
+        data_channel: P2PMessageChannelSender,
+        control_channel: P2PMessageChannelSender,
     ) {
         let connection_config = Arc::new(GlobalConnectionConfig::default(config.blockchain));
         let mut actor = P2PManagerActor {
             inbox,
             config,
             state: P2PManagerState::Starting,
-            status_channel,
-            msg_channel,
+            data_channel,
+            control_channel,
             next_c_id: 0,
             connection_config,
             connections: HashMap::new(),
@@ -238,15 +246,12 @@ impl P2PManagerActor {
                 Some(msg) => match msg {
                     P2PMgrControlMessage::Pause => {
                         self.state = P2PManagerState::Paused;
-                        self.send_status_msg(P2PManagerStatusMessage::Paused).await;
                     },
                     P2PMgrControlMessage::Resume => {
                         self.state = P2PManagerState::Running;
-                        self.send_status_msg(P2PManagerStatusMessage::Resumed).await;
                     }
                     P2PMgrControlMessage::Stop => {
                         self.state = P2PManagerState::Stopping;
-                        self.send_status_msg(P2PManagerStatusMessage::Stopping).await;
                     }
                     P2PMgrControlMessage::GetState {reply } => {
                         let _ = reply.send(self.state.clone());
@@ -263,16 +268,10 @@ impl P2PManagerActor {
         self.state = P2PManagerState::Stopped;
     }
 
-    async fn send_status_msg(&self, msg: P2PManagerStatusMessage) {
-        if let Some(ref tx) = self.status_channel {
-            let _ = tx.send(msg).await;
-        }
-    }
-
     async fn connect(&mut self, p: PeerAddress) {
         if let std::collections::hash_map::Entry::Vacant(e) = self.ip_index.entry(p.ip()) {
             let (c, j) = Connection::new(p.clone(), self.connection_config.clone(),
-                        self.msg_channel.clone());
+                        self.data_channel.clone());
             self.connections.insert(self.next_c_id, (c, j));
             e.insert(self.next_c_id);
             self.next_c_id += 1
@@ -299,7 +298,7 @@ mod tests {
 
     #[tokio::test]
     async fn start_stop_test() {
-        let (h, j) = P2PManager::new(P2PManagerConfig::default(Mainnet), None, None);
+        let (h, j) = P2PManager::new(P2PManagerConfig::default(Mainnet));
         let s = h.get_state().await;
         assert!(s.is_ok());
         assert_eq!(s.unwrap(), P2PManagerState::Running);

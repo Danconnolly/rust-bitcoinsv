@@ -1,6 +1,4 @@
 
-use tokio::sync::mpsc::channel;
-
 use bitcoinsv::bitcoin::BlockchainId;
 use bitcoinsv::p2p::{P2PManager, P2PManagerConfig, PeerAddress};
 
@@ -12,14 +10,14 @@ async fn main() {
     let mut config = P2PManagerConfig::default(BlockchainId::Mainnet);
     config.add_peers = false;
     config.initial_peers.insert(0, peer);
-    let (tx, mut rx) = channel(100);
-    let (m, handle) = P2PManager::new(config, None, Some(tx));
+    let (m, handle) = P2PManager::new(config);
+    let mut rx = m.subscribe_data();
     loop {
         match rx.recv().await {
-            Some(msg) => {
+            Ok(msg) => {
                 println!("{:?}", msg);
             }
-            None => {
+            Err(_e) => {
                 break;
             }
         }

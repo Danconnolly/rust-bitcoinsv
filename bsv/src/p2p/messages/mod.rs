@@ -1,4 +1,4 @@
-use tokio::sync::mpsc::Sender;
+use tokio::sync::broadcast::{Receiver, Sender};
 
 mod node_addr;
 mod version;
@@ -15,5 +15,6 @@ pub use messages::{P2PMessage, P2PMessageType};
 // misc
 pub use messages::DEFAULT_MAX_PAYLOAD_SIZE;
 
-/// type alias for the P2P Message channel
+/// type aliases for the P2P Message channel
 pub type P2PMessageChannelSender = Sender<P2PMessage>;
+pub type P2PMessageChannelReceiver = Receiver<P2PMessage>;

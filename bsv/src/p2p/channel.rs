@@ -22,9 +22,9 @@ pub struct PeerChannel {
 }
 
 impl PeerChannel {
-    pub fn new(address: PeerAddress, config: Arc<GlobalConnectionConfig>, network_params: NetworkParams, msg_channel: Option<P2PMessageChannelSender>) -> (Self, JoinHandle<()>) {
+    pub fn new(address: PeerAddress, config: Arc<GlobalConnectionConfig>, network_params: NetworkParams, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        let j = tokio::spawn(async move { PeerChannelActor::new(rx, address, config, network_params, msg_channel).await });
+        let j = tokio::spawn(async move { PeerChannelActor::new(rx, address, config, network_params, data_channel).await });
         (PeerChannel { sender: tx }, j)
     }
 
@@ -54,7 +54,7 @@ struct PeerChannelActor {
     peer: PeerAddress,
     config: Arc<GlobalConnectionConfig>,
     network_params: NetworkParams,
-    msg_channel: Option<P2PMessageChannelSender>,       // P2P Data messages are sent on this channel
+    data_channel: P2PMessageChannelSender,               // P2P Data messages are sent on this channel
     writer_rx: Option<Receiver<P2PMessage>>,
     writer_tx: Sender<P2PMessage>,
     reader_rx: Receiver<P2PMessage>,
@@ -65,15 +65,16 @@ struct PeerChannelActor {
 }
 
 impl PeerChannelActor {
-    async fn new(receiver: Receiver<ChannelControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>, network_params: NetworkParams,
-                 msg_channel: Option<P2PMessageChannelSender>) {
+    async fn new(receiver: Receiver<ChannelControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>,
+                 network_params: NetworkParams, data_channel: P2PMessageChannelSender) {
         // prepare the channels, we will need these later
         let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         let mut p = PeerChannelActor {
             inbox: receiver, peer: peer_address,
             channel_state: ChannelState::Starting,
-            config, network_params, msg_channel, writer_rx: Some(writer_rx), writer_tx, reader_rx, reader_tx,
+            config, network_params,
+            data_channel, writer_rx: Some(writer_rx), writer_tx, reader_rx, reader_tx,
             version_received: false,
             verack_received: false,
         };
@@ -148,12 +149,7 @@ impl PeerChannelActor {
             },
             ChannelState::Connected => {
                 trace!("connected state msg received: {:?}", msg);
-                match self.msg_channel {
-                    Some(ref tx) => {
-                        let _ = tx.send(msg.clone()).await;
-                    },
-                    None => {}
-                }
+                let _ = self.data_channel.send(msg.clone());
             },
             _ => {
                 warn!("received message in anomalous state, state: {:?}, peer: {}", self.channel_state, self.peer.id);

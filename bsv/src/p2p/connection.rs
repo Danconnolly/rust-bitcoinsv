@@ -51,10 +51,10 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(peer: PeerAddress, config: Arc<GlobalConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
+    pub fn new(peer: PeerAddress, config: Arc<GlobalConnectionConfig>, data_channel: P2PMessageChannelSender) -> (Connection, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         let p_c = peer.clone();
-        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, msg_channel).await });
+        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, data_channel).await });
         (Connection { sender: tx, peer }, j)
     }
 
@@ -79,7 +79,7 @@ struct ConnectionActor {
     // the network parameters
     network_params: NetworkParams,
     // the channel on which to send substantive P2P messages
-    msg_channel: Option<P2PMessageChannelSender>,
+    data_channel: P2PMessageChannelSender,
     // number of attempts to connect
     attempts: u8,
     // the primary communication channel
@@ -93,13 +93,13 @@ struct ConnectionActor {
 }
 
 impl ConnectionActor {
-    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>, msg_channel: Option<P2PMessageChannelSender>) {
+    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<GlobalConnectionConfig>, data_channel: P2PMessageChannelSender) {
         let network_params =  NetworkParams::from(config.blockchain);
-        let (channel, join_handle) = PeerChannel::new(peer_address.clone(), config.clone(), network_params.clone(), msg_channel.clone());
+        let (channel, join_handle) = PeerChannel::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
         let mut actor = ConnectionActor {
             inbox, config,
             network_params,
-            msg_channel,
+            data_channel: data_channel,
             attempts: 0,
             primary_channel: channel,
             primary_join: Some(join_handle),
