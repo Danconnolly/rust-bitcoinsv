@@ -65,6 +65,7 @@ struct PeerStreamActor {
     version_received: bool,                             // true if we have received a version message
     verack_received: bool,                              // true if we have received a verack message in response to our version
     max_payload_size: u32,                              // the maximum payload size we can send
+    send_headers: bool,                                 // has peer requested we send headers
 }
 
 impl PeerStreamActor {
@@ -81,6 +82,7 @@ impl PeerStreamActor {
             version_received: false,
             verack_received: false,
             max_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
+            send_headers: false,
         };
         p.main().await;
     }
@@ -162,6 +164,9 @@ impl PeerStreamActor {
                         match msg {
                             P2PMessage::Protoconf(p) => {
                                 self.max_payload_size = p.max_recv_payload_length;
+                            },
+                            P2PMessage::SendHeaders => {
+                                self.send_headers = true;
                             },
                             _ => {
                                 warn!("received unexpected connection control message in connected state, message: {:?}", msg);
