@@ -9,6 +9,7 @@ use crate::util::{epoch_secs, epoch_secs_u32};
 // based on code imported from rust-sv but substantially modified
 
 /// Protocol version supported by this library
+/// todo: extended message sizes in BSV - https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/large_messages.md
 pub const PROTOCOL_VERSION: u32 = 70015;
 
 /// Minimum protocol version supported by this library

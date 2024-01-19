@@ -31,6 +31,10 @@ impl P2PMessageHeader {
     /// `magic` - Expected magic bytes for the network
     /// `max_size` - Max size in bytes for the payload
     pub fn validate(&self, magic: [u8; 4], max_size: u64) -> Result<()> {
+        if self.payload_size == 0xffffffff {
+            let msg = format!("Extended Message Header, not implemented, size: {:?}", self.payload_size);
+            return Err(Error::BadData(msg));
+        }
         if self.magic != magic {
             let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
             return Err(Error::BadData(msg));
