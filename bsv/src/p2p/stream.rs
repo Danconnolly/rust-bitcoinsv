@@ -5,7 +5,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use crate::p2p::{ACTOR_CHANNEL_SIZE, PeerAddress};
 use crate::p2p::connection::ConnectionConfig;
-use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Version, P2PMessageType};
+use crate::p2p::messages::{P2PMessage, P2PMessageChannelSender, DEFAULT_MAX_PAYLOAD_SIZE, Ping, Version, P2PMessageType};
 use crate::p2p::messages::Protoconf;
 use crate::p2p::params::NetworkParams;
 
@@ -167,6 +167,11 @@ impl PeerStreamActor {
                             },
                             P2PMessage::SendHeaders => {
                                 self.send_headers = true;
+                            },
+                            P2PMessage::Ping(p) => {
+                                let pong = Ping::new(p.nonce);
+                                self.send_msg(P2PMessage::Pong(pong)).await;
+                                trace!("sent pong message");
                             },
                             _ => {
                                 warn!("received unexpected connection control message in connected state, message: {:?}", msg);

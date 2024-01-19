@@ -13,6 +13,10 @@ pub struct Ping {
 impl Ping {
     /// Size of the ping or pong payload in bytes
     pub const SIZE: usize = 8;
+
+    pub fn new(nonce: u64) -> Ping {
+        Ping { nonce }
+    }
 }
 
 impl Encodable for Ping {
