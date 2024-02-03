@@ -4,7 +4,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{AsyncEncodable, Encodable};
+use crate::bitcoin::AsyncEncodable;
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
@@ -174,7 +174,7 @@ impl P2PMessage {
                 return Err(Error::BadData(msg));
             },
         }
-        let header = P2PMessageHeader::decode(&mut Cursor::new(&v))?;
+        let header = P2PMessageHeader::decode_from_buf(v.as_slice())?;
         trace!("P2PMessage::read() - header: {:?}", header);
         match header.validate(magic, max_payload_size) {
             Ok(_) => {},
@@ -283,7 +283,7 @@ impl P2PMessage {
             payload_size: 0,
             checksum: NO_CHECKSUM,
         };
-        let v = header.encode()?;
+        let v = header.encode_into_buf()?;
         let _ = writer.write(&v).await?;
         Ok(())
     }
@@ -301,7 +301,7 @@ impl P2PMessage {
             payload_size: buf.len() as u32,
             checksum: hash.hash[..4].try_into().unwrap(),
         };
-        let v = header.encode()?;
+        let v = header.encode_into_buf()?;
         let _ = writer.write(&v).await?;
         let _ = writer.write(&buf).await;
         Ok(())
