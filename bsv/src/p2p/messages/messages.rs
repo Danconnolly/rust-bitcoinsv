@@ -16,32 +16,32 @@ use crate::p2p::messages::{Ping, Version};
 // based on code imported from rust-sv but substantially modified
 
 // I wont be implementing the FEEFILTER related messages. These aren't scalable. As unknown messages,
-// they will be ignored.
+// they will be ignored if received.
 //
 // The Bitcoin P2P protocol is a message based protocol, where each message is a chunk of contiguous data.
-// Most of the messages represent a single fact but there are a few exceptions. However, on closer examination
-// most of the messages that contain lists of items attribute significance to the list itself and the position
-// of items within the list.
-//      ADDR - this is an exception, there's no significance to the ordering of the list
+// At first glance, the messages appear to represent a single fact or a collection of independent facts. However, on
+// closer examination most of the messages that contain lists of items attribute significance to the list itself and the
+// position of items within the list.
+//      ADDR - this is an exception, there's no significance to the ordering of the list and the items are independent
 //      INV (tx) - transactions are supposed to be in this list in order of dependence, with parent transactions
-//                  preceding children. This can not be relied upon though.
+//                  preceding children. This cannot be relied upon though.
 //      GETDATA - like the inv, the order of transactions in this list is significant.
-//      NOTFOUND - ordering not significant
-//      GETBLOCKS - specifically relevant
-//      GETHEADERS - specifically relevant
-//      HEADERS - specifically relevant
+//      NOTFOUND - ordering not significant, items independent
+//      GETBLOCKS - ordering specifically relevant
+//      GETHEADERS - ordering specifically relevant
+//      HEADERS - ordering specifically relevant
 // Given the significance of ordering within these messages, there is no benefit from breaking the messages up
 // into smaller parts and streaming those parts.
 //
 // Most of the messages are also reasonably small, the messages are quickly transferred between
-// peers. There is also a maximum message size which limits the amount of memory that will be allocated to deal
+// peers. There is a maximum message size which limits the amount of memory that will be allocated to deal
 // with a message in its entirety.
 //
-// There is one exception to this, and one potential exception that I need to look into.
-//
-// The known exception is the BLOCK message, which transfers a block in its entirety. With large blocks
+// One exception is the BLOCK message, which transfers a block in its entirety. With large blocks
 // (up to 4GB at the time of writing), this can cause a significant memory issue and we will eventually have special
-// handling for this message.  <IMPROVEMENT - do this>
+// handling for this message. But its not just the memory, transferring a 4GB block takes significant amounts of time,
+// and we want our code to start processing the block as soon as possible, otherwise it adds a significant delay to the
+// block processing time. So we definitely want to use a streaming model for this. <IMPROVEMENT - do this>
 //
 // The TX message is a potential concern. Transactions can get large but there is also a policy on the SV Node
 // regarding the maximum size of transactions.  <IMPROVEMENT - check this and adjust>
@@ -50,8 +50,8 @@ use crate::p2p::messages::{Ping, Version};
 // the blockchain to which these messages apply (mainnet, testnet, regtest, stn). The header also contains the size of
 // the payload. Our code needs to protect against cases where the payload size specified in the header is incorrect.
 
-// Given the above, I'm going to treat every packet in its entirety by default, and not implement a streaming read
-// trait. The exception to this is the Block, I will add a streaming interface to this at some point.
+// Given the above, we will be implementing an asynchronous reading model for the BLOCK message. To maintian consistency
+// we will also be implementing the same model for all messages.
 
 
 /// Checksum to use when there is an empty payload.

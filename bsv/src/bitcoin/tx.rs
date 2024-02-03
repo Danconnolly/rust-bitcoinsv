@@ -23,8 +23,7 @@ pub struct Tx {
 
 impl Tx {
     pub fn hash(&self) -> Hash {
-        let mut v = Vec::new();
-        self.encode_into(&mut v).unwrap();
+        let v = self.encode_into_buf().unwrap();
         Hash::sha256d(&v)
     }
 }
@@ -34,76 +33,23 @@ impl FromHex for Tx {
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let mut bytes = hex::decode(hex)?;
-        let mut cursor = Cursor::new(&mut bytes);
-        let tx = Tx::decode(&mut cursor)?;
+        let tx = Tx::decode_from_buf(&mut bytes.as_slice())?;
         Ok(tx)
     }
 }
 
 impl ToHex for Tx {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = Vec::new();
-        self.encode_into(&mut bytes).unwrap();
+        let mut bytes = self.encode_into_buf().unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = Vec::new();
-        self.encode_into(&mut bytes).unwrap();
+        let mut bytes = self.encode_into_buf().unwrap();
         bytes.encode_hex_upper()
     }
 }
 
-impl Encodable for Tx {
-    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Tx> {
-        let version = reader.read_u32::<LittleEndian>()?;
-        let num_inputs = VarInt::decode(reader)?;
-        let mut inputs = Vec::new();
-        for _i in 0..num_inputs.value {
-            let input= TxInput::decode(reader)?;
-            inputs.push(input);
-        }
-        let num_outputs = VarInt::decode(reader)?;
-        let mut outputs = Vec::new();
-        for _i in 0..num_outputs.value {
-            let output = TxOutput::decode(reader)?;
-            outputs.push(output);
-        }
-        let lock_time = reader.read_u32::<LittleEndian>()?;
-        Ok(Tx {
-            version,
-            inputs,
-            outputs,
-            lock_time
-        })
-    }
-
-    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u32::<LittleEndian>(self.version)?;
-        VarInt::new(self.inputs.len() as u64).encode_into(writer)?;
-        for input in self.inputs.iter() {
-            input.encode_into(writer)?;
-        }
-        VarInt::new(self.outputs.len() as u64).encode_into(writer)?;
-        for output in self.outputs.iter() {
-            output.encode_into(writer)?;
-        }
-        writer.write_u32::<LittleEndian>(self.lock_time)?;
-        Ok(())
-    }
-
-    fn size(&self) -> usize {
-        let mut sz = VarInt::new(self.inputs.len() as u64).size();
-        for input in self.inputs.iter() {
-            sz += input.size();
-        }
-        sz += VarInt::new(self.outputs.len() as u64).size();
-        for output in self.outputs.iter() {
-            sz += output.size();
-        }
-        sz + 8
-    }
-}
 
 // We need to be able to read transactions asynchronously.
 #[async_trait]
@@ -146,6 +92,18 @@ impl AsyncEncodable for Tx {
         writer.write_u32_le(self.lock_time).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        let mut sz = VarInt::new(self.inputs.len() as u64).size();
+        for input in self.inputs.iter() {
+            sz += input.size();
+        }
+        sz += VarInt::new(self.outputs.len() as u64).size();
+        for output in self.outputs.iter() {
+            sz += output.size();
+        }
+        sz + 8
+    }
 }
 
 /// An Outpoint is a reference to a specific output of a specific transaction.
@@ -167,25 +125,6 @@ impl Outpoint {
     }
 }
 
-impl Encodable for Outpoint {
-    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Outpoint> {
-        let mut outpoint: [u8; 36] = [0; 36];
-        reader.read_exact(&mut outpoint)?;
-        Ok(Outpoint {
-            raw: outpoint,
-        })
-    }
-
-    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_all(&self.raw)?;
-        Ok(())
-    }
-
-    fn size(&self) -> usize {
-        Outpoint::SIZE
-    }
-}
-
 #[async_trait]
 impl AsyncEncodable for Outpoint {
     async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
@@ -200,6 +139,10 @@ impl AsyncEncodable for Outpoint {
         writer.write_all(&self.raw).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        Outpoint::SIZE
+    }
 }
 
 /// A TxInput is an input to a transaction.
@@ -207,33 +150,6 @@ pub struct TxInput {
     pub outpoint: Outpoint,
     raw_script: Vec<u8>,
     pub sequence: u32,
-}
-
-impl Encodable for TxInput {
-    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxInput> {
-        let outpoint = Outpoint::decode(reader)?;
-        let script_size = VarInt::decode(reader)?;
-        let mut script = vec![0u8; script_size.value as usize];
-        reader.read_exact(&mut script)?;
-        let sequence = reader.read_u32::<LittleEndian>()?;
-        Ok(TxInput {
-            outpoint,
-            raw_script: script,
-            sequence,
-        })
-    }
-
-    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        self.outpoint.encode_into(writer)?;
-        VarInt::new(self.raw_script.len() as u64).encode_into(writer)?;
-        writer.write_all(&self.raw_script)?;
-        writer.write_u32::<LittleEndian>(self.sequence)?;
-        Ok(())
-    }
-
-    fn size(&self) -> usize {
-        self.outpoint.size() + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len() + 4
-    }
 }
 
 #[async_trait]
@@ -259,36 +175,16 @@ impl AsyncEncodable for TxInput {
         writer.write_u32_le(self.sequence).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        self.outpoint.size() + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len() + 4
+    }
 }
 
 /// A TxOutput is an output from a transaction.
 pub struct TxOutput {
     pub value: u64,
     raw_script: Vec<u8>,
-}
-
-impl Encodable for TxOutput {
-    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<TxOutput> {
-        let value = reader.read_u64::<LittleEndian>()?;
-        let script_size = VarInt::decode(reader)?;
-        let mut script = vec![0u8; script_size.value as usize];
-        reader.read_exact(&mut script)?;
-        Ok(TxOutput {
-            value,
-            raw_script: script,
-        })
-    }
-
-    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u64::<LittleEndian>(self.value)?;
-        VarInt::new(self.raw_script.len() as u64).encode_into(writer)?;
-        writer.write_all(&self.raw_script)?;
-        Ok(())
-    }
-
-    fn size(&self) -> usize {
-        8 + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len()
-    }
 }
 
 #[async_trait]
@@ -311,6 +207,10 @@ impl AsyncEncodable for TxOutput {
         writer.write_all(&self.raw_script).await?;
         Ok(())
     }
+
+    fn size(&self) -> usize {
+        8 + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len()
+    }
 }
 
 #[cfg(test)]
@@ -325,8 +225,7 @@ mod tests {
     #[test]
     fn tx_read() {
         let (tx_bin, tx_hash) = get_tx1();
-        let mut cursor = Cursor::new(&tx_bin);
-        let tx = Tx::decode(&mut cursor).unwrap();
+        let tx = Tx::decode_from_buf(tx_bin.as_slice()).unwrap();
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx_bin.len(), tx.size());
@@ -336,8 +235,7 @@ mod tests {
     #[test]
     fn read_short() {
         let (tx_bin, _tx_hash) = get_tx1();
-        let mut cursor = Cursor::new(&tx_bin[0..200]);
-        assert!(Tx::decode(&mut cursor).is_err());
+        assert!(Tx::decode_from_buf(tx_bin[0..200].iter().as_slice()).is_err());
     }
 
     /// If we supply too many bytes then the read should succeed and we should have some bytes left over.
@@ -345,10 +243,8 @@ mod tests {
     fn tx_long() {
         let (mut tx_bin, tx_hash) = get_tx1();
         tx_bin.append(&mut vec![0u8; 100]);
-        let mut cursor = Cursor::new(&tx_bin[0..300]);
-        let tx = Tx::decode(&mut cursor).unwrap();
-        assert_eq!(cursor.position(), 211);
-        // assert_eq!(tx.size, 211);
+        let tx = Tx::decode_from_buf(tx_bin.as_slice()).unwrap();
+        assert_eq!(tx.size(), 211);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
     }
@@ -356,7 +252,7 @@ mod tests {
     #[test]
     fn read_from_hex() {
         let (tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::decode(&mut Cursor::new(&tx_bin)).unwrap();
+        let tx = Tx::decode_from_buf(tx_bin.as_slice()).unwrap();
         let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
@@ -365,7 +261,7 @@ mod tests {
     #[test]
     fn check_deser() {
         let (tx_bin, tx_hash) = get_tx1();
-        let tx = Tx::decode(&mut Cursor::new(&tx_bin)).unwrap();
+        let tx = Tx::decode_from_buf(tx_bin.as_slice()).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);
