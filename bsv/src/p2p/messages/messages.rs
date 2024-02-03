@@ -4,7 +4,7 @@ use std::io::Cursor;
 use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::{AsyncEncodable, Encodable};
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
@@ -190,16 +190,16 @@ impl P2PMessage {
             let _ = reader.read_exact(&mut payload).await?;
             // we dont bother with the checksum
         }
-        let mut p_cursor = Cursor::new(&payload);
+        // let mut p_cursor = Cursor::new(&payload);
         let msg= match header.command {
             GETADDR => P2PMessage::GetAddr,
             MEMPOOL => P2PMessage::Mempool,
-            PING => P2PMessage::Ping(Ping::decode(&mut p_cursor).unwrap()),
-            PONG => P2PMessage::Pong(Ping::decode(&mut p_cursor).unwrap()),
-            PROTOCONF => P2PMessage::Protoconf(Protoconf::decode(&mut p_cursor).unwrap()),
+            PING => P2PMessage::Ping(Ping::decode_from_buf(payload.as_slice()).unwrap()),
+            PONG => P2PMessage::Pong(Ping::decode_from_buf(payload.as_slice()).unwrap()),
+            PROTOCONF => P2PMessage::Protoconf(Protoconf::decode_from_buf(payload.as_slice()).unwrap()),
             SENDHEADERS => P2PMessage::SendHeaders,
             VERACK => P2PMessage::Verack,
-            VERSION => P2PMessage::Version(Version::decode(&mut p_cursor).unwrap()),
+            VERSION => P2PMessage::Version(Version::decode_from_buf(payload.as_slice()).unwrap()),
             _ => {
                 if header.payload_size == 0 {
                     trace!("received unknown command={:?} with empty payload", std::str::from_utf8(&header.command).unwrap());
@@ -291,9 +291,9 @@ impl P2PMessage {
     /// Write a P2P message that has a payload
     async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], magic: [u8; 4], payload: &X) -> Result<()>
         where W: AsyncWrite + Unpin + Send,
-            X: Encodable,
+            X: AsyncEncodable,
     {
-        let buf = payload.encode()?;
+        let buf = payload.encode_into_buf()?;
         let hash = Hash::sha256d(&buf);
         let header = P2PMessageHeader {
             magic,

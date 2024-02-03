@@ -90,7 +90,6 @@ impl AsyncEncodable for NodeAddr {
 mod tests {
     use super::*;
     use hex;
-    use std::io::Cursor;
     use std::net::Ipv4Addr;
 
     #[test]
