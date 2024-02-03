@@ -1,6 +1,4 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use std::io;
-use std::io::{Read, Write};
 use crate::bitcoin::Encodable;
 
 /// Ping or pong message

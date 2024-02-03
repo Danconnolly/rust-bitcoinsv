@@ -1,6 +1,4 @@
-use std::io::Cursor;
 use async_trait::async_trait;
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
@@ -8,7 +6,7 @@ use crate::bitcoin::encoding::Encodable;
 use crate::bitcoin::{AsyncEncodable, VarInt, varint_decode_async, varint_encode_async};
 
 
-/// The TxHash is used to identify transactions and ensure immutability.
+/// The TxHash is used to identify transactions.
 pub type TxHash = Hash;
 
 /// A Bitcoin transaction.
@@ -32,7 +30,7 @@ impl FromHex for Tx {
     type Error = crate::Error;
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
-        let mut bytes = hex::decode(hex)?;
+        let bytes = hex::decode(hex)?;
         let tx = Tx::decode_from_buf(&mut bytes.as_slice())?;
         Ok(tx)
     }
@@ -40,18 +38,17 @@ impl FromHex for Tx {
 
 impl ToHex for Tx {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = self.encode_into_buf().unwrap();
+        let bytes = self.encode_into_buf().unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = self.encode_into_buf().unwrap();
+        let bytes = self.encode_into_buf().unwrap();
         bytes.encode_hex_upper()
     }
 }
 
 
-// We need to be able to read transactions asynchronously.
 #[async_trait]
 impl AsyncEncodable for Tx {
     async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
@@ -215,7 +212,6 @@ impl AsyncEncodable for TxOutput {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use crate::bitcoin::FromHex;
     use crate::bitcoin::hash::Hash;
     use super::*;

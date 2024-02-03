@@ -1,6 +1,7 @@
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use async_trait::async_trait;
 use hex::{FromHex, ToHex};
-use crate::bitcoin::encoding::Encodable;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::bitcoin::AsyncEncodable;
 use crate::bitcoin::hash::Hash;
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
@@ -32,31 +33,31 @@ impl BlockHeader {
 
     /// Calculates the hash for this block header
     pub fn hash(&self) -> BlockHash {
-        let mut v = Vec::with_capacity(80);
-        self.encode_into(&mut v).unwrap();
+        let v = self.encode_into_buf().unwrap();
         Hash::sha256d(&v)
     }
 }
 
-impl Encodable for BlockHeader {
-    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<BlockHeader> {
+#[async_trait]
+impl AsyncEncodable for BlockHeader {
+    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         Ok(BlockHeader {
-            version: reader.read_u32::<LittleEndian>()?,
-            prev_hash: Hash::decode(reader)?,
-            merkle_root: Hash::decode(reader)?,
-            timestamp: reader.read_u32::<LittleEndian>()?,
-            bits: reader.read_u32::<LittleEndian>()?,
-            nonce: reader.read_u32::<LittleEndian>()?,
+            version: reader.read_u32_le().await?,
+            prev_hash: Hash::decode_async(reader).await?,
+            merkle_root: Hash::decode_async(reader).await?,
+            timestamp: reader.read_u32_le().await?,
+            bits: reader.read_u32_le().await?,
+            nonce: reader.read_u32_le().await?,
         })
     }
 
-    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u32::<LittleEndian>(self.version)?;
-        self.prev_hash.encode_into(writer)?;
-        self.merkle_root.encode_into(writer)?;
-        writer.write_u32::<LittleEndian>(self.timestamp)?;
-        writer.write_u32::<LittleEndian>(self.bits)?;
-        writer.write_u32::<LittleEndian>(self.nonce)?;
+    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_u32_le(self.version).await?;
+        self.prev_hash.encode_into_async(writer).await?;
+        self.merkle_root.encode_into_async(writer).await?;
+        writer.write_u32_le(self.timestamp).await?;
+        writer.write_u32_le(self.bits).await?;
+        writer.write_u32_le(self.nonce).await?;
         Ok(())
     }
 
@@ -69,20 +70,18 @@ impl FromHex for BlockHeader {
     type Error = crate::Error;
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
-        BlockHeader::decode(&mut bytes.as_slice())
+        BlockHeader::decode_from_buf(bytes.as_slice())
     }
 }
 
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
-        self.encode_into(&mut bytes).unwrap();
+        let bytes = self.encode_into_buf().unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
-        let mut bytes = Vec::with_capacity(BlockHeader::SIZE);
-        self.encode_into(&mut bytes).unwrap();
+        let bytes = self.encode_into_buf().unwrap();
         bytes.encode_hex_upper()
     }
 }
@@ -96,8 +95,7 @@ mod tests {
     #[test]
     fn block_header_read() {
         let (block_header_bin, block_header_hash) = get_block_header824962();
-        let mut cursor = std::io::Cursor::new(&block_header_bin);
-        let block_header = BlockHeader::decode(&mut cursor).unwrap();
+        let block_header = BlockHeader::decode_from_buf(block_header_bin.as_slice()).unwrap();
         assert_eq!(block_header.version, 609435648);
         assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce, 1285270638);
