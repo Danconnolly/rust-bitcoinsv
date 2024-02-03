@@ -1,5 +1,6 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use crate::bitcoin::binary::Encodable;
+use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+use crate::bitcoin::encoding::Encodable;
 
 
 /// Decode a variable length integer from a byte stream.
@@ -43,6 +44,36 @@ pub fn varint_size(value: u64) -> usize {
     }
 }
 
+/// Decode a variable length integer from a byte stream, async version.
+pub async fn varint_decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<u64> {
+    let n0 = reader.read_u8().await.unwrap();
+    let v = match n0 {
+        0xff => reader.read_u64_le().await.unwrap(),
+        0xfe => reader.read_u32_le().await.unwrap() as u64,
+        0xfd => reader.read_u16_le().await.unwrap() as u64,
+        _ => n0 as u64 };
+    Ok(v)
+}
+
+/// Encode a variable length integer into a byte stream, async version.
+pub async fn varint_encode_async<W: AsyncWrite + Unpin + Send>(writer: &mut W, value: u64) -> crate::Result<()> {
+    match value {
+        0..=252 => writer.write_u8(value as u8).await?,
+        253..=0xffff => {
+            writer.write_u8(0xfd).await?;
+            writer.write_u16_le(value as u16).await?;
+        }
+        0x10000..=0xffffffff => {
+            writer.write_u8(0xfe).await?;
+            writer.write_u32_le(value as u32).await?;
+        }
+        _ => {
+            writer.write_u8(0xff).await?;
+            writer.write_u64_le(value).await?;
+        }
+    };
+    Ok(())
+}
 
 /// The VarInt Bitcoin data type with async serialization.
 // Code based on `<https://github.com/brentongunning/rust-sv>`
@@ -113,7 +144,7 @@ impl Encodable for VarInt {
 mod tests {
     use std::io::Cursor;
     use super::VarInt;
-    use crate::bitcoin::binary::Encodable;
+    use crate::bitcoin::encoding::Encodable;
 
     #[test]
     fn size() {

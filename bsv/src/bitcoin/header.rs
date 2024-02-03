@@ -1,6 +1,6 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use hex::{FromHex, ToHex};
-use crate::bitcoin::binary::Encodable;
+use crate::bitcoin::encoding::Encodable;
 use crate::bitcoin::hash::Hash;
 
 /// The BlockHash is used to identify block headers and enforce proof of work.

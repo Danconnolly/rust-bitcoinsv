@@ -4,7 +4,7 @@ use byteorder::{ReadBytesExt, WriteBytesExt};
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use crate::bitcoin::binary::Encodable;
+use crate::bitcoin::encoding::Encodable;
 
 /// The hash that is most often used in Bitcoin is the double SHA-256 hash.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -13,8 +13,8 @@ pub struct Hash{
 }
 
 impl Hash {
-    pub const BINARY_SIZE: usize = 32;
-    pub const HEX_SIZE: usize = Hash::BINARY_SIZE * 2;
+    pub const SIZE: usize = 32;
+    pub const HEX_SIZE: usize = Hash::SIZE * 2;
 
     pub fn sha256d(data: &[u8]) -> Hash {
         let sha256 = digest(&SHA256, data);
@@ -51,7 +51,7 @@ impl Encodable for Hash {
     }
 
     fn size(&self) -> usize {
-        Hash::BINARY_SIZE
+        Hash::SIZE
     }
 }
 
@@ -70,7 +70,7 @@ impl FromHex for Hash {
             Ok(mut hash_bytes) => {
                 // Reverse bytes in place to match Bitcoin standard representation.
                 hash_bytes.reverse();
-                let mut hash_array = [0u8; Hash::BINARY_SIZE];
+                let mut hash_array = [0u8; Hash::SIZE];
                 hash_array.copy_from_slice(&hash_bytes);
                 Ok(Hash { hash: hash_array })
             },
