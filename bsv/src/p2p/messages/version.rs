@@ -3,7 +3,7 @@ use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
 use log::warn;
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{Error, Result};
-use crate::bitcoin::{Encodable, VarInt};
+use crate::bitcoin::{AsyncEncodable, Encodable, VarInt};
 use crate::util::{epoch_secs, epoch_secs_u32};
 
 // based on code imported from rust-sv but substantially modified

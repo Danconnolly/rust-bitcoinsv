@@ -1,6 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use byteorder::{BigEndian, LittleEndian, ReadBytesExt, WriteBytesExt};
-use crate::bitcoin::Encodable;
+use async_trait::async_trait;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::bitcoin::AsyncEncodable;
 use crate::util::epoch_secs_u32;
 
 // based on code imported from rust-sv
@@ -46,12 +47,13 @@ impl Default for NodeAddr {
     }
 }
 
-impl Encodable for NodeAddr {
-    fn decode<R: ReadBytesExt + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
-        let timestamp = reader.read_u32::<LittleEndian>()?;
-        let services = reader.read_u64::<LittleEndian>()?;
+#[async_trait]
+impl AsyncEncodable for NodeAddr {
+    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+        let timestamp = reader.read_u32_le().await?;
+        let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
-        reader.read_exact(&mut ip_bin)?;    // big endian order
+        reader.read_exact(&mut ip_bin).await?;    // big endian order
         let ip;
         if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
             // ipv4 mapped ipv6 address
@@ -59,23 +61,23 @@ impl Encodable for NodeAddr {
         } else {
             ip = IpAddr::V6(Ipv6Addr::from(ip_bin));
         }
-        let port = reader.read_u16::<BigEndian>()?;        // big endian order
+        let port = reader.read_u16().await?;        // big endian order
         Ok(NodeAddr { timestamp, services, ip, port, })
     }
 
-    fn encode_into<W: WriteBytesExt + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_u32::<LittleEndian>(self.timestamp)?;
-        writer.write_u64::<LittleEndian>(self.services)?;
+    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        writer.write_u32_le(self.timestamp).await?;
+        writer.write_u64_le(self.services).await?;
         match self.ip {
             IpAddr::V4(v4) => {
-                writer.write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255])?;
-                writer.write_all(&v4.octets())?;
+                writer.write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255]).await?;
+                writer.write_all(&v4.octets()).await?;
             },
             IpAddr::V6(v6) => {
-                writer.write_all(&v6.octets())?;
+                writer.write_all(&v6.octets()).await?;
             },
         }
-        writer.write_u16::<BigEndian>(self.port)?;
+        writer.write_u16(self.port).await?;         // big endian order
         Ok(())
     }
 
@@ -100,7 +102,7 @@ mod tests {
                                 "00000000000000000000ffff2d32bffb", // ip = 45.50.191.251, hex = 2d32bffb, ipv6 mapped = 0000:0000:0000:0000:0000:ffff:2d32:bffb
                                 "ddd3")             // port = 56787
                                 .as_bytes()).unwrap();
-        let a = NodeAddr::decode(&mut Cursor::new(&b)).unwrap();
+        let a = NodeAddr::decode_from_buf(b.as_slice()).unwrap();
         assert_eq!(a.timestamp, 1_704_625_247);
         assert_eq!(a.services, 37);
         assert_eq!(a.ip, "45.50.191.251".parse::<Ipv4Addr>().unwrap());
@@ -109,15 +111,14 @@ mod tests {
 
     #[test]
     fn write_read() {
-        let mut v = Vec::new();
         let a = NodeAddr {
             timestamp: 1_704_625_247,
             services: 1,
             ip: IpAddr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
             port: 123,
         };
-        a.encode_into(&mut v).unwrap();
+        let v = a.encode_into_buf().unwrap();
         assert_eq!(v.len(), NodeAddr::SIZE);
-        assert_eq!(NodeAddr::decode(&mut Cursor::new(&v)).unwrap(), a);
+        assert_eq!(NodeAddr::decode_from_buf(v.as_slice()).unwrap(), a);
     }
 }
