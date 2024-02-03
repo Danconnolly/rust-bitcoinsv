@@ -295,7 +295,7 @@ mod tests {
         let s = h.get_state().await;
         assert!(s.is_ok());
         assert_eq!(s.unwrap(), P2PManagerState::Running);
-        h.stop().await;
+        let _ = h.stop().await;
         j.await.expect("P2PManager failed");
     }
 }
