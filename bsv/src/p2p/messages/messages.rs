@@ -1,6 +1,5 @@
 use crate::{Error, Result};
 use std::fmt;
-use std::io::Cursor;
 use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};

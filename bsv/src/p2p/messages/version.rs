@@ -4,7 +4,7 @@ use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{Error, Result};
-use crate::bitcoin::{AsyncEncodable, Encodable, VarInt, varint_decode_async, varint_encode_async};
+use crate::bitcoin::{AsyncEncodable, varint_decode_async, varint_encode_async, varint_size};
 use crate::util::{epoch_secs, epoch_secs_u32};
 
 // based on code imported from rust-sv but substantially modified
@@ -148,10 +148,9 @@ impl AsyncEncodable for Version {
     }
 
     fn size(&self) -> usize {
-        let vi = VarInt::new(self.user_agent.as_bytes().len() as u64);
         33 + (self.recv_addr.size() - 4)        // version addr is smaller
             + (self.tx_addr.size() - 4)
-            + vi.size()
+            + varint_size(self.user_agent.as_bytes().len() as u64)
             + self.user_agent.as_bytes().len()
     }
 }

@@ -103,7 +103,6 @@ impl fmt::Debug for P2PMessageHeader {
 mod tests {
     use super::*;
     use hex;
-    use std::io::Cursor;
 
     #[test]
     fn read_bytes() {

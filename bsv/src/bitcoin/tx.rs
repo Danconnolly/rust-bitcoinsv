@@ -2,8 +2,7 @@ use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
-use crate::bitcoin::encoding::Encodable;
-use crate::bitcoin::{AsyncEncodable, VarInt, varint_decode_async, varint_encode_async};
+use crate::bitcoin::{AsyncEncodable, varint_decode_async, varint_encode_async, varint_size};
 
 
 /// The TxHash is used to identify transactions.
@@ -91,11 +90,11 @@ impl AsyncEncodable for Tx {
     }
 
     fn size(&self) -> usize {
-        let mut sz = VarInt::new(self.inputs.len() as u64).size();
+        let mut sz = varint_size(self.inputs.len() as u64);
         for input in self.inputs.iter() {
             sz += input.size();
         }
-        sz += VarInt::new(self.outputs.len() as u64).size();
+        sz += varint_size(self.outputs.len() as u64);
         for output in self.outputs.iter() {
             sz += output.size();
         }
@@ -174,7 +173,7 @@ impl AsyncEncodable for TxInput {
     }
 
     fn size(&self) -> usize {
-        self.outpoint.size() + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len() + 4
+        self.outpoint.size() + varint_size(self.raw_script.len() as u64) + self.raw_script.len() + 4
     }
 }
 
@@ -206,7 +205,7 @@ impl AsyncEncodable for TxOutput {
     }
 
     fn size(&self) -> usize {
-        8 + VarInt::new(self.raw_script.len() as u64).size() + self.raw_script.len()
+        8 + varint_size(self.raw_script.len() as u64) + self.raw_script.len()
     }
 }
 
