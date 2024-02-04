@@ -50,12 +50,15 @@ impl P2PMessageHeader {
         }
         if self.command == PROTOCONF {
             // strange exception for protoconf messages
-            if self.payload_size > MAX_PROTOCONF_SIZE {
+            return if self.payload_size > MAX_PROTOCONF_SIZE {
                 // todo: ban score
                 let msg = format!("Bad size for protoconf message: {:?}", self.payload_size);
-                return Err(Error::BadData(msg));
+                Err(Error::BadData(msg))
+            } else {
+                Ok(())
             }
-        } else if self.command == BLOCK {       // normal payload size limit does not apply to block messages
+        }
+        if self.command == BLOCK {       // normal payload size limit does not apply to block messages
             return if self.payload_size > config.excessive_block_size {
                 // todo: ban score
                 let msg = format!("Bad size for block message: {:?}", self.payload_size);
@@ -63,7 +66,8 @@ impl P2PMessageHeader {
             } else {
                 Ok(())
             }
-        } else if self.payload_size > config.max_recv_payload_size {
+        }
+        if self.payload_size > config.max_recv_payload_size {
             // todo: ban score
             let msg = format!("Bad size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));

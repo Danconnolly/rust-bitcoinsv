@@ -103,9 +103,9 @@ impl PeerStreamActor {
         };
         let _w_handle = {
             // start the writer task
-            let magic = self.config.magic;
+            let cfg = self.config.clone();
             let w_rx = self.writer_rx.take().unwrap();
-            tokio::spawn(async move { PeerStreamActor::writer(w_rx, writer, magic).await })
+            tokio::spawn(async move { PeerStreamActor::writer(w_rx, writer, cfg).await })
         };
         self.stream_state = StreamState::Handshaking;
         // we send our version straightaway
@@ -199,12 +199,12 @@ impl PeerStreamActor {
     // The writer task. It continually reads from the channel and writes to the socket.
     // It has not state, it just reads and writes what it is given. In particular, it does not check the message
     // size.
-    async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf, magic: [u8; 4]) {
+    async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf, config: CommsConfig) {
         trace!("writer task started.");
         loop {
             match rx.recv().await {
                 Some(msg) => {
-                    match msg.write(&mut writer, magic).await {
+                    match msg.write(&mut writer, &config).await {
                         Ok(_) => {}
                         Err(e) => {
                             warn!("error writing message to peer, error: {}", e);

@@ -7,7 +7,7 @@ use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 use crate::p2p::config::CommsConfig;
 pub use self::commands::PROTOCONF;
-use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
+use crate::p2p::messages::messages::commands::{BLOCK, GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
@@ -56,6 +56,9 @@ use crate::p2p::messages::{Ping, Version};
 
 /// Checksum to use when there is an empty payload.
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
+/// Checksum to use when using extended message header
+pub const ZERO_CHECKSUM: [u8; 4] = [0, 0, 0, 0];
+
 
 /// Message commands for the header
 pub mod commands {
@@ -165,46 +168,26 @@ pub enum P2PMessage {
 impl P2PMessage {
     /// Read a full P2P message from the reader
     pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &CommsConfig) -> Result<Self> {
-        let mut v = vec![0u8; P2PMessageHeader::STANDARD_SIZE];
-        match reader.read_exact(&mut v).await {
-            Ok(_) => {},
-            Err(e) => {
-                trace!("Error reading message header: {}", e);
-                let msg = format!("Error reading message header: {}", e);
-                return Err(Error::BadData(msg));
-            },
-        }
-        let header = P2PMessageHeader::decode_from_buf(v.as_slice())?;
+        let header = P2PMessageHeader::decode_from(reader).await?;
         trace!("P2PMessage::read() - header: {:?}", header);
-        match header.validate(&comms_config) {
-            Ok(_) => {},
-            Err(e) => {
-                trace!("P2PMessage::read() - Error validating message header: {}, header: {:?}", e, header);
-                let msg = format!("Error validating message header: {}", e);
-                return Err(Error::BadData(msg));
-            },
-        }
+        header.validate(&comms_config)?;
         // payload size has been checked for max limit in header.validate()
-        let mut payload = vec![0u8; header.payload_size as usize];
-        if header.payload_size > 0 {
-            let _ = reader.read_exact(&mut payload).await?;
-            // we dont bother with the checksum
-        }
-        // let mut p_cursor = Cursor::new(&payload);
         let msg= match header.command {
             GETADDR => P2PMessage::GetAddr,
             MEMPOOL => P2PMessage::Mempool,
-            PING => P2PMessage::Ping(Ping::decode_from_buf(payload.as_slice()).unwrap()),
-            PONG => P2PMessage::Pong(Ping::decode_from_buf(payload.as_slice()).unwrap()),
-            PROTOCONF => P2PMessage::Protoconf(Protoconf::decode_from_buf(payload.as_slice()).unwrap()),
+            PING => P2PMessage::Ping(Ping::decode_from(reader).await?),
+            PONG => P2PMessage::Pong(Ping::decode_from(reader).await?),
+            PROTOCONF => P2PMessage::Protoconf(Protoconf::decode_from(reader).await?),
             SENDHEADERS => P2PMessage::SendHeaders,
             VERACK => P2PMessage::Verack,
-            VERSION => P2PMessage::Version(Version::decode_from_buf(payload.as_slice()).unwrap()),
+            VERSION => P2PMessage::Version(Version::decode_from(reader).await?),
             _ => {
                 if header.payload_size == 0 {
                     trace!("received unknown command={:?} with empty payload", std::str::from_utf8(&header.command).unwrap());
                     P2PMessage::Unknown(format!("Unknown command: {}", std::str::from_utf8(&header.command).unwrap()), 0)
                 } else {
+                    let mut v = vec![0u8; header.payload_size as usize];
+                    reader.read_exact(&mut v).await?;
                     trace!("received unknown command={:?} with payload size: {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size);
                     P2PMessage::Unknown(format!("Unknown command: {:?}, payload size {}", std::str::from_utf8(&header.command).unwrap(), header.payload_size), header.payload_size as usize)
                 }
@@ -214,33 +197,36 @@ impl P2PMessage {
             if header.command != VERSION {      // todo: 70016 version message is larger. dont report on it. remove this when we support 70016
                 warn!("received larger payload than msg: command={:?}, payload size={}, msg size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, msg.size());
             }
+            // we've read less bytes than the payload size, we need to read the rest and discard it
+            let mut v = vec![0u8; header.payload_size as usize - msg.size()];
+            reader.read_exact(&mut v).await?;
         }
         Ok(msg)
     }
 
     /// Writes a Bitcoin P2P message with its payload to bytes
-    pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, magic: [u8; 4]) -> Result<()> {
+    pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &CommsConfig) -> Result<()> {
         match self {
             // P2PMessage::Addr(p) => write_with_payload(writer, ADDR, p, magic),
             // P2PMessage::Block(p) => write_with_payload(writer, BLOCK, p, magic),
-            P2PMessage::GetAddr => self.write_without_payload(writer, GETADDR, magic).await,
+            P2PMessage::GetAddr => self.write_without_payload(writer, GETADDR, config).await,
             // P2PMessage::GetBlocks(p) => write_with_payload(writer, GETBLOCKS, p, magic),
             // P2PMessage::GetData(p) => write_with_payload(writer, GETDATA, p, magic),
             // P2PMessage::GetHeaders(p) => write_with_payload(writer, GETHEADERS, p, magic),
             // P2PMessage::Headers(p) => write_with_payload(writer, HEADERS, p, magic),
-            P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, magic).await,
+            P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
             // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
             // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
             // P2PMessage::Inv(p) => write_with_payload(writer, INV, p, magic),
-            P2PMessage::Ping(p) => self.write_with_payload(writer, PING, magic, p).await,
-            P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, magic, p).await,
-            P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, magic, p).await,
+            P2PMessage::Ping(p) => self.write_with_payload(writer, PING, config, p).await,
+            P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
+            P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, config, p).await,
             // P2PMessage::Reject(p) => write_with_payload(writer, REJECT, p, magic),
-            P2PMessage::SendHeaders => self.write_without_payload(writer, SENDHEADERS, magic).await,
+            P2PMessage::SendHeaders => self.write_without_payload(writer, SENDHEADERS, config).await,
             // P2PMessage::SendCmpct(p) => write_with_payload(writer, SENDCMPCT, p, magic),
             // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
-            P2PMessage::Verack => self.write_without_payload(writer, VERACK, magic).await,
-            P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, magic, v).await,
+            P2PMessage::Verack => self.write_without_payload(writer, VERACK, config).await,
+            P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, config, v).await,
             P2PMessage::Unknown(s, _size) => {
                 let msg = format!("Unknown command: {:?}", s);
                 Err(Error::BadData(msg))
@@ -276,9 +262,9 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that does not have a payload
-    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, command: [u8; 12], magic: [u8; 4]) -> Result<()> {
+    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, command: [u8; 12], config: &CommsConfig) -> Result<()> {
         let header = P2PMessageHeader {
-            magic,
+            magic: config.magic,
             command,
             payload_size: 0,
             checksum: NO_CHECKSUM,
@@ -289,21 +275,37 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that has a payload
-    async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], magic: [u8; 4], payload: &X) -> Result<()>
+    async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], config: &CommsConfig, payload: &X) -> Result<()>
         where W: AsyncWrite + Unpin + Send,
             X: Encodable,
     {
+        if config.protocol_version >= 70016 {
+            if payload.size() > 0xffffffff {
+                // we should use the extended message header
+                if command != BLOCK {
+                    return Err(Error::BadData("payload too large".to_string()));
+                }
+                let mut header = P2PMessageHeader {
+                    magic: config.magic,
+                    command,
+                    payload_size: payload.size() as u64,
+                    checksum: ZERO_CHECKSUM,
+                };
+                header.encode_into(writer).await?;
+                payload.encode_into(writer).await?;
+                return Ok(());
+            }
+        }
         let buf = payload.encode_into_buf()?;
         let hash = Hash::sha256d(&buf);
         let header = P2PMessageHeader {
-            magic,
+            magic: config.magic,
             command,
             payload_size: buf.len() as u64,
             checksum: hash.hash[..4].try_into().unwrap(),
         };
-        let v = header.encode_into_buf()?;
-        let _ = writer.write(&v).await?;
-        let _ = writer.write(&buf).await;
+        header.encode_into(writer).await?;
+        let _ = writer.write(&buf).await?;
         Ok(())
     }
 }
@@ -481,7 +483,7 @@ mod tests {
         // GetAddr
         let mut v = Vec::new();
         let m = P2PMessage::GetAddr;
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // GetBlocks
@@ -532,7 +534,7 @@ mod tests {
         // Mempool
         let mut v = Vec::new();
         let m = P2PMessage::Mempool;
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // MerkleBlock
@@ -588,14 +590,14 @@ mod tests {
         let mut v = Vec::new();
         let p = Ping { nonce: 7890 };
         let m = P2PMessage::Ping(p);
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Pong
         let mut v = Vec::new();
         let p = Ping { nonce: 7890 };
         let m = P2PMessage::Pong(p);
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // Reject
@@ -613,7 +615,7 @@ mod tests {
         // SendHeaders
         let mut v = Vec::new();
         let m = P2PMessage::SendHeaders;
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // SendCmpct
@@ -651,7 +653,7 @@ mod tests {
         // Verack
         let mut v = Vec::new();
         let m = P2PMessage::Verack;
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Version
@@ -672,7 +674,7 @@ mod tests {
             relay: true,
         };
         let m = P2PMessage::Version(p);
-        m.write(&mut v, magic).await.unwrap();
+        m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
     }
 
