@@ -7,14 +7,14 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 /// Encode & decode Bitcoin data structures asynchronously.
 #[async_trait]
-pub trait AsyncEncodable {
+pub trait Encodable {
     /// Decode data structure from a reader.
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
     where
         Self: Sized;
 
     /// Encode data structure to a writer.
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()>;
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()>;
 
     /// Return the size of the serialized form.
     // It is vital that implementations of this function use a method that does not just serialize the object
@@ -28,13 +28,13 @@ pub trait AsyncEncodable {
         Self: Sized,
     {
         let mut reader = std::io::Cursor::new(buf);
-        block_on(Self::decode_async(&mut reader))
+        block_on(Self::decode_from(&mut reader))
     }
 
     /// Encode data structure to a new buffer.
     fn encode_into_buf(&self) -> crate::Result<Vec<u8>> {
         let mut v = Vec::with_capacity(self.size());
-        block_on(self.encode_into_async(&mut v))?;
+        block_on(self.encode_into(&mut v))?;
         Ok(v)
     }
 }

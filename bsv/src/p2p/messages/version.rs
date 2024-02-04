@@ -4,7 +4,7 @@ use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{Error, Result};
-use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
 use crate::util::{epoch_secs, epoch_secs_u32};
 
 // based on code imported from rust-sv but substantially modified
@@ -115,8 +115,8 @@ impl Default for Version {
 }
 
 #[async_trait]
-impl AsyncEncodable for Version {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+impl Encodable for Version {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let timestamp = reader.read_i64_le().await?;
@@ -133,7 +133,7 @@ impl AsyncEncodable for Version {
         Ok(Version { version, services, timestamp, recv_addr, tx_addr, nonce, user_agent, start_height, relay, })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
         writer.write_u32_le(self.version).await?;
         writer.write_u64_le(self.services).await?;
         writer.write_i64_le(self.timestamp).await?;

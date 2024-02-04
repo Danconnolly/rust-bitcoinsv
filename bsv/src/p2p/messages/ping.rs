@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
+use crate::bitcoin::Encodable;
 
 /// Ping or pong message
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
@@ -19,13 +19,13 @@ impl Ping {
 }
 
 #[async_trait]
-impl AsyncEncodable for Ping {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+impl Encodable for Ping {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let nonce = reader.read_u64_le().await?;
         Ok(Ping { nonce })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u64_le(self.nonce).await?;
         Ok(())
     }

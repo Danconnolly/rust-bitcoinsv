@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
+use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
@@ -39,22 +39,22 @@ impl BlockHeader {
 }
 
 #[async_trait]
-impl AsyncEncodable for BlockHeader {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+impl Encodable for BlockHeader {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         Ok(BlockHeader {
             version: reader.read_u32_le().await?,
-            prev_hash: Hash::decode_async(reader).await?,
-            merkle_root: Hash::decode_async(reader).await?,
+            prev_hash: Hash::decode_from(reader).await?,
+            merkle_root: Hash::decode_from(reader).await?,
             timestamp: reader.read_u32_le().await?,
             bits: reader.read_u32_le().await?,
             nonce: reader.read_u32_le().await?,
         })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
-        self.prev_hash.encode_into_async(writer).await?;
-        self.merkle_root.encode_into_async(writer).await?;
+        self.prev_hash.encode_into(writer).await?;
+        self.merkle_root.encode_into(writer).await?;
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u32_le(self.bits).await?;
         writer.write_u32_le(self.nonce).await?;

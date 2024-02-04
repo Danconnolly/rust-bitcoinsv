@@ -1,7 +1,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
+use crate::bitcoin::Encodable;
 use crate::util::epoch_secs_u32;
 
 // based on code imported from rust-sv
@@ -48,8 +48,8 @@ impl Default for NodeAddr {
 }
 
 #[async_trait]
-impl AsyncEncodable for NodeAddr {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+impl Encodable for NodeAddr {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let timestamp = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
@@ -65,7 +65,7 @@ impl AsyncEncodable for NodeAddr {
         Ok(NodeAddr { timestamp, services, ip, port, })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u64_le(self.services).await?;
         match self.ip {

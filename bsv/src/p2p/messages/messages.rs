@@ -3,7 +3,7 @@ use std::fmt;
 use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
+use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
@@ -290,7 +290,7 @@ impl P2PMessage {
     /// Write a P2P message that has a payload
     async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], magic: [u8; 4], payload: &X) -> Result<()>
         where W: AsyncWrite + Unpin + Send,
-            X: AsyncEncodable,
+            X: Encodable,
     {
         let buf = payload.encode_into_buf()?;
         let hash = Hash::sha256d(&buf);

@@ -5,7 +5,7 @@ use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
+use crate::bitcoin::Encodable;
 
 /// The hash that is most often used in Bitcoin is the double SHA-256 hash.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
@@ -38,8 +38,8 @@ impl Hash {
 }
 
 #[async_trait]
-impl AsyncEncodable for Hash {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+impl Encodable for Hash {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let mut hash_value: [u8; 32] = [0; 32];
         reader.read_exact(&mut hash_value).await?;
         Ok(Hash {
@@ -47,7 +47,7 @@ impl AsyncEncodable for Hash {
         })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_all(&self.hash).await?;
         Ok(())
     }

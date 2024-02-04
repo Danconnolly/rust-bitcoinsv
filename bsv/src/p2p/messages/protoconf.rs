@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{varint_size, AsyncEncodable, varint_decode, varint_encode};
+use crate::bitcoin::{varint_size, Encodable, varint_decode, varint_encode};
 
 /// Protocol configuration message.
 ///
@@ -50,8 +50,8 @@ impl Default for Protoconf {
 }
 
 #[async_trait]
-impl AsyncEncodable for Protoconf {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+impl Encodable for Protoconf {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let num_entries = varint_decode(reader).await?;
         if num_entries < 2 {
             return Err(crate::Error::BadData("Protoconf must have at least 2 entries".to_string()));
@@ -70,7 +70,7 @@ impl AsyncEncodable for Protoconf {
         })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         varint_encode(writer, 2).await?;
         writer.write_u32_le(self.max_recv_payload_length).await?;
         varint_encode(writer, self.stream_policies.len() as u64).await?;

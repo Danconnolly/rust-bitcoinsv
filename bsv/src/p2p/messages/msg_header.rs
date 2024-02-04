@@ -3,7 +3,7 @@ use std::fmt;
 use std::str;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
+use crate::bitcoin::Encodable;
 use crate::p2p::messages::messages::commands::BLOCK;
 use crate::p2p::messages::messages::PROTOCONF;
 
@@ -58,8 +58,8 @@ impl P2PMessageHeader {
 }
 
 #[async_trait]
-impl AsyncEncodable for P2PMessageHeader {
-    async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+impl Encodable for P2PMessageHeader {
+    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
         let mut magic = vec![0u8; 4];
         reader.read_exact(&mut magic).await?;
         let mut command = vec![0u8; 12];
@@ -71,7 +71,7 @@ impl AsyncEncodable for P2PMessageHeader {
             payload_size, checksum: checksum.try_into().unwrap(), })
     }
 
-    async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
+    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
         writer.write_all(&self.magic).await?;
         writer.write_all(&self.command).await?;
         writer.write_u32_le(self.payload_size).await?;
