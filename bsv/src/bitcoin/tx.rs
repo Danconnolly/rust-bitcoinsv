@@ -9,6 +9,7 @@ use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
 pub type TxHash = Hash;
 
 /// A Bitcoin transaction.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Tx {
     /// transaction version number
     pub version: u32,
@@ -103,36 +104,29 @@ impl Encodable for Tx {
 }
 
 /// An Outpoint is a reference to a specific output of a specific transaction.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Outpoint {
-    raw: [u8; 36],
+    pub tx_hash: Hash,
+    pub index: u32,
 }
 
 impl Outpoint {
     pub const SIZE: usize = 36;
-
-    /// The hash of transaction.
-    pub fn tx_hash(&self) -> TxHash {
-        TxHash::from(&self.raw[..32])
-    }
-
-    /// The index of the output.
-    pub fn index(&self) -> u32 {
-        u32::from_le_bytes(self.raw[32..36].try_into().unwrap())
-    }
 }
 
 #[async_trait]
 impl Encodable for Outpoint {
     async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
-        let mut outpoint: [u8; 36] = [0; 36];
-        reader.read_exact(&mut outpoint).await?;
+        let tx_hash = Hash::decode_from(reader).await?;
+        let index = reader.read_u32_le().await?;
         Ok(Outpoint {
-            raw: outpoint,
+            tx_hash, index,
         })
     }
 
     async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        writer.write_all(&self.raw).await?;
+        self.tx_hash.encode_into(writer).await?;
+        writer.write_u32_le(self.index).await?;
         Ok(())
     }
 
@@ -142,9 +136,10 @@ impl Encodable for Outpoint {
 }
 
 /// A TxInput is an input to a transaction.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TxInput {
     pub outpoint: Outpoint,
-    raw_script: Vec<u8>,
+    pub raw_script: Vec<u8>,
     pub sequence: u32,
 }
 
@@ -178,9 +173,10 @@ impl Encodable for TxInput {
 }
 
 /// A TxOutput is an output from a transaction.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TxOutput {
     pub value: u64,
-    raw_script: Vec<u8>,
+    pub raw_script: Vec<u8>,
 }
 
 #[async_trait]
@@ -261,8 +257,8 @@ mod tests {
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);
         let i = tx.inputs.get(0).unwrap();
-        assert_eq!(i.outpoint.tx_hash(), Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a"));
-        assert_eq!(i.outpoint.index(), 1);
+        assert_eq!(i.outpoint.tx_hash, Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a"));
+        assert_eq!(i.outpoint.index, 1);
         assert_eq!(tx.outputs.len(), 2);
     }
 

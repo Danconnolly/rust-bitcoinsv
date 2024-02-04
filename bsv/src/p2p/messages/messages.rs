@@ -13,6 +13,7 @@ use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
 use crate::p2p::messages::{Ping, Version};
 use crate::p2p::messages::addr::Addr;
+use crate::p2p::messages::block::Block;
 use crate::p2p::messages::inv::Inv;
 
 // based on code imported from rust-sv but substantially modified
@@ -144,7 +145,7 @@ pub mod commands {
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum P2PMessage {
     Addr(Addr),
-    // Block(Block),
+    Block(Block),
     GetAddr,
     // GetBlocks(BlockLocator),
     // GetData(Inv),
@@ -176,6 +177,7 @@ impl P2PMessage {
         // payload size has been checked for max limit in header.validate()
         let msg= match header.command {
             ADDR => P2PMessage::Addr(Addr::decode_from(reader).await?),
+            BLOCK => P2PMessage::Block(Block::decode_from(reader).await?),
             GETADDR => P2PMessage::GetAddr,
             INV => P2PMessage::Inv(Inv::decode_from(reader).await?),
             MEMPOOL => P2PMessage::Mempool,
@@ -212,7 +214,7 @@ impl P2PMessage {
     pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &CommsConfig) -> Result<()> {
         match self {
             P2PMessage::Addr(p) => self.write_with_payload(writer, ADDR, config, p).await,
-            // P2PMessage::Block(p) => write_with_payload(writer, BLOCK, p, magic),
+            P2PMessage::Block(p) => self.write_with_payload(writer, BLOCK, config, p).await,
             P2PMessage::GetAddr => self.write_without_payload(writer, GETADDR, config).await,
             // P2PMessage::GetBlocks(p) => write_with_payload(writer, GETBLOCKS, p, magic),
             // P2PMessage::GetData(p) => write_with_payload(writer, GETDATA, p, magic),
@@ -242,7 +244,7 @@ impl P2PMessage {
     pub fn size(&self) -> usize {
         match self {
             P2PMessage::Addr(p) => p.size(),
-            // P2PMessage::Block(p) => write_with_payload(writer, BLOCK, p, magic),
+            P2PMessage::Block(p) => p.size(),
             P2PMessage::GetAddr => 0,
             // P2PMessage::GetBlocks(p) => write_with_payload(writer, GETBLOCKS, p, magic),
             // P2PMessage::GetData(p) => write_with_payload(writer, GETDATA, p, magic),
@@ -318,7 +320,7 @@ impl fmt::Debug for P2PMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             P2PMessage::Addr(p) => f.write_str(&format!("{:#?}", p)),
-            // Message::Block(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Block(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::GetAddr => f.write_str("GetAddr"),
             // Message::GetBlocks(p) => f
             //     .debug_struct("GetBlocks")
@@ -366,6 +368,7 @@ impl From<&P2PMessage> for P2PMessageType {
     fn from(value: &P2PMessage) -> Self {
         match value {
             P2PMessage::Addr(_) => Data,
+            P2PMessage::Block(_) => Data,
             P2PMessage::GetAddr => Data,
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
@@ -384,6 +387,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
     fn from(value: Arc<P2PMessage>) -> Self {
         match *value {
             P2PMessage::Addr(_) => Data,
+            P2PMessage::Block(_) => Data,
             P2PMessage::GetAddr => Data,
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
@@ -403,6 +407,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv6Addr};
+    use crate::bitcoin::{BlockHeader, Outpoint, Tx, TxInput, TxOutput};
     use crate::p2p::messages::inv::{InvItem, InvType};
     use crate::p2p::messages::NodeAddr;
     use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
@@ -415,7 +420,7 @@ mod tests {
             magic,
             max_recv_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
             max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
-            excessive_block_size: 0,
+            excessive_block_size: 10_000_000_000,
             protocol_version: PROTOCOL_VERSION,
         };
 
@@ -433,60 +438,54 @@ mod tests {
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Block
-        // let mut v = Vec::new();
-        // let p = Block {
-        //     header: BlockHeader {
-        //         version: 0x00000001,
-        //         prev_hash: Hash256::decode(
-        //             "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234",
-        //         )
-        //             .unwrap(),
-        //         merkle_root: Hash256::decode(
-        //             "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
-        //         )
-        //             .unwrap(),
-        //         timestamp: 0x4dd7f5c7,
-        //         bits: 0x1a44b9f2,
-        //         nonce: 0x9546a142,
-        //     },
-        //     txns: vec![
-        //         Tx {
-        //             version: 0x44556677,
-        //             inputs: vec![TxIn {
-        //                 prev_output: OutPoint {
-        //                     hash: Hash256([5; 32]),
-        //                     index: 3,
-        //                 },
-        //                 unlock_script: Script(vec![5; 5]),
-        //                 sequence: 2,
-        //             }],
-        //             outputs: vec![TxOut {
-        //                 satoshis: 42,
-        //                 lock_script: Script(vec![9; 21]),
-        //             }],
-        //             lock_time: 0x12ff34aa,
-        //         },
-        //         Tx {
-        //             version: 0x99881122,
-        //             inputs: vec![TxIn {
-        //                 prev_output: OutPoint {
-        //                     hash: Hash256([6; 32]),
-        //                     index: 4,
-        //                 },
-        //                 unlock_script: Script(vec![4; 4]),
-        //                 sequence: 3,
-        //             }],
-        //             outputs: vec![TxOut {
-        //                 satoshis: 43,
-        //                 lock_script: Script(vec![10; 22]),
-        //             }],
-        //             lock_time: 0x44550011,
-        //         },
-        //     ],
-        // };
-        // let m = Message::Block(p);
-        // m.write(&mut v, magic).unwrap();
-        // assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+        let mut v = Vec::new();
+        let p = Block {
+            header: BlockHeader {
+                version: 0x00000001,
+                prev_hash: Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
+                merkle_root: Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
+                timestamp: 0x4dd7f5c7,
+                bits: 0x1a44b9f2,
+                nonce: 0x9546a142,
+            },
+            transactions: vec![
+                Tx {
+                    version: 0x44556677,
+                    inputs: vec![TxInput {
+                        outpoint: Outpoint {
+                            tx_hash: Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
+                            index: 3,
+                        },
+                        raw_script: vec![5; 5],
+                        sequence: 2,
+                    }],
+                    outputs: vec![TxOutput {
+                        value: 42,
+                        raw_script: vec![9; 21],
+                    }],
+                    lock_time: 0x12ff34aa,
+                },
+                Tx {
+                    version: 0x99881122,
+                    inputs: vec![TxInput {
+                        outpoint: Outpoint {
+                            tx_hash: Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
+                            index: 4,
+                        },
+                        raw_script: vec![4; 4],
+                        sequence: 3,
+                    }],
+                    outputs: vec![TxOutput {
+                        value: 43,
+                        raw_script: vec![10; 22],
+                    }],
+                    lock_time: 0x44550011,
+                },
+            ],
+        };
+        let m = P2PMessage::Block(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // GetAddr
         let mut v = Vec::new();

@@ -9,6 +9,7 @@ mod protoconf;
 mod ping;
 mod addr;
 mod inv;
+mod block;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;
