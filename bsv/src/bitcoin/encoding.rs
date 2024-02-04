@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-use byteorder::{ReadBytesExt, WriteBytesExt};
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
 

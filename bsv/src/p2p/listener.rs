@@ -40,7 +40,7 @@ impl Listener {
 
     pub async fn get_port(&self) -> u16 {
         let (tx, rx) = oneshot::channel();
-        self.sender.send(ListenerInternalMessage::GetPort { reply: tx }).await;
+        let _ = self.sender.send(ListenerInternalMessage::GetPort { reply: tx }).await.unwrap();
         rx.await.unwrap()
     }
 }
