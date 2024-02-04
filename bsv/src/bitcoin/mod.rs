@@ -13,5 +13,5 @@ pub use self::encoding::{Encodable, AsyncEncodable};
 pub use self::header::{BlockHash, MerkleRoot, BlockHeader};
 pub use self::params::BlockchainId;
 pub use self::tx::{TxHash, Tx, TxInput, TxOutput, Outpoint};
-pub use self::var_int::{varint_size, varint_decode_async, varint_encode_async};
+pub use self::var_int::{varint_size, varint_decode, varint_encode};
 pub use hex::{FromHex, ToHex};

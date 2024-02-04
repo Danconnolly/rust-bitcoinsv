@@ -5,7 +5,7 @@ use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::Stream;
 pub use tokio_stream::StreamExt;
-use crate::bitcoin::{BlockHeader, AsyncEncodable, Tx, varint_decode_async};
+use crate::bitcoin::{BlockHeader, AsyncEncodable, Tx, varint_decode};
 
 
 /// Deserialize the bytes in a block and produce a stream of the transactions.
@@ -55,7 +55,7 @@ impl<R> FullBlockStream<R>
     pub async fn new(mut reader: R) -> crate::Result<FullBlockStream<R>> {
         // read block header and number of transactions
         let block_header = BlockHeader::decode_async(&mut reader).await?;
-        let num_tx = varint_decode_async(&mut reader).await?;
+        let num_tx = varint_decode(&mut reader).await?;
         let (sender, rx) = mpsc::channel::<crate::Result<Tx>>(BUFFER_SIZE);
         // spawn a task to continuously read transactions from the reader and send them to the channel
         let mut tx_reader = FullBlockTxReader::new(num_tx, reader, sender);

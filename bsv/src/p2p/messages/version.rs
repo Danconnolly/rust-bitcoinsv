@@ -4,7 +4,7 @@ use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{Error, Result};
-use crate::bitcoin::{AsyncEncodable, varint_decode_async, varint_encode_async, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::util::{epoch_secs, epoch_secs_u32};
 
 // based on code imported from rust-sv but substantially modified
@@ -123,7 +123,7 @@ impl AsyncEncodable for Version {
         let recv_addr = Version::read_version_addr(reader).await?;
         let tx_addr = Version::read_version_addr(reader).await?;
         let nonce = reader.read_u64_le().await?;
-        let user_agent_size = varint_decode_async(reader).await?;
+        let user_agent_size = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut user_agent_bytes = vec![0; user_agent_size as usize];
         reader.read_exact(&mut user_agent_bytes).await?;
@@ -140,7 +140,7 @@ impl AsyncEncodable for Version {
         Version::write_version_addr(&self.recv_addr, writer).await?;
         Version::write_version_addr(&self.tx_addr, writer).await?;
         writer.write_u64_le(self.nonce).await?;
-        varint_encode_async(writer, self.user_agent.len() as u64).await?;
+        varint_encode(writer, self.user_agent.len() as u64).await?;
         writer.write_all(self.user_agent.as_bytes()).await?;
         writer.write_i32_le(self.start_height).await?;
         writer.write_u8(if self.relay { 0x01 } else { 0x00 }).await?;

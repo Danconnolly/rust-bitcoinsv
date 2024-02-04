@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
-use crate::bitcoin::{AsyncEncodable, varint_decode_async, varint_encode_async, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 
 
 /// The TxHash is used to identify transactions.
@@ -52,14 +52,14 @@ impl ToHex for Tx {
 impl AsyncEncodable for Tx {
     async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
-        let num_inputs = varint_decode_async(reader).await?;
+        let num_inputs = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut inputs = Vec::with_capacity(num_inputs as usize);
         for _i in 0..num_inputs {
             let input= TxInput::decode_async(reader).await?;
             inputs.push(input);
         }
-        let num_outputs = varint_decode_async(reader).await?;
+        let num_outputs = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut outputs = Vec::with_capacity(num_outputs as usize);
         for _i in 0..num_outputs {
@@ -77,11 +77,11 @@ impl AsyncEncodable for Tx {
 
     async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
-        varint_encode_async(writer, self.inputs.len() as u64).await?;
+        varint_encode(writer, self.inputs.len() as u64).await?;
         for input in self.inputs.iter() {
             input.encode_into_async(writer).await?;
         }
-        varint_encode_async(writer, self.outputs.len() as u64).await?;
+        varint_encode(writer, self.outputs.len() as u64).await?;
         for output in self.outputs.iter() {
             output.encode_into_async(writer).await?;
         }
@@ -152,7 +152,7 @@ pub struct TxInput {
 impl AsyncEncodable for TxInput {
     async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let outpoint = Outpoint::decode_async(reader).await?;
-        let script_size = varint_decode_async(reader).await?;
+        let script_size = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut script = vec![0u8; script_size as usize];
         reader.read_exact(&mut script).await?;
@@ -166,7 +166,7 @@ impl AsyncEncodable for TxInput {
 
     async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         self.outpoint.encode_into_async(writer).await?;
-        varint_encode_async(writer, self.raw_script.len() as u64).await?;
+        varint_encode(writer, self.raw_script.len() as u64).await?;
         writer.write_all(&self.raw_script).await?;
         writer.write_u32_le(self.sequence).await?;
         Ok(())
@@ -187,7 +187,7 @@ pub struct TxOutput {
 impl AsyncEncodable for TxOutput {
     async fn decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let value = reader.read_u64_le().await?;
-        let script_size = varint_decode_async(reader).await?;
+        let script_size = varint_decode(reader).await?;
         // todo: check size before allocation?
         let mut script = vec![0u8; script_size as usize];
         reader.read_exact(&mut script).await?;
@@ -199,7 +199,7 @@ impl AsyncEncodable for TxOutput {
 
     async fn encode_into_async<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u64_le(self.value).await?;
-        varint_encode_async(writer, self.raw_script.len() as u64).await?;
+        varint_encode(writer, self.raw_script.len() as u64).await?;
         writer.write_all(&self.raw_script).await?;
         Ok(())
     }
