@@ -4,8 +4,10 @@ use std::str;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
+use crate::p2p::config::CommsConfig;
 use crate::p2p::messages::messages::commands::BLOCK;
 use crate::p2p::messages::messages::PROTOCONF;
+use crate::p2p::messages::protoconf::MAX_PROTOCONF_SIZE;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -32,24 +34,34 @@ impl P2PMessageHeader {
     ///
     /// `magic` - Expected magic bytes for the network
     /// `max_size` - Max size in bytes for the payload
-    pub fn validate(&self, magic: [u8; 4], max_size: u32) -> Result<()> {
+    pub fn validate(&self, config: &CommsConfig) -> Result<()> {
         if self.payload_size == 0xffffffff {
+            // todo: extended message sizes in BSV
             let msg = format!("Extended Message Header, not implemented, size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));
         }
-        if self.magic != magic {
+        if self.magic != config.magic {
+            // todo: ban
             let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
             return Err(Error::BadData(msg));
         }
         if self.command == PROTOCONF {
             // strange exception for protoconf messages
-            if self.payload_size > 1_048_576 {
+            if self.payload_size > MAX_PROTOCONF_SIZE {
+                // todo: ban score
                 let msg = format!("Bad size for protoconf message: {:?}", self.payload_size);
                 return Err(Error::BadData(msg));
             }
-        } else if self.command == BLOCK {       // payload size limit does not apply to block messages - todo: this should be maxecessiveblocksize
-            return Ok(());
-        } else if self.payload_size > max_size {
+        } else if self.command == BLOCK {       // normal payload size limit does not apply to block messages
+            return if self.payload_size as u64 > config.excessive_block_size {
+                // todo: need extended message sizes in BSV
+                // todo: ban score
+                let msg = format!("Bad size for block message: {:?}", self.payload_size);
+                Err(Error::BadData(msg))
+            } else {
+                Ok(())
+            }
+        } else if self.payload_size > config.max_recv_payload_size {
             let msg = format!("Bad size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));
         }
@@ -136,12 +148,24 @@ mod tests {
             payload_size: 88,
             checksum: [0x12, 0x34, 0x56, 0x78],
         };
+        let config = CommsConfig {
+            magic,
+            max_recv_payload_size: 100,
+            max_send_payload_size: 100,
+            excessive_block_size: 100,
+        };
         // Valid
-        assert!(h.validate(magic, 100).is_ok());
+        assert!(h.validate(&config).is_ok());
         // Bad magic
         let bad_magic = [0xb0, 0xb1, 0xb2, 0xb3];
-        assert!(h.validate(bad_magic, 100).is_err());
+        let bad_config = CommsConfig {
+            magic: bad_magic,
+            max_recv_payload_size: 50,
+            max_send_payload_size: 50,
+            excessive_block_size: 50,
+        };
+        assert!(h.validate(&bad_config).is_err());
         // Bad size
-        assert!(h.validate(magic, 50).is_err());
+        assert!(h.validate(&bad_config).is_err());
     }
 }

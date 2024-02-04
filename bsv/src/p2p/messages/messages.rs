@@ -5,6 +5,7 @@ use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
+use crate::p2p::config::CommsConfig;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
@@ -55,9 +56,6 @@ use crate::p2p::messages::{Ping, Version};
 
 /// Checksum to use when there is an empty payload.
 pub const NO_CHECKSUM: [u8; 4] = [0x5d, 0xf6, 0xe0, 0xe2];
-
-/// Default max message payload size (32MB).
-pub const DEFAULT_MAX_PAYLOAD_SIZE: u32 = 0x02000000;
 
 /// Message commands for the header
 pub mod commands {
@@ -163,7 +161,7 @@ pub enum P2PMessage {
 
 impl P2PMessage {
     /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, magic: [u8; 4], max_payload_size: u32) -> Result<Self> {
+    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &CommsConfig) -> Result<Self> {
         let mut v = vec![0u8; P2PMessageHeader::SIZE];
         match reader.read_exact(&mut v).await {
             Ok(_) => {},
@@ -175,7 +173,7 @@ impl P2PMessage {
         }
         let header = P2PMessageHeader::decode_from_buf(v.as_slice())?;
         trace!("P2PMessage::read() - header: {:?}", header);
-        match header.validate(magic, max_payload_size) {
+        match header.validate(&comms_config) {
             Ok(_) => {},
             Err(e) => {
                 trace!("P2PMessage::read() - Error validating message header: {}, header: {:?}", e, header);
@@ -210,7 +208,7 @@ impl P2PMessage {
             },
         };
         if msg.size() < header.payload_size as usize {
-            if header.command != VERSION {      // todo: 70016 version message is larger. remove this when we support 70016
+            if header.command != VERSION {      // todo: 70016 version message is larger. dont report on it. remove this when we support 70016
                 warn!("received larger payload than msg: command={:?}, payload size={}, msg size={}", std::str::from_utf8(&header.command).unwrap(), header.payload_size, msg.size());
             }
         }
@@ -393,11 +391,18 @@ mod tests {
     use std::io::Cursor;
     use crate::p2p::messages::NodeAddr;
     use crate::p2p::messages::version::PROTOCOL_VERSION;
+    use crate::p2p::params::DEFAULT_MAX_PAYLOAD_SIZE;
     use crate::util::epoch_secs;
 
     #[tokio::test]
     async fn write_read() {
         let magic = [7, 8, 9, 0];
+        let config = CommsConfig {
+            magic,
+            max_recv_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
+            max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
+            excessive_block_size: 0,
+        };
 
         // Addr
         // let mut v = Vec::new();
@@ -474,7 +479,7 @@ mod tests {
         let mut v = Vec::new();
         let m = P2PMessage::GetAddr;
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // GetBlocks
     //     let mut v = Vec::new();
@@ -525,7 +530,7 @@ mod tests {
         let mut v = Vec::new();
         let m = P2PMessage::Mempool;
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // MerkleBlock
     //     let mut v = Vec::new();
@@ -581,14 +586,14 @@ mod tests {
         let p = Ping { nonce: 7890 };
         let m = P2PMessage::Ping(p);
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Pong
         let mut v = Vec::new();
         let p = Ping { nonce: 7890 };
         let m = P2PMessage::Pong(p);
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // Reject
     //     let mut v = Vec::new();
@@ -606,7 +611,7 @@ mod tests {
         let mut v = Vec::new();
         let m = P2PMessage::SendHeaders;
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
     //     // SendCmpct
     //     let mut v = Vec::new();
@@ -644,7 +649,7 @@ mod tests {
         let mut v = Vec::new();
         let m = P2PMessage::Verack;
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Version
         let mut v = Vec::new();
@@ -665,7 +670,7 @@ mod tests {
         };
         let m = P2PMessage::Version(p);
         m.write(&mut v, magic).await.unwrap();
-        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), magic, DEFAULT_MAX_PAYLOAD_SIZE).await.unwrap(), m);
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
     }
 
     // #[test]

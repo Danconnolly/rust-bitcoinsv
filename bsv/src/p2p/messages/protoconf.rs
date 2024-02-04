@@ -3,17 +3,18 @@ use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{varint_size, Encodable, varint_decode, varint_encode};
 
+/// The maximum size of a protoconf message.
+pub const MAX_PROTOCONF_SIZE: u32 = 1_048_576;
+
 /// Protocol configuration message.
 ///
 /// The message enables the sender to advertise various connection parameters to a remote peer.
-/// Note that according to the spec the maximum size of this message is 1_048_576 bytes and the
-/// fact that the specification specifies this implies that this is true even if the protoconf
-/// message is not explicitly supported, which is kind of strange.
 ///
-/// Note that the protoconf does not require an acknoledgement. Which means it is a statement of intent
+/// Note that the protoconf does not require an acknowledgement. Which means it is a statement of intent
 /// and the peer that sent the message must respect it.
 ///
 /// Specification: https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/protoconf.md
+// Note that according to the spec the maximum size of this message is 1_048_576 bytes.
 // IMPROVEMENT: the strange size exception could be a mis-interpretation of the spec. Check the
 //              SV Node code to see if it has the same exception. Note the exception is also
 //              encoded in the message header validation code.

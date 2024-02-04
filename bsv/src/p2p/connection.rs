@@ -8,10 +8,12 @@ use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::stream::PeerStream;
 use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
-use crate::p2p::params::NetworkParams;
+use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE, NetworkParams};
 
 
 /// Configuration shared by all P2P Connections.
+///
+/// This is desired configuration, not actual configuration.
 #[derive(Debug, Clone)]
 pub struct ConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
@@ -20,12 +22,12 @@ pub struct ConnectionConfig {
     pub retries: u8,
     /// The delay between retries, in seconds.
     pub retry_delay: u16,
-    /// Should control mmessages be sent to the data channel?
+    /// Should control messages be sent to the data channel?
     pub send_control_messages: bool,
-    /// The maximum payload size we will receive
-    ///
-    /// Note that this limit does not apply to block messages.
+    /// The maximum payload size we want to receive, using protoconf.
     pub max_recv_payload_size: u32,
+    /// The excessive block size. This is the maximum size of a block that we will accept.
+    pub excessive_block_size: u64,
 }
 
 impl ConnectionConfig {
@@ -36,7 +38,8 @@ impl ConnectionConfig {
             retries: 5,
             retry_delay: 10,
             send_control_messages: false,
-            max_recv_payload_size: 2_097_152,       // 2MB
+            max_recv_payload_size: DEFAULT_MAX_RECV_PAYLOAD_SIZE,
+            excessive_block_size: DEFAULT_EXCESSIVE_BLOCK_SIZE,
         }
     }
 }
@@ -117,8 +120,6 @@ struct ConnectionActor {
     inbox: Receiver<ConnectionControlMessage>,
     // the configuration for the connection, we'll need this when we support multiple channels
     config: Arc<ConnectionConfig>,
-    // the network parameters
-    network_params: NetworkParams,
     // the channel on which to send substantive P2P messages
     data_channel: P2PMessageChannelSender,
     // number of attempts to connect
@@ -136,11 +137,9 @@ struct ConnectionActor {
 impl ConnectionActor {
     async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<ConnectionConfig>,
                  data_channel: P2PMessageChannelSender) {
-        let network_params =  NetworkParams::from(config.blockchain);
-        let (stream, join_handle) = PeerStream::new(peer_address.clone(), config.clone(), network_params.clone(), data_channel.clone());
+        let (stream, join_handle) = PeerStream::new(peer_address.clone(), config.clone(), data_channel.clone());
         let mut actor = ConnectionActor {
             inbox, config,
-            network_params,
             data_channel,
             attempts: 0,
             primary_stream: stream,
