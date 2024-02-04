@@ -7,11 +7,12 @@ use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 use crate::p2p::config::CommsConfig;
 pub use self::commands::PROTOCONF;
-use crate::p2p::messages::messages::commands::{BLOCK, GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
+use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
 use crate::p2p::messages::{Ping, Version};
+use crate::p2p::messages::addr::Addr;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -141,7 +142,7 @@ pub mod commands {
 /// Bitcoin peer-to-peer message with its payload
 #[derive(PartialEq, Eq, Hash, Clone)]
 pub enum P2PMessage {
-    // Addr(Addr),
+    Addr(Addr),
     // Block(Block),
     GetAddr,
     // GetBlocks(BlockLocator),
@@ -173,6 +174,7 @@ impl P2PMessage {
         header.validate(&comms_config)?;
         // payload size has been checked for max limit in header.validate()
         let msg= match header.command {
+            ADDR => P2PMessage::Addr(Addr::decode_from(reader).await?),
             GETADDR => P2PMessage::GetAddr,
             MEMPOOL => P2PMessage::Mempool,
             PING => P2PMessage::Ping(Ping::decode_from(reader).await?),
@@ -207,7 +209,7 @@ impl P2PMessage {
     /// Writes a Bitcoin P2P message with its payload to bytes
     pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &CommsConfig) -> Result<()> {
         match self {
-            // P2PMessage::Addr(p) => write_with_payload(writer, ADDR, p, magic),
+            P2PMessage::Addr(p) => self.write_with_payload(writer, ADDR, config, p).await,
             // P2PMessage::Block(p) => write_with_payload(writer, BLOCK, p, magic),
             P2PMessage::GetAddr => self.write_without_payload(writer, GETADDR, config).await,
             // P2PMessage::GetBlocks(p) => write_with_payload(writer, GETBLOCKS, p, magic),
@@ -237,7 +239,7 @@ impl P2PMessage {
     /// Get the size of the payload of the message
     pub fn size(&self) -> usize {
         match self {
-            // P2PMessage::Addr(p) => write_with_payload(writer, ADDR, p, magic),
+            P2PMessage::Addr(p) => p.size(),
             // P2PMessage::Block(p) => write_with_payload(writer, BLOCK, p, magic),
             P2PMessage::GetAddr => 0,
             // P2PMessage::GetBlocks(p) => write_with_payload(writer, GETBLOCKS, p, magic),
@@ -313,7 +315,7 @@ impl P2PMessage {
 impl fmt::Debug for P2PMessage {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            // Message::Addr(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Addr(p) => f.write_str(&format!("{:#?}", p)),
             // Message::Block(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::GetAddr => f.write_str("GetAddr"),
             // Message::GetBlocks(p) => f
@@ -361,6 +363,7 @@ pub enum P2PMessageType {
 impl From<&P2PMessage> for P2PMessageType {
     fn from(value: &P2PMessage) -> Self {
         match value {
+            P2PMessage::Addr(_) => Data,
             P2PMessage::GetAddr => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
@@ -377,6 +380,7 @@ impl From<&P2PMessage> for P2PMessageType {
 impl From<Arc<P2PMessage>> for P2PMessageType {
     fn from(value: Arc<P2PMessage>) -> Self {
         match *value {
+            P2PMessage::Addr(_) => Data,
             P2PMessage::GetAddr => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
@@ -394,6 +398,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
 mod tests {
     use super::*;
     use std::io::Cursor;
+    use std::net::{IpAddr, Ipv6Addr};
     use crate::p2p::messages::NodeAddr;
     use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
     use crate::util::epoch_secs;
@@ -410,19 +415,17 @@ mod tests {
         };
 
         // Addr
-        // let mut v = Vec::new();
-        // let a = NodeAddrEx {
-        //     last_connected_time: 700,
-        //     addr: NodeAddr {
-        //         services: 900,
-        //         ip: Ipv6Addr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 9, 8, 7, 6, 5]),
-        //         port: 4000,
-        //     },
-        // };
-        // let p = Addr { addrs: vec![a] };
-        // let m = Message::Addr(p);
-        // m.write(&mut v, magic).unwrap();
-        // assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+        let mut v = Vec::new();
+        let a = NodeAddr {
+            timestamp: 700,
+            services: 900,
+            ip: IpAddr::from(Ipv6Addr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 9, 8, 7, 6, 5])),
+            port: 4000,
+        };
+        let p = Addr { addrs: vec![a] };
+        let m = P2PMessage::Addr(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Block
         // let mut v = Vec::new();
