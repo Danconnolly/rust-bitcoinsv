@@ -5,15 +5,16 @@ use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::p2p::config::CommsConfig;
-use crate::p2p::messages::messages::commands::BLOCK;
+use crate::p2p::messages::messages::commands::{BLOCK, EXTMSG};
 use crate::p2p::messages::messages::PROTOCONF;
 use crate::p2p::messages::protoconf::MAX_PROTOCONF_SIZE;
 
 // based on code imported from rust-sv but substantially modified
 
-// todo: extended message sizes in BSV
-
-/// Header that begins all messages
+/// Header that begins all messages.
+///
+/// We have collapsed the standard header and the extended header into one struct.
+/// The extended header is described in [P2P Large Message Support](https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/large_messages.md).
 #[derive(Default, PartialEq, Eq, Hash, Clone)]
 pub struct P2PMessageHeader {
     /// Magic bytes indicating the network type
@@ -21,25 +22,27 @@ pub struct P2PMessageHeader {
     /// Command name
     pub command: [u8; 12],
     /// Payload size
-    pub payload_size: u32,
+    pub payload_size: u64,
     /// First 4 bytes of SHA256(SHA256(payload))
     pub checksum: [u8; 4],
 }
 
 impl P2PMessageHeader {
-    /// Size of the message header in bytes
-    pub const SIZE: usize = 24;
+    /// Size of the standard message header in bytes
+    pub const STANDARD_SIZE: usize = 24;
+    /// Size of the extended message header in bytes
+    pub const EXTENDED_SIZE: usize = 44;
+
+    /// Returns true if the header is in extended format.
+    pub fn is_extended(&self) -> bool {
+        self.payload_size >= 0xffffffff && self.command == BLOCK
+    }
 
     /// Checks if the header is valid
     ///
     /// `magic` - Expected magic bytes for the network
     /// `max_size` - Max size in bytes for the payload
     pub fn validate(&self, config: &CommsConfig) -> Result<()> {
-        if self.payload_size == 0xffffffff {
-            // todo: extended message sizes in BSV
-            let msg = format!("Extended Message Header, not implemented, size: {:?}", self.payload_size);
-            return Err(Error::BadData(msg));
-        }
         if self.magic != config.magic {
             // todo: ban
             let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
@@ -53,8 +56,7 @@ impl P2PMessageHeader {
                 return Err(Error::BadData(msg));
             }
         } else if self.command == BLOCK {       // normal payload size limit does not apply to block messages
-            return if self.payload_size as u64 > config.excessive_block_size {
-                // todo: need extended message sizes in BSV
+            return if self.payload_size > config.excessive_block_size {
                 // todo: ban score
                 let msg = format!("Bad size for block message: {:?}", self.payload_size);
                 Err(Error::BadData(msg))
@@ -62,6 +64,7 @@ impl P2PMessageHeader {
                 Ok(())
             }
         } else if self.payload_size > config.max_recv_payload_size {
+            // todo: ban score
             let msg = format!("Bad size: {:?}", self.payload_size);
             return Err(Error::BadData(msg));
         }
@@ -72,27 +75,54 @@ impl P2PMessageHeader {
 #[async_trait]
 impl Encodable for P2PMessageHeader {
     async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+        // read standard header
         let mut magic = vec![0u8; 4];
         reader.read_exact(&mut magic).await?;
         let mut command = vec![0u8; 12];
         reader.read_exact(&mut command).await?;
-        let payload_size = reader.read_u32_le().await?;
+        let mut payload_size: u64 = reader.read_u32_le().await? as u64;
         let mut checksum = vec![0u8; 4];
         reader.read_exact(&mut checksum).await?;
+        if command == EXTMSG {
+            // its an extended header
+            reader.read_exact(&mut command).await?;     // re-read the command
+            payload_size = reader.read_u64_le().await?;
+            if payload_size < 0xffffffff {
+                return Err(Error::BadData("used extended header for small payload".to_string()));
+            }
+            if command != BLOCK {
+                return Err(Error::BadData("unknown command in extended header".to_string()));
+            }
+        }
         Ok(P2PMessageHeader { magic: magic.try_into().unwrap(), command: command.try_into().unwrap(),
             payload_size, checksum: checksum.try_into().unwrap(), })
     }
 
     async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
-        writer.write_all(&self.magic).await?;
-        writer.write_all(&self.command).await?;
-        writer.write_u32_le(self.payload_size).await?;
-        writer.write_all(&self.checksum).await?;
-        Ok(())
+        // do we need to write an extended header?
+        if self.is_extended() {
+            writer.write_all(&self.magic).await?;
+            writer.write_all(&EXTMSG).await?;
+            writer.write_u32_le(0xffffffff).await?;
+            writer.write_all(&self.checksum).await?;
+            writer.write_all(&self.command).await?;
+            writer.write_u64_le(self.payload_size).await?;
+            Ok(())
+        } else {
+            writer.write_all(&self.magic).await?;
+            writer.write_all(&self.command).await?;
+            writer.write_u32_le(self.payload_size as u32).await?;
+            writer.write_all(&self.checksum).await?;
+            Ok(())
+        }
     }
 
     fn size(&self) -> usize {
-        P2PMessageHeader::SIZE
+        if self.is_extended() {
+            P2PMessageHeader::EXTENDED_SIZE
+        } else {
+            P2PMessageHeader::STANDARD_SIZE
+        }
     }
 }
 
@@ -115,6 +145,7 @@ impl fmt::Debug for P2PMessageHeader {
 mod tests {
     use super::*;
     use hex;
+    use crate::p2p::params::PROTOCOL_VERSION;
 
     #[test]
     fn read_bytes() {
@@ -153,6 +184,7 @@ mod tests {
             max_recv_payload_size: 100,
             max_send_payload_size: 100,
             excessive_block_size: 100,
+            protocol_version: PROTOCOL_VERSION,
         };
         // Valid
         assert!(h.validate(&config).is_ok());
@@ -163,6 +195,7 @@ mod tests {
             max_recv_payload_size: 50,
             max_send_payload_size: 50,
             excessive_block_size: 50,
+            protocol_version: PROTOCOL_VERSION,
         };
         assert!(h.validate(&bad_config).is_err());
         // Bad size

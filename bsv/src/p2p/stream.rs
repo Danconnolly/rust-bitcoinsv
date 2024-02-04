@@ -164,7 +164,7 @@ impl PeerStreamActor {
                         match &*msg {
                             P2PMessage::Protoconf(p) => {
                                 // we can send larger messages to the peer
-                                self.config.max_send_payload_size = p.max_recv_payload_length;
+                                self.config.max_send_payload_size = p.max_recv_payload_length as u64;
                             },
                             P2PMessage::SendHeaders => {
                                 // we should send headers
@@ -244,7 +244,7 @@ impl PeerStreamActor {
     async fn send_config(&mut self) {
         // maybe send the protoconf message
         if self.conn_config.max_recv_payload_size > DEFAULT_MAX_PAYLOAD_SIZE {
-            let protoconf = Protoconf::new(self.config.max_recv_payload_size);
+            let protoconf = Protoconf::new(self.config.max_recv_payload_size as u32);
             let protoconf_msg = P2PMessage::Protoconf(protoconf);
             self.send_msg(protoconf_msg).await;
         }

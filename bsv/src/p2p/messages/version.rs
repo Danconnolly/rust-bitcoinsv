@@ -5,16 +5,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{Error, Result};
 use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::p2p::params::{MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION};
 use crate::util::{epoch_secs, epoch_secs_u32};
-
-// based on code imported from rust-sv but substantially modified
-
-/// Protocol version supported by this library
-/// todo: extended message sizes in BSV - https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/large_messages.md
-pub const PROTOCOL_VERSION: u32 = 70015;
-
-/// Minimum protocol version supported by this library
-pub const MIN_SUPPORTED_PROTOCOL_VERSION: u32 = 70015;
 
 /// Service flag that node is not a full node. Used for SPV wallets.
 pub const NODE_NONE: u64 = 0;

@@ -8,7 +8,7 @@ use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::stream::PeerStream;
 use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
-use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE, NetworkParams};
+use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
 
 
 /// Configuration shared by all P2P Connections.
@@ -25,7 +25,9 @@ pub struct ConnectionConfig {
     /// Should control messages be sent to the data channel?
     pub send_control_messages: bool,
     /// The maximum payload size we want to receive, using protoconf.
-    pub max_recv_payload_size: u32,
+    ///
+    /// Note that although we have this as u64, the maximum is really u32.
+    pub max_recv_payload_size: u64,
     /// The excessive block size. This is the maximum size of a block that we will accept.
     pub excessive_block_size: u64,
 }

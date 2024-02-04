@@ -4,7 +4,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{varint_size, Encodable, varint_decode, varint_encode};
 
 /// The maximum size of a protoconf message.
-pub const MAX_PROTOCONF_SIZE: u32 = 1_048_576;
+pub const MAX_PROTOCONF_SIZE: u64 = 1_048_576;
 
 /// Protocol configuration message.
 ///

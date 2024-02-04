@@ -74,6 +74,9 @@ pub mod commands {
     /// [Compact block command](https://en.bitcoin.it/wiki/Protocol_documentation#cmpctblock)
     pub const CMPCTBLOCK: [u8; 12] = *b"cmpctblock\0\0";
 
+    /// [Extended Message Header](https://github.com/bitcoin-sv-specs/protocol/blob/master/p2p/large_messages.md)
+    pub const EXTMSG: [u8; 12] = *b"extmsg\0\0\0\0\0\0";
+
     /// [Inventory command](https://en.bitcoin.it/wiki/Protocol_documentation#inv)
     pub const INV: [u8; 12] = *b"inv\0\0\0\0\0\0\0\0\0";
 
@@ -162,7 +165,7 @@ pub enum P2PMessage {
 impl P2PMessage {
     /// Read a full P2P message from the reader
     pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &CommsConfig) -> Result<Self> {
-        let mut v = vec![0u8; P2PMessageHeader::SIZE];
+        let mut v = vec![0u8; P2PMessageHeader::STANDARD_SIZE];
         match reader.read_exact(&mut v).await {
             Ok(_) => {},
             Err(e) => {
@@ -295,7 +298,7 @@ impl P2PMessage {
         let header = P2PMessageHeader {
             magic,
             command,
-            payload_size: buf.len() as u32,
+            payload_size: buf.len() as u64,
             checksum: hash.hash[..4].try_into().unwrap(),
         };
         let v = header.encode_into_buf()?;
@@ -390,8 +393,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use crate::p2p::messages::NodeAddr;
-    use crate::p2p::messages::version::PROTOCOL_VERSION;
-    use crate::p2p::params::DEFAULT_MAX_PAYLOAD_SIZE;
+    use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
     use crate::util::epoch_secs;
 
     #[tokio::test]
@@ -402,6 +404,7 @@ mod tests {
             max_recv_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
             max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
             excessive_block_size: 0,
+            protocol_version: PROTOCOL_VERSION,
         };
 
         // Addr
