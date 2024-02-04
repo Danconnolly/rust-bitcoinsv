@@ -7,12 +7,13 @@ use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 use crate::p2p::config::CommsConfig;
 pub use self::commands::PROTOCONF;
-use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
+use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, INV, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
 use crate::p2p::messages::{Ping, Version};
 use crate::p2p::messages::addr::Addr;
+use crate::p2p::messages::inv::Inv;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -149,7 +150,7 @@ pub enum P2PMessage {
     // GetData(Inv),
     // GetHeaders(BlockLocator),
     // Headers(Headers),
-    // Inv(Inv),
+    Inv(Inv),
     Mempool,
     // MerkleBlock(MerkleBlock),
     // NotFound(Inv),
@@ -176,6 +177,7 @@ impl P2PMessage {
         let msg= match header.command {
             ADDR => P2PMessage::Addr(Addr::decode_from(reader).await?),
             GETADDR => P2PMessage::GetAddr,
+            INV => P2PMessage::Inv(Inv::decode_from(reader).await?),
             MEMPOOL => P2PMessage::Mempool,
             PING => P2PMessage::Ping(Ping::decode_from(reader).await?),
             PONG => P2PMessage::Pong(Ping::decode_from(reader).await?),
@@ -216,10 +218,10 @@ impl P2PMessage {
             // P2PMessage::GetData(p) => write_with_payload(writer, GETDATA, p, magic),
             // P2PMessage::GetHeaders(p) => write_with_payload(writer, GETHEADERS, p, magic),
             // P2PMessage::Headers(p) => write_with_payload(writer, HEADERS, p, magic),
+            P2PMessage::Inv(p) => self.write_with_payload(writer, INV, config, p).await,
             P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
             // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
             // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
-            // P2PMessage::Inv(p) => write_with_payload(writer, INV, p, magic),
             P2PMessage::Ping(p) => self.write_with_payload(writer, PING, config, p).await,
             P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
             P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, config, p).await,
@@ -246,10 +248,10 @@ impl P2PMessage {
             // P2PMessage::GetData(p) => write_with_payload(writer, GETDATA, p, magic),
             // P2PMessage::GetHeaders(p) => write_with_payload(writer, GETHEADERS, p, magic),
             // P2PMessage::Headers(p) => write_with_payload(writer, HEADERS, p, magic),
+            P2PMessage::Inv(p) => p.size(),
             P2PMessage::Mempool => 0,
             // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
             // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
-            // P2PMessage::Inv(p) => write_with_payload(writer, INV, p, magic),
             P2PMessage::Ping(p) => p.size(),
             P2PMessage::Pong(p) => p.size(),
             P2PMessage::Protoconf(p) => p.size(),
@@ -332,7 +334,7 @@ impl fmt::Debug for P2PMessage {
             //     .field("hash_stop", &p.hash_stop)
             //     .finish(),
             // Message::Headers(p) => f.write_str(&format!("{:#?}", p)),
-            // Message::Inv(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Inv(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
             // Message::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
             // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
@@ -365,6 +367,7 @@ impl From<&P2PMessage> for P2PMessageType {
         match value {
             P2PMessage::Addr(_) => Data,
             P2PMessage::GetAddr => Data,
+            P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
             P2PMessage::Pong(_) => ConnectionControl,
@@ -382,6 +385,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
         match *value {
             P2PMessage::Addr(_) => Data,
             P2PMessage::GetAddr => Data,
+            P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
             P2PMessage::Pong(_) => ConnectionControl,
@@ -399,6 +403,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv6Addr};
+    use crate::p2p::messages::inv::{InvItem, InvType};
     use crate::p2p::messages::NodeAddr;
     use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
     use crate::util::epoch_secs;
@@ -534,6 +539,18 @@ mod tests {
     //     m.write(&mut v, magic).unwrap();
     //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
 
+        // Inv
+        let mut v = Vec::new();
+        let p = Inv {
+            objects: vec![InvItem {
+                obj_type: InvType::Tx,
+                hash: Hash::from("00000000000000000538178e5c48e51e271e009c31d3854886d29328fa0aa037"),
+            }],
+        };
+        let m = P2PMessage::Inv(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
+
         // Mempool
         let mut v = Vec::new();
         let m = P2PMessage::Mempool;
@@ -577,18 +594,6 @@ mod tests {
     //     m.write(&mut v, magic).unwrap();
     //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
     //
-    //     // Inv
-    //     let mut v = Vec::new();
-    //     let p = Inv {
-    //         objects: vec![InvVect {
-    //             obj_type: INV_VECT_TX,
-    //             hash: Hash256([0; 32]),
-    //         }],
-    //     };
-    //     let m = Message::Inv(p);
-    //     m.write(&mut v, magic).unwrap();
-    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-
         // Ping
         let mut v = Vec::new();
         let p = Ping { nonce: 7890 };
