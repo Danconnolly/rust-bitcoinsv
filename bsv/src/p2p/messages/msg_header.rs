@@ -4,10 +4,10 @@ use std::str;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
-use crate::p2p::config::CommsConfig;
 use crate::p2p::messages::messages::commands::{BLOCK, EXTMSG};
 use crate::p2p::messages::messages::PROTOCONF;
 use crate::p2p::messages::protoconf::MAX_PROTOCONF_SIZE;
+use crate::p2p::stream::CommsConfig;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -149,10 +149,6 @@ impl fmt::Debug for P2PMessageHeader {
 mod tests {
     use super::*;
     use hex;
-    use uuid::Uuid;
-    use crate::bitcoin::BlockchainId;
-    use crate::p2p::connection::ConnectionConfig;
-    use crate::p2p::params::PROTOCOL_VERSION;
 
     #[test]
     fn read_bytes() {

@@ -5,7 +5,6 @@ mod peer;
 mod listener;
 mod messages;
 mod params;
-mod config;
 mod envelope;
 
 

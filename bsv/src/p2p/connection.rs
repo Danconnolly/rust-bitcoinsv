@@ -8,9 +8,8 @@ use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
-use crate::p2p::config::CommsConfig;
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
-use crate::p2p::stream::PeerStream;
+use crate::p2p::stream::{PeerStream,CommsConfig};
 use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
 
 

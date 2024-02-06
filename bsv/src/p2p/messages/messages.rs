@@ -5,7 +5,6 @@ use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
-use crate::p2p::config::CommsConfig;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, INV, MEMPOOL, PING, PONG, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
@@ -15,6 +14,7 @@ use crate::p2p::messages::{Ping, Version};
 use crate::p2p::messages::addr::Addr;
 use crate::p2p::messages::block::Block;
 use crate::p2p::messages::inv::Inv;
+use crate::p2p::stream::CommsConfig;
 
 // based on code imported from rust-sv but substantially modified
 
