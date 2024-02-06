@@ -3,6 +3,7 @@ use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use log::trace;
 use tokio::sync::RwLock;
+use uuid::Uuid;
 use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
@@ -15,22 +16,23 @@ use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_
 
 /// Configuration shared by all P2P Connections.
 ///
-/// This is desired configuration, not actual configuration.
+/// This is the desired configuration.
 #[derive(Debug, Clone)]
 pub struct ConnectionConfig {
     /// The blockchain (mainnet, testnet, stn, regtest) to use.
     pub blockchain: BlockchainId,
-    /// The number of retries to attempt when connecting to a peer, or re-connecting.
+    /// The number of retries to attempt when connecting to a peer, or re-connecting. Default is 5.
     pub retries: u8,
-    /// The delay between retries, in seconds.
+    /// The delay between retries, in seconds. Default is 10 seconds.
     pub retry_delay: u16,
     /// Should control messages be sent to the data channel?
     pub send_control_messages: bool,
     /// The maximum payload size we want to receive, using protoconf.
-    ///
-    /// Note that although we have this as u64, the maximum is really u32.
+    /// The default for this is DEFAULT_MAX_RECV_PAYLOAD_SIZE (200MB).
+    // Note that although we have this as u64, the maximum is really u32.
     pub max_recv_payload_size: u64,
     /// The excessive block size. This is the maximum size of a block that we will accept.
+    /// The default for this is DEFAULT_EXCESSIVE_BLOCK_SIZE (10GB).
     pub excessive_block_size: u64,
 }
 
@@ -64,15 +66,19 @@ impl Default for ConnectionConfig {
 /// block announcements, etc. The control messages are those messages that pertain to the establishment of the
 /// connection (protoconf, setheaders, etc) and the management of the network (addr messages). The data messages
 /// are sent to the data channel. By default, the control messages are not sent to this channel but this can be
-/// configured. To subscribe to the data channel, use the subscribe() method. This uses the tokio::sync::broadcast
-/// channel. The P2P Messages are encapsulated in an Arc to avoid excessive cloning.
+/// configured (using send_control_messages in ConnectionConfig). To subscribe to the data channel,
+/// use the subscribe() method. This uses the tokio::sync::broadcast
+/// channel. The P2P Messages are encapsulated in an Arc to avoid duplicating data.
+///
+/// Each connection is assigned a unique connection id. This is a random UUID. The connection id is assigned when
+/// the Connection struct is created and will remain the same for multiple attempts to connect.
 ///
 /// The Connection can be "paused" and "resumed". In the paused state, the Connection will maintain the existing
 /// connection but it will not re-establish the connection if it is broken.
 ///
 /// The P2PManager is the recommended structure for managing multiple connections.
 ///
-/// A logical connection to a peer can consist of multiple channels which enables the separation
+/// A logical connection to a peer can consist of multiple streams which enables the separation
 /// of messages based on priority and prevents the logical connection from being swamped with
 /// large data messages. (todo: not implemented)
 /// 
@@ -80,6 +86,8 @@ impl Default for ConnectionConfig {
 pub struct Connection {
     /// The address to which the Connection is attempting to connect.
     pub peer: PeerAddress,
+    /// The connection id. A random id is assigned for every connection, which can consist of multiple streams.
+    pub connection_id: Uuid,
     // The broadcast channel on which substantive P2P messages are sent.
     data_channel: P2PMessageChannelSender,
     // used to send connection control messages to the actor
@@ -99,9 +107,10 @@ impl Connection {
         };
         let d_chan2 = d_channel.clone();
         let p_c = peer.clone();
-        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, d_chan2).await });
-        (Connection {
-            sender: tx, peer, data_channel: d_channel, }, j)
+        let connection_id = Uuid::new_v4();
+        let c_id2 = connection_id.clone();
+        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, c_id2, config, d_chan2).await });
+        (Connection { peer, connection_id, data_channel: d_channel, sender: tx, }, j)
     }
 
     /// Subscribe to the data channel.
@@ -125,6 +134,8 @@ pub enum ConnectionControlMessage {
 struct ConnectionActor {
     // the actor inbox
     inbox: Receiver<ConnectionControlMessage>,
+    // unique id for the connection
+    connection_id: Uuid,
     // the configuration for the connection, we'll need this when we support multiple channels
     config: Arc<ConnectionConfig>,
     // the channel on which to send substantive P2P messages
@@ -139,26 +150,20 @@ struct ConnectionActor {
     primary_config: Arc<RwLock<CommsConfig>>,
     // the peer
     peer_address: PeerAddress,
-    // whether the connection is paused
+    // whether the connection is paused, default false
     paused: bool,
 }
 
 impl ConnectionActor {
-    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<ConnectionConfig>,
-                 data_channel: P2PMessageChannelSender) {
+    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, connection_id: Uuid,
+                 config: Arc<ConnectionConfig>, data_channel: P2PMessageChannelSender) {
         // make the first stream
-        let stream_config = Arc::new(RwLock::new(CommsConfig::new(&config, &peer_address.peer_id)));
+        let stream_config = Arc::new(RwLock::new(CommsConfig::new(&config, &peer_address.peer_id, &connection_id)));
         let (stream, join_handle) = PeerStream::new(peer_address.clone(), stream_config.clone(), data_channel.clone());
         // make the actor
         let mut actor = ConnectionActor {
-            inbox, config,
-            data_channel,
-            attempts: 0,
-            primary_stream: stream,
-            primary_join: Some(join_handle),
-            primary_config: stream_config,
-            peer_address,
-            paused: false,
+            inbox, connection_id, config, data_channel, attempts: 0, primary_stream: stream, primary_join: Some(join_handle),
+            primary_config: stream_config, peer_address, paused: false,
         };
         // run the actor
         actor.run().await;

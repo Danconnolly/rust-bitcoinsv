@@ -186,8 +186,7 @@ mod tests {
             payload_size: 88,
             checksum: [0x12, 0x34, 0x56, 0x78],
         };
-        let conn_config = ConnectionConfig::default_for(BlockchainId::Mainnet);
-        let mut config = CommsConfig::new(&conn_config, &Uuid::new_v4());
+        let mut config = CommsConfig::default();
         config.magic = magic.clone();
         // Valid
         assert!(h.validate(&config).is_ok());

@@ -40,10 +40,10 @@ pub struct CommsConfig {
 }
 
 impl CommsConfig {
-    pub fn new(config: &ConnectionConfig, peer_id: &Uuid) -> CommsConfig {
+    pub fn new(config: &ConnectionConfig, peer_id: &Uuid, connection_id: &Uuid) -> CommsConfig {
         let np = NetworkParams::from(config.blockchain);
         CommsConfig {
-            peer_id: peer_id.clone(), connection_id: Uuid::new_v4(), stream_id: 0,
+            peer_id: peer_id.clone(), connection_id: connection_id.clone(), stream_id: 0,
             send_control_messages: config.send_control_messages, magic: np.magic.clone(),
             max_recv_payload_size: config.max_recv_payload_size,
             max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
@@ -56,6 +56,6 @@ impl CommsConfig {
 impl Default for CommsConfig {
     fn default() -> Self {
         let connection_config = ConnectionConfig::default();
-        CommsConfig::new(&connection_config, &Uuid::new_v4())
+        CommsConfig::new(&connection_config, &Uuid::new_v4(), &Uuid::new_v4())
     }
 }
