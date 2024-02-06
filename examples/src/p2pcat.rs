@@ -13,7 +13,7 @@ async fn main() {
     loop {
         match rx.recv().await {
             Ok(envelope) => {
-                println!("{:?}", envelope.message);
+                println!("{}", envelope.message);
             }
             Err(_e) => {
                 break;

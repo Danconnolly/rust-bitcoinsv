@@ -354,6 +354,43 @@ impl fmt::Debug for P2PMessage {
     }
 }
 
+impl fmt::Display for P2PMessage {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            P2PMessage::Addr(p) => f.write_str(&format!("{}", p)),
+            P2PMessage::Block(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::GetAddr => f.write_str("GetAddr"),
+            // Message::GetBlocks(p) => f
+            //     .debug_struct("GetBlocks")
+            //     .field("version", &p.version)
+            //     .field("block_locator_hashes", &p.block_locator_hashes)
+            //     .field("hash_stop", &p.hash_stop)
+            //     .finish(),
+            // Message::GetData(p) => f.debug_struct("GetData").field("inv", &p).finish(),
+            // Message::GetHeaders(p) => f
+            //     .debug_struct("GetHeaders")
+            //     .field("version", &p.version)
+            //     .field("block_locator_hashes", &p.block_locator_hashes)
+            //     .field("hash_stop", &p.hash_stop)
+            //     .finish(),
+            // Message::Headers(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Inv(p) => f.write_str(&format!("{}", p)),
+            P2PMessage::Mempool => f.write_str("Mempool"),
+            // Message::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
+            // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
+            P2PMessage::Ping(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
+            P2PMessage::Protoconf(p) => f.write_str(&format!("{:#?}", p)),
+            // Message::Reject(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::SendHeaders => f.write_str("SendHeaders"),
+            // Message::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
+            // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Verack => f.write_str("Verack"),
+            P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Unknown(p, _size) => f.write_str(&format!("{:#?}", p)),
+        }
+    }
+}
 
 /// We define several different types of P2P Messages
 /// These types will be expanded as I flesh out the implementation

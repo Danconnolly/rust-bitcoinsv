@@ -1,3 +1,4 @@
+use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -83,6 +84,12 @@ impl Encodable for NodeAddr {
 
     fn size(&self) -> usize {
         NodeAddr::SIZE
+    }
+}
+
+impl fmt::Display for NodeAddr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "NodeAddr(ts={},services={},ip={},port={})", self.timestamp, self.services, self.ip, self.port)
     }
 }
 

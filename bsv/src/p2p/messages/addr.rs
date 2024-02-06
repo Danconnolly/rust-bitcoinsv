@@ -1,3 +1,4 @@
+use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite};
 use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
@@ -44,5 +45,19 @@ impl Encodable for Addr {
 
     fn size(&self) -> usize {
         varint_size(self.addrs.len() as u64) + self.addrs.len() * NodeAddr::SIZE
+    }
+}
+
+impl fmt::Display for Addr {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut addrs = String::new();
+        for addr in &self.addrs {
+            if addrs.len() == 0 {
+                addrs = format!("{}", addr.ip);
+            } else {
+                addrs += &*format!(", {}", addr.ip);
+            }
+        }
+        write!(f, "Addr(n={}, [{}])", self.addrs.len(), addrs)
     }
 }

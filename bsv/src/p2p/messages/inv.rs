@@ -1,3 +1,4 @@
+use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
@@ -43,6 +44,19 @@ impl Encodable for Inv {
     }
 }
 
+impl fmt::Display for Inv {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        let mut objects = String::new();
+        for object in &self.objects {
+            if objects.len() == 0 {
+                objects = format!("{}", object);
+            } else {
+                objects += &*format!(", {}", object);
+            }
+        }
+        write!(f, "Inv(n={}, [{}])", self.objects.len(), objects)
+    }
+}
 
 /// Inventory item types
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -87,6 +101,18 @@ impl InvItem {
     pub const SIZE: usize = 36;
 }
 
+impl fmt::Display for InvType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            InvType::InvError => write!(f, "Error"),
+            InvType::Tx => write!(f, "Tx"),
+            InvType::Block => write!(f, "Block"),
+            InvType::CompactBlock => write!(f, "CompactBlock"),
+        }
+    }
+}
+
+
 #[async_trait]
 impl Encodable for InvItem {
     async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
@@ -107,5 +133,11 @@ impl Encodable for InvItem {
 
     fn size(&self) -> usize {
         InvItem::SIZE
+    }
+}
+
+impl fmt::Display for InvItem {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "({}, {})", self.obj_type, self.hash)
     }
 }
