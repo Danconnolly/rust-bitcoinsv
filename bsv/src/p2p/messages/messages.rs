@@ -416,13 +416,8 @@ mod tests {
     #[tokio::test]
     async fn write_read() {
         let magic = [7, 8, 9, 0];
-        let config = CommsConfig {
-            magic,
-            max_recv_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
-            max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
-            excessive_block_size: 10_000_000_000,
-            protocol_version: PROTOCOL_VERSION,
-        };
+        let mut config = CommsConfig::default();
+        config.magic = magic.clone();
 
         // Addr
         let mut v = Vec::new();

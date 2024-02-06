@@ -2,12 +2,14 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::task::JoinHandle;
 use log::trace;
+use tokio::sync::RwLock;
 use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Mainnet;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
+use crate::p2p::config::CommsConfig;
+use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::stream::PeerStream;
-use crate::p2p::messages::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
 
 
@@ -34,7 +36,7 @@ pub struct ConnectionConfig {
 
 impl ConnectionConfig {
     /// Get default configuration for a particular blockchain.
-    pub fn default(chain: BlockchainId) -> Self {
+    pub fn default_for(chain: BlockchainId) -> Self {
         ConnectionConfig {
             blockchain: chain,
             retries: 5,
@@ -48,7 +50,7 @@ impl ConnectionConfig {
 
 impl Default for ConnectionConfig {
     fn default() -> Self {
-        ConnectionConfig::default(Mainnet)
+        ConnectionConfig::default_for(Mainnet)
     }
 }
 
@@ -76,17 +78,19 @@ impl Default for ConnectionConfig {
 /// 
 /// The Connection is actually a handle to an actor implemented in ConnectionActor.
 pub struct Connection {
-    // used to send connection control messages to the actor
-    sender: Sender<ConnectionControlMessage>,
     /// The address to which the Connection is attempting to connect.
     pub peer: PeerAddress,
+    // The broadcast channel on which substantive P2P messages are sent.
     data_channel: P2PMessageChannelSender,
+    // used to send connection control messages to the actor
+    sender: Sender<ConnectionControlMessage>,
 }
 
 impl Connection {
     pub fn new(peer: PeerAddress, config: Arc<ConnectionConfig>, data_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
+        // actor channel
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        let p_c = peer.clone();
+        // data channel
         let d_channel = if data_channel.is_none() {
             let (tx, _rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
             tx
@@ -94,6 +98,7 @@ impl Connection {
             data_channel.unwrap()
         };
         let d_chan2 = d_channel.clone();
+        let p_c = peer.clone();
         let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, config, d_chan2).await });
         (Connection {
             sender: tx, peer, data_channel: d_channel, }, j)
@@ -130,6 +135,8 @@ struct ConnectionActor {
     primary_stream: PeerStream,
     // the join handle for the primary channel
     primary_join: Option<JoinHandle<()>>,
+    // the configuration of the primary stream
+    primary_config: Arc<RwLock<CommsConfig>>,
     // the peer
     peer_address: PeerAddress,
     // whether the connection is paused
@@ -139,16 +146,21 @@ struct ConnectionActor {
 impl ConnectionActor {
     async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, config: Arc<ConnectionConfig>,
                  data_channel: P2PMessageChannelSender) {
-        let (stream, join_handle) = PeerStream::new(peer_address.clone(), config.clone(), data_channel.clone());
+        // make the first stream
+        let stream_config = Arc::new(RwLock::new(CommsConfig::new(&config, &peer_address.peer_id)));
+        let (stream, join_handle) = PeerStream::new(peer_address.clone(), stream_config.clone(), data_channel.clone());
+        // make the actor
         let mut actor = ConnectionActor {
             inbox, config,
             data_channel,
             attempts: 0,
             primary_stream: stream,
             primary_join: Some(join_handle),
+            primary_config: stream_config,
             peer_address,
             paused: false,
         };
+        // run the actor
         actor.run().await;
     }
     

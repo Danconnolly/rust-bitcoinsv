@@ -149,6 +149,9 @@ impl fmt::Debug for P2PMessageHeader {
 mod tests {
     use super::*;
     use hex;
+    use uuid::Uuid;
+    use crate::bitcoin::BlockchainId;
+    use crate::p2p::connection::ConnectionConfig;
     use crate::p2p::params::PROTOCOL_VERSION;
 
     #[test]
@@ -183,24 +186,15 @@ mod tests {
             payload_size: 88,
             checksum: [0x12, 0x34, 0x56, 0x78],
         };
-        let config = CommsConfig {
-            magic,
-            max_recv_payload_size: 100,
-            max_send_payload_size: 100,
-            excessive_block_size: 100,
-            protocol_version: PROTOCOL_VERSION,
-        };
+        let conn_config = ConnectionConfig::default_for(BlockchainId::Mainnet);
+        let mut config = CommsConfig::new(&conn_config, &Uuid::new_v4());
+        config.magic = magic.clone();
         // Valid
         assert!(h.validate(&config).is_ok());
         // Bad magic
         let bad_magic = [0xb0, 0xb1, 0xb2, 0xb3];
-        let bad_config = CommsConfig {
-            magic: bad_magic,
-            max_recv_payload_size: 50,
-            max_send_payload_size: 50,
-            excessive_block_size: 50,
-            protocol_version: PROTOCOL_VERSION,
-        };
+        let mut bad_config = config.clone();
+        bad_config.magic = bad_magic;
         assert!(h.validate(&bad_config).is_err());
         // Bad size
         assert!(h.validate(&bad_config).is_err());

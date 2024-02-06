@@ -8,7 +8,7 @@ pub struct PeerAddress {
     /// The unique identifier of the peer.
     ///
     /// This can be used to identify the peer in a database, for example.
-    pub id: Uuid,
+    pub peer_id: Uuid,
     pub address: SocketAddr,
 }
 
@@ -16,7 +16,7 @@ impl PeerAddress {
     /// Create a new peer with a random UUID.
     pub fn new(address: SocketAddr) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            peer_id: Uuid::new_v4(),
             address,
         }
     }
