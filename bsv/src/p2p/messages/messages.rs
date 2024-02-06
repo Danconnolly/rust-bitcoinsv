@@ -291,7 +291,7 @@ impl P2PMessage {
                 if command != BLOCK {
                     return Err(Error::BadData("payload too large".to_string()));
                 }
-                let mut header = P2PMessageHeader {
+                let header = P2PMessageHeader {
                     magic: config.magic,
                     command,
                     payload_size: payload.size() as u64,
@@ -410,7 +410,7 @@ mod tests {
     use crate::bitcoin::{BlockHeader, Outpoint, Tx, TxInput, TxOutput};
     use crate::p2p::messages::inv::{InvItem, InvType};
     use crate::p2p::messages::NodeAddr;
-    use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
+    use crate::p2p::params::PROTOCOL_VERSION;
     use crate::util::epoch_secs;
 
     #[tokio::test]

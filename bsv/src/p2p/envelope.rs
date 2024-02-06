@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender};
 use uuid::Uuid;
 use crate::p2p::config::CommsConfig;
