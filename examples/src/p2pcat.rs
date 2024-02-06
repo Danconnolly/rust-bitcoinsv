@@ -1,27 +1,25 @@
-
+use std::sync::Arc;
 use bitcoinsv::bitcoin::BlockchainId;
-use bitcoinsv::p2p::{P2PManager, P2PManagerConfig, PeerAddress};
+use bitcoinsv::p2p::{Connection, ConnectionConfig, PeerAddress};
 
 /// This is a simple example of connecting to a P2P peer and displaying all messages from that peer.
 #[tokio::main]
 async fn main() {
     env_logger::init();
     let peer = PeerAddress::new("95.216.243.249:8333".parse().unwrap());
-    let mut config = P2PManagerConfig::default(BlockchainId::Mainnet);
-    config.add_peers = false;
-    config.initial_peers.insert(0, peer);
-    let (m, handle) = P2PManager::new(config);
-    let mut rx = m.subscribe();
+    let config = Arc::new(ConnectionConfig::default_for(BlockchainId::Mainnet));
+    let (c, handle) = Connection::new(peer, config, None);
+    let mut rx = c.subscribe();
     loop {
         match rx.recv().await {
-            Ok(msg) => {
-                println!("{:?}", msg);
+            Ok(envelope) => {
+                println!("{:?}", envelope.message);
             }
             Err(_e) => {
                 break;
             }
         }
     }
-    m.stop().await;
+    c.close().await;
     handle.await.unwrap();
 }
