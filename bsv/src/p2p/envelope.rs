@@ -2,7 +2,7 @@ use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender};
 use uuid::Uuid;
 use crate::p2p::messages::P2PMessage;
-use crate::p2p::stream::CommsConfig;
+use crate::p2p::stream::StreamConfig;
 use crate::util::epoch_millis;
 
 /// The P2PEnvelope contains a P2PMessage and additional meta-data.
@@ -21,7 +21,7 @@ pub struct P2PEnvelope {
 }
 
 impl P2PEnvelope {
-    pub fn new(message: P2PMessage, config: &CommsConfig) -> Self {
+    pub fn new(message: P2PMessage, config: &StreamConfig) -> Self {
         P2PEnvelope {
             message,
             peer_id: config.peer_id.clone(),

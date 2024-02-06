@@ -7,7 +7,7 @@ use crate::bitcoin::Encodable;
 use crate::p2p::messages::messages::commands::{BLOCK, EXTMSG};
 use crate::p2p::messages::messages::PROTOCONF;
 use crate::p2p::messages::protoconf::MAX_PROTOCONF_SIZE;
-use crate::p2p::stream::CommsConfig;
+use crate::p2p::stream::StreamConfig;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -42,7 +42,7 @@ impl P2PMessageHeader {
     ///
     /// `magic` - Expected magic bytes for the network
     /// `max_size` - Max size in bytes for the payload
-    pub fn validate(&self, config: &CommsConfig) -> Result<()> {
+    pub fn validate(&self, config: &StreamConfig) -> Result<()> {
         if self.magic != config.magic {
             // todo: ban
             let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
@@ -182,7 +182,7 @@ mod tests {
             payload_size: 88,
             checksum: [0x12, 0x34, 0x56, 0x78],
         };
-        let mut config = CommsConfig::default();
+        let mut config = StreamConfig::default();
         config.magic = magic.clone();
         // Valid
         assert!(h.validate(&config).is_ok());

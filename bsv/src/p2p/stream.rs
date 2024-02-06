@@ -16,8 +16,7 @@ pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
 // todo: implement support for protoconf, including inv limits
 
-// todo: rename this
-/// CommsConfig is the context for the communication across a single stream.
+/// StreamConfig is the context for the communication across a single stream.
 ///
 /// These parameters are used throughout the P2P protocol to determine message
 /// limits and other communication patterns.
@@ -32,7 +31,7 @@ pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 /// At the moment this is used by obtaining a clone using a read lock before every read and write but this is
 /// inefficient and should be changed to a more efficient method.
 #[derive(Debug, Clone)]
-pub struct CommsConfig {
+pub struct StreamConfig {
     /// The identifier of the peer being connected to.
     pub peer_id: Uuid,
     /// The identifier of the connection.
@@ -53,10 +52,10 @@ pub struct CommsConfig {
     pub protocol_version: u32,
 }
 
-impl CommsConfig {
-    pub fn new(config: &ConnectionConfig, peer_id: &Uuid, connection_id: &Uuid) -> CommsConfig {
+impl StreamConfig {
+    pub fn new(config: &ConnectionConfig, peer_id: &Uuid, connection_id: &Uuid) -> StreamConfig {
         let np = NetworkParams::from(config.blockchain);
-        CommsConfig {
+        StreamConfig {
             peer_id: peer_id.clone(), connection_id: connection_id.clone(), stream_id: 0,
             send_control_messages: config.send_control_messages, magic: np.magic.clone(),
             max_recv_payload_size: config.max_recv_payload_size,
@@ -67,10 +66,10 @@ impl CommsConfig {
     }
 }
 
-impl Default for CommsConfig {
+impl Default for StreamConfig {
     fn default() -> Self {
         let connection_config = ConnectionConfig::default();
-        CommsConfig::new(&connection_config, &Uuid::new_v4(), &Uuid::new_v4())
+        StreamConfig::new(&connection_config, &Uuid::new_v4(), &Uuid::new_v4())
     }
 }
 
@@ -86,7 +85,7 @@ pub struct PeerStream {
 }
 
 impl PeerStream {
-    pub fn new(address: PeerAddress, config: Arc<RwLock<CommsConfig>>, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
+    pub fn new(address: PeerAddress, config: Arc<RwLock<StreamConfig>>, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         let j = tokio::spawn(async move { PeerStreamActor::new(rx, address, config, data_channel).await });
         (PeerStream { sender: tx }, j)
@@ -116,7 +115,7 @@ struct PeerStreamActor {
     inbox: Receiver<StreamControlMessage>,             // control of the stream
     stream_state: StreamState,                        // current state of the stream
     peer: PeerAddress,
-    config: Arc<RwLock<CommsConfig>>,                   // the active configuration for the stream
+    config: Arc<RwLock<StreamConfig>>,                   // the active configuration for the stream
     data_channel: P2PMessageChannelSender,              // P2P Data messages are sent on this channel
     writer_rx: Option<Receiver<P2PMessage>>,
     writer_tx: Sender<P2PMessage>,
@@ -129,7 +128,7 @@ struct PeerStreamActor {
 }
 
 impl PeerStreamActor {
-    async fn new(receiver: Receiver<StreamControlMessage>, peer_address: PeerAddress, config: Arc<RwLock<CommsConfig>>,
+    async fn new(receiver: Receiver<StreamControlMessage>, peer_address: PeerAddress, config: Arc<RwLock<StreamConfig>>,
                  data_channel: P2PMessageChannelSender) {
         // prepare the channels, we will need these later
         let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
@@ -261,7 +260,7 @@ impl PeerStreamActor {
     // The writer task. It continually reads from the channel and writes to the socket.
     // It has not state, it just reads and writes what it is given. In particular, it does not check the message
     // size.
-    async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf, shared_config: Arc<RwLock<CommsConfig>>) {
+    async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf, shared_config: Arc<RwLock<StreamConfig>>) {
         trace!("writer task started.");
         loop {
             match rx.recv().await {
@@ -283,7 +282,7 @@ impl PeerStreamActor {
 
     // The reader task. It continually reads from the socket and writes to the channel.
     // It has no state or intelligence, it just reads and writes.
-    async fn reader(tx: Sender<Arc<P2PEnvelope>>, mut reader: tokio::net::tcp::OwnedReadHalf, shared_config: Arc<RwLock<CommsConfig>>) {
+    async fn reader(tx: Sender<Arc<P2PEnvelope>>, mut reader: tokio::net::tcp::OwnedReadHalf, shared_config: Arc<RwLock<StreamConfig>>) {
         trace!("reader task started.");
         loop {
             let config = shared_config.read().await.clone();
