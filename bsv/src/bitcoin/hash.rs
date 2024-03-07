@@ -7,7 +7,9 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::binary::Encodable;
 
-/// The hash that is most often used in Bitcoin is the double SHA-256 hash.
+/// A struct representing a hash, specifically a SHA256d hash.
+/// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [Hash]. Those aliases
+/// should be used instead of this struct.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash{
     pub hash: [u8; 32],
@@ -17,6 +19,7 @@ impl Hash {
     pub const BINARY_SIZE: usize = 32;
     pub const HEX_SIZE: usize = Hash::BINARY_SIZE * 2;
 
+    /// Double SHA256 hash the given data.
     pub fn sha256d(data: &[u8]) -> Hash {
         let sha256 = digest(&SHA256, data);
         let sha256d = digest(&SHA256, sha256.as_ref());

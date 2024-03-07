@@ -10,6 +10,7 @@ mod block;
 
 pub use self::binary::Encodable;
 pub use self::block::FullBlockStream;
+pub use self::hash::Hash;               // Hash is also used in other contexts
 pub use self::header::{BlockHash, MerkleRoot, BlockHeader};
 pub use self::params::BlockchainId;
 pub use self::tx::{TxHash, Tx, TxInput, TxOutput, Outpoint};
