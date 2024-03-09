@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## version 0.2.3 - 2024-03-09
+* Include Add + Sub traits for Amount
+* Change Amount implementation to use satoshis field
+
 ## version 0.2.2 - 2024-03-07
 * Expose the Hash struct. It is also used for other purposes besides just TxHash, BlockHash, and MerkleRoot.
 
