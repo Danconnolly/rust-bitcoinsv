@@ -1,5 +1,6 @@
 use core::fmt;
 use std::error::Error;
+use std::iter::Sum;
 use std::ops::{Add, Sub};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
@@ -73,6 +74,12 @@ impl Sub for Amount {
 
     fn sub(self, other: Amount) -> Amount {
         Amount { satoshis: self.satoshis - other.satoshis }
+    }
+}
+
+impl Sum for Amount {
+    fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+        iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }
 
