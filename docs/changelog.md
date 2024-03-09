@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## version 0.2.4 - 2024-03-09
+* Add 'Sum' trait for Amount
+* cargo update
+
 ## version 0.2.3 - 2024-03-09
 * Include Add + Sub traits for Amount
 * Change Amount implementation to use satoshis field
