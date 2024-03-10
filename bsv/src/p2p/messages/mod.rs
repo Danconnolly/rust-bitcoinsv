@@ -7,6 +7,7 @@ mod ping;
 mod addr;
 mod inv;
 mod block;
+mod block_locator;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;

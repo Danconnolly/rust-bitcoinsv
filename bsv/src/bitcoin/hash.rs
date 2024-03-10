@@ -18,6 +18,7 @@ pub struct Hash{
 impl Hash {
     pub const SIZE: usize = 32;
     pub const HEX_SIZE: usize = Hash::SIZE * 2;
+    pub const ZERO: Hash = Hash { hash: [0; 32] };
 
     /// Double SHA256 hash the given data.
     pub fn sha256d(data: &[u8]) -> Hash {
