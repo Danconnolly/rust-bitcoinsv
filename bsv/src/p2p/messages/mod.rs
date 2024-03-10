@@ -11,6 +11,7 @@ mod block_locator;
 mod headers;
 mod merkle_block;
 mod reject;
+mod send_cmpct;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;

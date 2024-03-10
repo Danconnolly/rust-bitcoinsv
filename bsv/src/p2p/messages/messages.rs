@@ -7,7 +7,7 @@ use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK, NOTFOUND,
-                                               PING, PONG, REJECT, SENDHEADERS, VERACK, VERSION};
+                                               PING, PONG, REJECT, SENDHEADERS, SENDCMPCT, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
@@ -19,6 +19,7 @@ use crate::p2p::messages::headers::Headers;
 use crate::p2p::messages::inv::Inv;
 use crate::p2p::messages::merkle_block::MerkleBlock;
 use crate::p2p::messages::reject::Reject;
+use crate::p2p::messages::send_cmpct::SendCmpct;
 use crate::p2p::stream::StreamConfig;
 
 // based on code imported from rust-sv but substantially modified
@@ -160,13 +161,12 @@ pub enum P2PMessage {
     Mempool,
     MerkleBlock(MerkleBlock),
     NotFound(Inv),
-    // Partial(MessageHeader),
     Ping(Ping),
     Pong(Ping),
     Protoconf(Protoconf),
     Reject(Reject),
     SendHeaders,
-    // SendCmpct(SendCmpct),
+    SendCmpct(SendCmpct),
     // Tx(Tx),
     Verack,
     Version(Version),
@@ -196,6 +196,7 @@ impl P2PMessage {
             PONG => P2PMessage::Pong(Ping::decode_from(reader).await?),
             PROTOCONF => P2PMessage::Protoconf(Protoconf::decode_from(reader).await?),
             REJECT => P2PMessage::Reject(Reject::decode_from(reader).await?),
+            SENDCMPCT => P2PMessage::SendCmpct(SendCmpct::decode_from(reader).await?),
             SENDHEADERS => P2PMessage::SendHeaders,
             VERACK => P2PMessage::Verack,
             VERSION => P2PMessage::Version(Version::decode_from(reader).await?),
@@ -240,8 +241,8 @@ impl P2PMessage {
             P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
             P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, config, p).await,
             P2PMessage::Reject(p) => self.write_with_payload(writer, REJECT, config, p).await,
+            P2PMessage::SendCmpct(p) => self.write_with_payload(writer, SENDCMPCT, config, p).await,
             P2PMessage::SendHeaders => self.write_without_payload(writer, SENDHEADERS, config).await,
-            // P2PMessage::SendCmpct(p) => write_with_payload(writer, SENDCMPCT, p, magic),
             // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
             P2PMessage::Verack => self.write_without_payload(writer, VERACK, config).await,
             P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, config, v).await,
@@ -270,8 +271,8 @@ impl P2PMessage {
             P2PMessage::Pong(p) => p.size(),
             P2PMessage::Protoconf(p) => p.size(),
             P2PMessage::Reject(p) => p.size(),
+            P2PMessage::SendCmpct(p) => p.size(),
             P2PMessage::SendHeaders => 0,
-            // P2PMessage::SendCmpct(p) => write_with_payload(writer, SENDCMPCT, p, magic),
             // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
             P2PMessage::Verack => 0,
             P2PMessage::Version(v) => v.size(),
@@ -356,8 +357,8 @@ impl fmt::Debug for P2PMessage {
             P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
             P2PMessage::Protoconf(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Reject(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendHeaders => f.write_str("SendHeaders"),
-            // Message::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
             // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Verack => f.write_str("Verack"),
             P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
@@ -394,8 +395,8 @@ impl fmt::Display for P2PMessage {
             P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
             P2PMessage::Protoconf(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Reject(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendHeaders => f.write_str("SendHeaders"),
-            // Message::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
             // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Verack => f.write_str("Verack"),
             P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
@@ -431,6 +432,7 @@ impl From<&P2PMessage> for P2PMessageType {
             P2PMessage::Pong(_) => ConnectionControl,
             P2PMessage::Protoconf(_) => ConnectionControl,
             P2PMessage::Reject(_) => ConnectionControl,
+            P2PMessage::SendCmpct(_) => ConnectionControl,
             P2PMessage::SendHeaders => ConnectionControl,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
@@ -457,6 +459,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
             P2PMessage::Pong(_) => ConnectionControl,
             P2PMessage::Protoconf(_) => ConnectionControl,
             P2PMessage::Reject(_) => ConnectionControl,
+            P2PMessage::SendCmpct(_) => ConnectionControl,
             P2PMessage::SendHeaders => ConnectionControl,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
@@ -672,22 +675,22 @@ mod tests {
         m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
+        // SendCmpct
+        let mut v = Vec::new();
+        let p = SendCmpct {
+            enable: 1,
+            version: 1,
+        };
+        let m = P2PMessage::SendCmpct(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
+
         // SendHeaders
         let mut v = Vec::new();
         let m = P2PMessage::SendHeaders;
         m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
-    //     // SendCmpct
-    //     let mut v = Vec::new();
-    //     let p = SendCmpct {
-    //         enable: 1,
-    //         version: 1,
-    //     };
-    //     let m = Message::SendCmpct(p);
-    //     m.write(&mut v, magic).unwrap();
-    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-    //
     //     // Tx
     //     let mut v = Vec::new();
     //     let p = Tx {
