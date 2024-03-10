@@ -6,8 +6,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
-use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK, PING, PONG,
-                                               SENDHEADERS, VERACK, VERSION};
+use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK, NOTFOUND,
+                                               PING, PONG, SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
@@ -158,7 +158,7 @@ pub enum P2PMessage {
     Inv(Inv),
     Mempool,
     MerkleBlock(MerkleBlock),
-    // NotFound(Inv),
+    NotFound(Inv),
     // Partial(MessageHeader),
     Ping(Ping),
     Pong(Ping),
@@ -190,6 +190,7 @@ impl P2PMessage {
             INV => P2PMessage::Inv(Inv::decode_from(reader).await?),
             MEMPOOL => P2PMessage::Mempool,
             MERKLEBLOCK => P2PMessage::MerkleBlock(MerkleBlock::decode_from(reader).await?),
+            NOTFOUND => P2PMessage::NotFound(Inv::decode_from(reader).await?),
             PING => P2PMessage::Ping(Ping::decode_from(reader).await?),
             PONG => P2PMessage::Pong(Ping::decode_from(reader).await?),
             PROTOCONF => P2PMessage::Protoconf(Protoconf::decode_from(reader).await?),
@@ -232,7 +233,7 @@ impl P2PMessage {
             P2PMessage::Inv(p) => self.write_with_payload(writer, INV, config, p).await,
             P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
             P2PMessage::MerkleBlock(p) => self.write_with_payload(writer, MERKLEBLOCK, config, p).await,
-            // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
+            P2PMessage::NotFound(p) => self.write_with_payload(writer, NOTFOUND, config, p).await,
             P2PMessage::Ping(p) => self.write_with_payload(writer, PING, config, p).await,
             P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
             P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, config, p).await,
@@ -262,7 +263,7 @@ impl P2PMessage {
             P2PMessage::Inv(p) => p.size(),
             P2PMessage::Mempool => 0,
             P2PMessage::MerkleBlock(p) => p.size(),
-            // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
+            P2PMessage::NotFound(p) => p.size(),
             P2PMessage::Ping(p) => p.size(),
             P2PMessage::Pong(p) => p.size(),
             P2PMessage::Protoconf(p) => p.size(),
@@ -348,7 +349,7 @@ impl fmt::Debug for P2PMessage {
             P2PMessage::Inv(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
             P2PMessage::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
-            // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
+            P2PMessage::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
             P2PMessage::Ping(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
             P2PMessage::Protoconf(p) => f.write_str(&format!("{:#?}", p)),
@@ -386,7 +387,7 @@ impl fmt::Display for P2PMessage {
             P2PMessage::Inv(p) => f.write_str(&format!("{}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
             P2PMessage::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
-            // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
+            P2PMessage::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
             P2PMessage::Ping(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
             P2PMessage::Protoconf(p) => f.write_str(&format!("{:#?}", p)),
@@ -423,6 +424,7 @@ impl From<&P2PMessage> for P2PMessageType {
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::MerkleBlock(_) => Data,
+            P2PMessage::NotFound(_) => Data,
             P2PMessage::Ping(_) => ConnectionControl,
             P2PMessage::Pong(_) => ConnectionControl,
             P2PMessage::Protoconf(_) => ConnectionControl,
@@ -447,6 +449,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::MerkleBlock(_) => Data,
+            P2PMessage::NotFound(_) => Data,
             P2PMessage::Ping(_) => ConnectionControl,
             P2PMessage::Pong(_) => ConnectionControl,
             P2PMessage::Protoconf(_) => ConnectionControl,
@@ -626,18 +629,18 @@ mod tests {
         m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
-    //     // NotFound
-    //     let mut v = Vec::new();
-    //     let p = Inv {
-    //         objects: vec![InvVect {
-    //             obj_type: INV_VECT_TX,
-    //             hash: Hash256([0; 32]),
-    //         }],
-    //     };
-    //     let m = Message::NotFound(p);
-    //     m.write(&mut v, magic).unwrap();
-    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-    //
+        // NotFound
+        let mut v = Vec::new();
+        let p = Inv {
+            objects: vec![InvItem {
+                obj_type: InvType::Tx,
+                hash: Hash::from("0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f"),
+            }],
+        };
+        let m = P2PMessage::NotFound(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
+
         // Ping
         let mut v = Vec::new();
         let p = Ping { nonce: 7890 };
