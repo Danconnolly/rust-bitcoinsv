@@ -6,8 +6,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
-use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, PING, PONG, SENDHEADERS,
-                                               VERACK, VERSION};
+use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK, PING, PONG,
+                                               SENDHEADERS, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
@@ -17,6 +17,7 @@ use crate::p2p::messages::block::Block;
 use crate::p2p::messages::block_locator::BlockLocator;
 use crate::p2p::messages::headers::Headers;
 use crate::p2p::messages::inv::Inv;
+use crate::p2p::messages::merkle_block::MerkleBlock;
 use crate::p2p::stream::StreamConfig;
 
 // based on code imported from rust-sv but substantially modified
@@ -156,7 +157,7 @@ pub enum P2PMessage {
     Headers(Headers),
     Inv(Inv),
     Mempool,
-    // MerkleBlock(MerkleBlock),
+    MerkleBlock(MerkleBlock),
     // NotFound(Inv),
     // Partial(MessageHeader),
     Ping(Ping),
@@ -188,6 +189,7 @@ impl P2PMessage {
             HEADERS => P2PMessage::Headers(Headers::decode_from(reader).await?),
             INV => P2PMessage::Inv(Inv::decode_from(reader).await?),
             MEMPOOL => P2PMessage::Mempool,
+            MERKLEBLOCK => P2PMessage::MerkleBlock(MerkleBlock::decode_from(reader).await?),
             PING => P2PMessage::Ping(Ping::decode_from(reader).await?),
             PONG => P2PMessage::Pong(Ping::decode_from(reader).await?),
             PROTOCONF => P2PMessage::Protoconf(Protoconf::decode_from(reader).await?),
@@ -229,7 +231,7 @@ impl P2PMessage {
             P2PMessage::Headers(p) => self.write_with_payload(writer, HEADERS, config, p).await,
             P2PMessage::Inv(p) => self.write_with_payload(writer, INV, config, p).await,
             P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
-            // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
+            P2PMessage::MerkleBlock(p) => self.write_with_payload(writer, MERKLEBLOCK, config, p).await,
             // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
             P2PMessage::Ping(p) => self.write_with_payload(writer, PING, config, p).await,
             P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
@@ -259,7 +261,7 @@ impl P2PMessage {
             P2PMessage::Headers(p) => p.size(),
             P2PMessage::Inv(p) => p.size(),
             P2PMessage::Mempool => 0,
-            // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
+            P2PMessage::MerkleBlock(p) => p.size(),
             // P2PMessage::NotFound(p) => write_with_payload(writer, NOTFOUND, p, magic),
             P2PMessage::Ping(p) => p.size(),
             P2PMessage::Pong(p) => p.size(),
@@ -345,7 +347,7 @@ impl fmt::Debug for P2PMessage {
             P2PMessage::Headers(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Inv(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
-            // Message::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
             // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
             P2PMessage::Ping(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
@@ -383,7 +385,7 @@ impl fmt::Display for P2PMessage {
             P2PMessage::Headers(p) => f.write_str(&format!("{}", p)),
             P2PMessage::Inv(p) => f.write_str(&format!("{}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
-            // Message::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
             // Message::NotFound(p) => f.debug_struct("NotFound").field("inv", &p).finish(),
             P2PMessage::Ping(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Pong(p) => f.debug_struct("Pong").field("nonce", &p.nonce).finish(),
@@ -420,6 +422,7 @@ impl From<&P2PMessage> for P2PMessageType {
             P2PMessage::Headers(_) => Data,
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
+            P2PMessage::MerkleBlock(_) => Data,
             P2PMessage::Ping(_) => ConnectionControl,
             P2PMessage::Pong(_) => ConnectionControl,
             P2PMessage::Protoconf(_) => ConnectionControl,
@@ -443,6 +446,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
             P2PMessage::Headers(_) => Data,
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
+            P2PMessage::MerkleBlock(_) => Data,
             P2PMessage::Ping(_) => ConnectionControl,
             P2PMessage::Pong(_) => ConnectionControl,
             P2PMessage::Protoconf(_) => ConnectionControl,
@@ -603,31 +607,25 @@ mod tests {
         m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
-    //     // MerkleBlock
-    //     let mut v = Vec::new();
-    //     let p = MerkleBlock {
-    //         header: BlockHeader {
-    //             version: 12345,
-    //             prev_hash: Hash256::decode(
-    //                 "7766009988776600998877660099887766009988776600998877660099887766",
-    //             )
-    //                 .unwrap(),
-    //             merkle_root: Hash256::decode(
-    //                 "2211554433221155443322115544332211554433221155443322115544332211",
-    //             )
-    //                 .unwrap(),
-    //             timestamp: 66,
-    //             bits: 4488,
-    //             nonce: 9999,
-    //         },
-    //         total_transactions: 14,
-    //         hashes: vec![Hash256([1; 32]), Hash256([3; 32]), Hash256([5; 32])],
-    //         flags: vec![24, 125, 199],
-    //     };
-    //     let m = Message::MerkleBlock(p);
-    //     m.write(&mut v, magic).unwrap();
-    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
-    //
+        // MerkleBlock
+        let mut v = Vec::new();
+        let p = MerkleBlock {
+            header: BlockHeader {
+                version: 12345,
+                prev_hash: Hash::from_hex("7766009988776600998877660099887766009988776600998877660099887766").unwrap(),
+                merkle_root: Hash::from_hex("2211554433221155443322115544332211554433221155443322115544332211").unwrap(),
+                timestamp: 66,
+                bits: 4488,
+                nonce: 9999,
+            },
+            total_transactions: 14,
+            hashes: vec![Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"), Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234")],
+            flags: vec![24, 125, 199],
+        };
+        let m = P2PMessage::MerkleBlock(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
+
     //     // NotFound
     //     let mut v = Vec::new();
     //     let p = Inv {
