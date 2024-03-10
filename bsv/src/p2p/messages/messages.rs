@@ -3,11 +3,11 @@ use std::fmt;
 use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::{Encodable, Tx};
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK, NOTFOUND,
-                                               PING, PONG, REJECT, SENDHEADERS, SENDCMPCT, VERACK, VERSION};
+                                               PING, PONG, REJECT, SENDHEADERS, SENDCMPCT, TX, VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
@@ -167,7 +167,7 @@ pub enum P2PMessage {
     Reject(Reject),
     SendHeaders,
     SendCmpct(SendCmpct),
-    // Tx(Tx),
+    Tx(Tx),
     Verack,
     Version(Version),
     Unknown(String, usize),
@@ -198,6 +198,7 @@ impl P2PMessage {
             REJECT => P2PMessage::Reject(Reject::decode_from(reader).await?),
             SENDCMPCT => P2PMessage::SendCmpct(SendCmpct::decode_from(reader).await?),
             SENDHEADERS => P2PMessage::SendHeaders,
+            TX => P2PMessage::Tx(Tx::decode_from(reader).await?),
             VERACK => P2PMessage::Verack,
             VERSION => P2PMessage::Version(Version::decode_from(reader).await?),
             _ => {
@@ -243,7 +244,7 @@ impl P2PMessage {
             P2PMessage::Reject(p) => self.write_with_payload(writer, REJECT, config, p).await,
             P2PMessage::SendCmpct(p) => self.write_with_payload(writer, SENDCMPCT, config, p).await,
             P2PMessage::SendHeaders => self.write_without_payload(writer, SENDHEADERS, config).await,
-            // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
+            P2PMessage::Tx(p) => self.write_with_payload(writer, TX, config, p).await,
             P2PMessage::Verack => self.write_without_payload(writer, VERACK, config).await,
             P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, config, v).await,
             P2PMessage::Unknown(s, _size) => {
@@ -273,7 +274,7 @@ impl P2PMessage {
             P2PMessage::Reject(p) => p.size(),
             P2PMessage::SendCmpct(p) => p.size(),
             P2PMessage::SendHeaders => 0,
-            // P2PMessage::Tx(p) => write_with_payload(writer, TX, p, magic),
+            P2PMessage::Tx(p) => p.size(),
             P2PMessage::Verack => 0,
             P2PMessage::Version(v) => v.size(),
             P2PMessage::Unknown(_s, size) => *size,
@@ -359,7 +360,7 @@ impl fmt::Debug for P2PMessage {
             P2PMessage::Reject(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendHeaders => f.write_str("SendHeaders"),
-            // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Tx(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Verack => f.write_str("Verack"),
             P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Unknown(p, _size) => f.write_str(&format!("{:#?}", p)),
@@ -397,7 +398,7 @@ impl fmt::Display for P2PMessage {
             P2PMessage::Reject(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendCmpct(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::SendHeaders => f.write_str("SendHeaders"),
-            // Message::Tx(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Tx(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Verack => f.write_str("Verack"),
             P2PMessage::Version(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Unknown(p, _size) => f.write_str(&format!("{:#?}", p)),
@@ -434,6 +435,7 @@ impl From<&P2PMessage> for P2PMessageType {
             P2PMessage::Reject(_) => ConnectionControl,
             P2PMessage::SendCmpct(_) => ConnectionControl,
             P2PMessage::SendHeaders => ConnectionControl,
+            P2PMessage::Tx(_) => Data,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
             P2PMessage::Unknown(_, _) => Data,
@@ -461,6 +463,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
             P2PMessage::Reject(_) => ConnectionControl,
             P2PMessage::SendCmpct(_) => ConnectionControl,
             P2PMessage::SendHeaders => ConnectionControl,
+            P2PMessage::Tx(_) => Data,
             P2PMessage::Verack => ConnectionControl,
             P2PMessage::Version(_) => ConnectionControl,
             P2PMessage::Unknown(_, _) => Data,
@@ -691,27 +694,27 @@ mod tests {
         m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
-    //     // Tx
-    //     let mut v = Vec::new();
-    //     let p = Tx {
-    //         version: 0x44556677,
-    //         inputs: vec![TxIn {
-    //             prev_output: OutPoint {
-    //                 hash: Hash256([5; 32]),
-    //                 index: 3,
-    //             },
-    //             unlock_script: Script(vec![7; 7]),
-    //             sequence: 2,
-    //         }],
-    //         outputs: vec![TxOut {
-    //             satoshis: 42,
-    //             lock_script: Script(vec![8; 8]),
-    //         }],
-    //         lock_time: 0x12ff34aa,
-    //     };
-    //     let m = Message::Tx(p);
-    //     m.write(&mut v, magic).unwrap();
-    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+        // Tx
+        let mut v = Vec::new();
+        let p = Tx {
+            version: 0x44556677,
+            inputs: vec![TxInput {
+                outpoint: Outpoint {
+                    tx_hash: Hash::from("0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f"),
+                    index: 3,
+                },
+                raw_script: vec![7u8; 7],
+                sequence: 2,
+            }],
+            outputs: vec![TxOutput {
+                value: 42,
+                raw_script: vec![8u8; 8],
+            }],
+            lock_time: 0x12ff34aa,
+        };
+        let m = P2PMessage::Tx(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Verack
         let mut v = Vec::new();
