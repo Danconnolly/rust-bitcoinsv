@@ -6,8 +6,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
 pub use self::commands::PROTOCONF;
-use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, INV, MEMPOOL, PING, PONG, SENDHEADERS, VERACK,
-                                               VERSION};
+use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, PING, PONG, SENDHEADERS,
+                                               VERACK, VERSION};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
 use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
@@ -15,6 +15,7 @@ use crate::p2p::messages::{Ping, Version};
 use crate::p2p::messages::addr::Addr;
 use crate::p2p::messages::block::Block;
 use crate::p2p::messages::block_locator::BlockLocator;
+use crate::p2p::messages::headers::Headers;
 use crate::p2p::messages::inv::Inv;
 use crate::p2p::stream::StreamConfig;
 
@@ -152,7 +153,7 @@ pub enum P2PMessage {
     GetBlocks(BlockLocator),
     GetData(Inv),
     GetHeaders(BlockLocator),
-    // Headers(Headers),
+    Headers(Headers),
     Inv(Inv),
     Mempool,
     // MerkleBlock(MerkleBlock),
@@ -184,6 +185,7 @@ impl P2PMessage {
             GETBLOCKS => P2PMessage::GetBlocks(BlockLocator::decode_from(reader).await?),
             GETDATA => P2PMessage::GetData(Inv::decode_from(reader).await?),
             GETHEADERS => P2PMessage::GetHeaders(BlockLocator::decode_from(reader).await?),
+            HEADERS => P2PMessage::Headers(Headers::decode_from(reader).await?),
             INV => P2PMessage::Inv(Inv::decode_from(reader).await?),
             MEMPOOL => P2PMessage::Mempool,
             PING => P2PMessage::Ping(Ping::decode_from(reader).await?),
@@ -224,7 +226,7 @@ impl P2PMessage {
             P2PMessage::GetBlocks(p) => self.write_with_payload(writer, GETBLOCKS, config, p).await,
             P2PMessage::GetData(p) => self.write_with_payload(writer, GETDATA, config, p).await,
             P2PMessage::GetHeaders(p) => self.write_with_payload(writer, GETHEADERS, config, p).await,
-            // P2PMessage::Headers(p) => write_with_payload(writer, HEADERS, p, magic),
+            P2PMessage::Headers(p) => self.write_with_payload(writer, HEADERS, config, p).await,
             P2PMessage::Inv(p) => self.write_with_payload(writer, INV, config, p).await,
             P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
             // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
@@ -254,7 +256,7 @@ impl P2PMessage {
             P2PMessage::GetBlocks(p) => p.size(),
             P2PMessage::GetData(p) => p.size(),
             P2PMessage::GetHeaders(p) => p.size(),
-            // P2PMessage::Headers(p) => write_with_payload(writer, HEADERS, p, magic),
+            P2PMessage::Headers(p) => p.size(),
             P2PMessage::Inv(p) => p.size(),
             P2PMessage::Mempool => 0,
             // P2PMessage::MerkleBlock(p) => write_with_payload(writer, MERKLEBLOCK, p, magic),
@@ -340,7 +342,7 @@ impl fmt::Debug for P2PMessage {
                 .field("block_locator_hashes", &p.block_locator_hashes)
                 .field("hash_stop", &p.hash_stop)
                 .finish(),
-            // Message::Headers(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Headers(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Inv(p) => f.write_str(&format!("{:#?}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
             // Message::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
@@ -378,7 +380,7 @@ impl fmt::Display for P2PMessage {
                 .field("block_locator_hashes", &p.block_locator_hashes)
                 .field("hash_stop", &p.hash_stop)
                 .finish(),
-            // Message::Headers(p) => f.write_str(&format!("{:#?}", p)),
+            P2PMessage::Headers(p) => f.write_str(&format!("{}", p)),
             P2PMessage::Inv(p) => f.write_str(&format!("{}", p)),
             P2PMessage::Mempool => f.write_str("Mempool"),
             // Message::MerkleBlock(p) => f.write_str(&format!("{:#?}", p)),
@@ -415,6 +417,7 @@ impl From<&P2PMessage> for P2PMessageType {
             P2PMessage::GetBlocks(_) => Data,
             P2PMessage::GetData(_) => Data,
             P2PMessage::GetHeaders(_) => Data,
+            P2PMessage::Headers(_) => Data,
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
@@ -437,6 +440,7 @@ impl From<Arc<P2PMessage>> for P2PMessageType {
             P2PMessage::GetBlocks(_) => Data,
             P2PMessage::GetData(_) => Data,
             P2PMessage::GetHeaders(_) => Data,
+            P2PMessage::Headers(_) => Data,
             P2PMessage::Inv(_) => Data,
             P2PMessage::Mempool => Data,
             P2PMessage::Ping(_) => ConnectionControl,
@@ -455,6 +459,7 @@ mod tests {
     use super::*;
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv6Addr};
+    use hex::FromHex;
     use crate::bitcoin::{BlockHeader, Outpoint, Tx, TxInput, TxOutput};
     use crate::p2p::messages::inv::{InvItem, InvType};
     use crate::p2p::messages::NodeAddr;
@@ -570,16 +575,15 @@ mod tests {
         m.write(&mut v, &config).await.unwrap();
         assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
-    //     // Headers
-    //     let mut v = Vec::new();
-    //     let p = Headers {
-    //         headers: vec![BlockHeader {
-    //             ..default::default()
-    //         }],
-    //     };
-    //     let m = Message::Headers(p);
-    //     m.write(&mut v, magic).unwrap();
-    //     assert!(Message::read(&mut Cursor::new(&v), magic).unwrap() == m);
+        // Headers
+        let mut v = Vec::new();
+        let bh_bin = Vec::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
+        let p = Headers {
+            headers: vec![BlockHeader::decode_from_buf(bh_bin.as_slice()).unwrap()],
+        };
+        let m = P2PMessage::Headers(p);
+        m.write(&mut v, &config).await.unwrap();
+        assert_eq!(P2PMessage::read(&mut Cursor::new(&v), &config).await.unwrap(), m);
 
         // Inv
         let mut v = Vec::new();

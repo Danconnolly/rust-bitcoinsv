@@ -8,6 +8,7 @@ mod addr;
 mod inv;
 mod block;
 mod block_locator;
+mod headers;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;
