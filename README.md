@@ -1,5 +1,6 @@
 # rust-bitcoinsv
 ![Test Status](https://gist.githubusercontent.com/Danconnolly/202d737d8ec36a48fbb4f7d0d4e1d779/raw/badge.svg)
+[![dependency status](https://deps.rs/repo/github/Danconnolly/rust-bitcoinsv/status.svg)](https://deps.rs/repo/github/Danconnolly/rust-bitcoinsv)
 
 This library is a start at building a high-performance Bitcoin SV library in Rust. The focus is on using async
 paradigms and efficient data structures that minimize memory allocations and copying. The goal is to be able to
