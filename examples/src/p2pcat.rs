@@ -1,3 +1,5 @@
+mod getblock;
+
 use std::sync::Arc;
 use clap::Parser;
 use env_logger::Env;

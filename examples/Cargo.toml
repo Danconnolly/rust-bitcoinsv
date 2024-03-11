@@ -22,4 +22,8 @@ log = "0.4.21"
 name = "p2pcat"
 path = "src/p2pcat.rs"
 
+[[bin]]
+name = "getblock"
+path = "src/getblock.rs"
+
 
