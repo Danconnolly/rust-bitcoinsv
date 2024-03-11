@@ -7,8 +7,7 @@
 pub mod bitcoin;
 
 /// Contains functionality related to the Bitcoin SV peer-to-peer protocol and network.
-// todo: review this module before releasing it
-mod p2p;
+pub mod p2p;
 
 /// Contains useful utility functions.
 pub mod util;

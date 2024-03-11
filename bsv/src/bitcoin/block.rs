@@ -1,12 +1,11 @@
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::AsyncRead;
+use tokio::io::{AsyncRead};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::Stream;
 pub use tokio_stream::StreamExt;
-use crate::bitcoin::{BlockHeader, Encodable, Tx};
-use crate::bitcoin::var_int::VarInt;
+use crate::bitcoin::{BlockHeader, Encodable, Tx, varint_decode};
 
 
 /// Deserialize the bytes in a block and produce a stream of the transactions.
@@ -16,8 +15,6 @@ use crate::bitcoin::var_int::VarInt;
 /// In Bitcoin SV, blocks can get very large, so we dont actually keep a block in memory, but
 /// instead iterate over the transactions in the block. Ideally each transaction should be processed
 /// immediately and dropped to keep memory use low.
-/// In this library we dont provide any other mechanism for accessing the transactions in a block,
-/// in order to avoid the temptation to keep the block in memory.
 ///
 /// Create the FullBlockStream using a reader. Once initialized, the FullBlockStream will make
 /// the BlockHeader and the number of transactions available. You can then iterate over the
@@ -26,7 +23,9 @@ use crate::bitcoin::var_int::VarInt;
 /// read all of the transactions in the block before it can be retrieved.
 ///
 /// Something like:
-///        let mut steam = FullBlockStream::new(reader).await.unwrap();
+///         let mut steam = FullBlockStream::new(reader).await.unwrap();
+///         let hdr = stream.block_header;
+///         let num_tx = stream.num_tx;
 ///         while let Some(tx) = s.next().await {
 ///             // process tx
 ///         }
@@ -44,7 +43,7 @@ pub struct FullBlockStream<R>
     reader_handle: Option<JoinHandle<R>>,
 }
 
-// this is the size of the buffer in the channel.
+// The size of the transaction buffer, this buffer is filled by a background task.
 const BUFFER_SIZE: usize = 1000;
 
 impl<R> FullBlockStream<R>
@@ -54,8 +53,9 @@ impl<R> FullBlockStream<R>
     /// Create a new FullBlockStream, decoding the block from the reader. The block header and the
     /// number of transactions in the block will be immediately ready when this function has finished.
     pub async fn new(mut reader: R) -> crate::Result<FullBlockStream<R>> {
-        let block_header = BlockHeader::read(&mut reader).await?;
-        let num_tx = VarInt::read(&mut reader).await?.value;
+        // read block header and number of transactions
+        let block_header = BlockHeader::decode_from(&mut reader).await?;
+        let num_tx = varint_decode(&mut reader).await?;
         let (sender, rx) = mpsc::channel::<crate::Result<Tx>>(BUFFER_SIZE);
         // spawn a task to continuously read transactions from the reader and send them to the channel
         let mut tx_reader = FullBlockTxReader::new(num_tx, reader, sender);
@@ -68,6 +68,7 @@ impl<R> FullBlockStream<R>
     /// Retrieve the reader from the FullBlockStream. This will block until all transactions have
     /// been read. Note that the FullBlockStream contains an internal buffer of limited size and if
     /// this buffer fills up and is not cleared, the reader will block forever.
+    /// todo: look at Drop?
     pub async fn finish(&mut self) -> R {
         let h = self.reader_handle.take().unwrap();
         h.await.unwrap()
@@ -108,7 +109,8 @@ impl<R> FullBlockTxReader<R>
     async fn read_tx(&mut self) -> R {
         let mut r = self.reader.take().unwrap();
         for _ in 0..self.num_tx {
-            match Tx::read(&mut r).await {
+            let t = Tx::decode_from(&mut r).await;
+            match t {
                 Ok(tx) => {
                     if self.sender.send(Ok(tx)).await.is_err() {
                         break; // Receiver has dropped

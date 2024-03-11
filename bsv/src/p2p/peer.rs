@@ -1,18 +1,27 @@
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use uuid::Uuid;
 
 
-/// A peer is an agent on the network to which a connection could be established.
-pub struct Peer {
-    id: Uuid,
-    address: SocketAddr,
+/// A PeerAddress is a potential agent on the network to which a connection could be established.
+#[derive(Debug, Clone)]
+pub struct PeerAddress {
+    /// The unique identifier of the peer.
+    ///
+    /// This can be used to identify the peer in a database, for example.
+    pub peer_id: Uuid,
+    pub address: SocketAddr,
 }
 
-impl Peer {
+impl PeerAddress {
+    /// Create a new peer with a random UUID.
     pub fn new(address: SocketAddr) -> Self {
         Self {
-            id: Uuid::new_v4(),
+            peer_id: Uuid::new_v4(),
             address,
         }
+    }
+
+    pub fn ip(&self) -> IpAddr {
+        self.address.ip()
     }
 }
