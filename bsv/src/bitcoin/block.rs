@@ -80,7 +80,9 @@ impl<R> Stream for FullBlockStream<R>
         R: AsyncRead + Unpin + Send,
 {
     type Item = crate::Result<Tx>;
+
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        // return the next item from the channel
         Pin::new(&mut self.receiver).poll_recv(cx)
     }
 }
