@@ -33,28 +33,28 @@ impl BlockHeader {
 
     /// Calculates the hash for this block header
     pub fn hash(&self) -> BlockHash {
-        let v = self.encode_into_buf().unwrap();
+        let v = self.to_binary_buf().unwrap();
         Hash::sha256d(&v)
     }
 }
 
 #[async_trait]
 impl Encodable for BlockHeader {
-    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         Ok(BlockHeader {
             version: reader.read_u32_le().await?,
-            prev_hash: Hash::decode_from(reader).await?,
-            merkle_root: Hash::decode_from(reader).await?,
+            prev_hash: Hash::from_binary(reader).await?,
+            merkle_root: Hash::from_binary(reader).await?,
             timestamp: reader.read_u32_le().await?,
             bits: reader.read_u32_le().await?,
             nonce: reader.read_u32_le().await?,
         })
     }
 
-    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
-        self.prev_hash.encode_into(writer).await?;
-        self.merkle_root.encode_into(writer).await?;
+        self.prev_hash.to_binary(writer).await?;
+        self.merkle_root.to_binary(writer).await?;
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u32_le(self.bits).await?;
         writer.write_u32_le(self.nonce).await?;
@@ -70,18 +70,18 @@ impl FromHex for BlockHeader {
     type Error = crate::Error;
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
-        BlockHeader::decode_from_buf(bytes.as_slice())
+        BlockHeader::from_binary_buf(bytes.as_slice())
     }
 }
 
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
-        let bytes = self.encode_into_buf().unwrap();
+        let bytes = self.to_binary_buf().unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
-        let bytes = self.encode_into_buf().unwrap();
+        let bytes = self.to_binary_buf().unwrap();
         bytes.encode_hex_upper()
     }
 }
@@ -95,7 +95,7 @@ mod tests {
     #[test]
     fn block_header_read() {
         let (block_header_bin, block_header_hash) = get_block_header824962();
-        let block_header = BlockHeader::decode_from_buf(block_header_bin.as_slice()).unwrap();
+        let block_header = BlockHeader::from_binary_buf(block_header_bin.as_slice()).unwrap();
         assert_eq!(block_header.version, 609435648);
         assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce, 1285270638);

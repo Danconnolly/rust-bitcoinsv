@@ -21,27 +21,27 @@ impl BlockLocator {
 
 #[async_trait]
 impl Encodable for BlockLocator {
-    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;
         let mut block_locator_hashes = Vec::with_capacity(num_hashes);
         for _ in 0..num_hashes {
-            block_locator_hashes.push(Hash::decode_from(reader).await?);
+            block_locator_hashes.push(Hash::from_binary(reader).await?);
         }
         Ok( BlockLocator {
             version,
             block_locator_hashes,
-            hash_stop: Hash::decode_from(reader).await?,
+            hash_stop: Hash::from_binary(reader).await?,
         })
     }
 
-    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
         varint_encode(writer, self.block_locator_hashes.len() as u64).await?;
         for hash in self.block_locator_hashes.iter() {
-            hash.encode_into(writer).await?;
+            hash.to_binary(writer).await?;
         }
-        self.hash_stop.encode_into(writer).await?;
+        self.hash_stop.to_binary(writer).await?;
         Ok(())
     }
 

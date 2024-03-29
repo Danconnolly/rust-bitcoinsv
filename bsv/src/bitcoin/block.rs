@@ -54,7 +54,7 @@ impl<R> FullBlockStream<R>
     /// number of transactions in the block will be immediately ready when this function has finished.
     pub async fn new(mut reader: R) -> crate::Result<FullBlockStream<R>> {
         // read block header and number of transactions
-        let block_header = BlockHeader::decode_from(&mut reader).await?;
+        let block_header = BlockHeader::from_binary(&mut reader).await?;
         let num_tx = varint_decode(&mut reader).await?;
         let (sender, rx) = mpsc::channel::<crate::Result<Tx>>(BUFFER_SIZE);
         // spawn a task to continuously read transactions from the reader and send them to the channel
@@ -111,7 +111,7 @@ impl<R> FullBlockTxReader<R>
     async fn read_tx(&mut self) -> R {
         let mut r = self.reader.take().unwrap();
         for _ in 0..self.num_tx {
-            let t = Tx::decode_from(&mut r).await;
+            let t = Tx::from_binary(&mut r).await;
             match t {
                 Ok(tx) => {
                     if self.sender.send(Ok(tx)).await.is_err() {

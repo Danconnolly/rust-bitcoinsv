@@ -50,7 +50,7 @@ impl Default for NodeAddr {
 
 #[async_trait]
 impl Encodable for NodeAddr {
-    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let timestamp = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
@@ -66,7 +66,7 @@ impl Encodable for NodeAddr {
         Ok(NodeAddr { timestamp, services, ip, port, })
     }
 
-    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u64_le(self.services).await?;
         match self.ip {
@@ -108,7 +108,7 @@ mod tests {
                                 "00000000000000000000ffff2d32bffb", // ip = 45.50.191.251, hex = 2d32bffb, ipv6 mapped = 0000:0000:0000:0000:0000:ffff:2d32:bffb
                                 "ddd3")             // port = 56787
                                 .as_bytes()).unwrap();
-        let a = NodeAddr::decode_from_buf(b.as_slice()).unwrap();
+        let a = NodeAddr::from_binary_buf(b.as_slice()).unwrap();
         assert_eq!(a.timestamp, 1_704_625_247);
         assert_eq!(a.services, 37);
         assert_eq!(a.ip, "45.50.191.251".parse::<Ipv4Addr>().unwrap());
@@ -123,8 +123,8 @@ mod tests {
             ip: IpAddr::from([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]),
             port: 123,
         };
-        let v = a.encode_into_buf().unwrap();
+        let v = a.to_binary_buf().unwrap();
         assert_eq!(v.len(), NodeAddr::SIZE);
-        assert_eq!(NodeAddr::decode_from_buf(v.as_slice()).unwrap(), a);
+        assert_eq!(NodeAddr::from_binary_buf(v.as_slice()).unwrap(), a);
     }
 }

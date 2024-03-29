@@ -108,7 +108,7 @@ impl Default for Version {
 
 #[async_trait]
 impl Encodable for Version {
-    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let timestamp = reader.read_i64_le().await?;
@@ -125,7 +125,7 @@ impl Encodable for Version {
         Ok(Version { version, services, timestamp, recv_addr, tx_addr, nonce, user_agent, start_height, relay, })
     }
 
-    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
         writer.write_u32_le(self.version).await?;
         writer.write_u64_le(self.services).await?;
         writer.write_i64_le(self.timestamp).await?;
@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn read_bytes() {
         let b = hex::decode("7f1101002500000000000000f2d2d25a00000000000000000000000000000000000000000000ffff2d32bffbdd1725000000000000000000000000000000000000000000000000008d501d3bb5369deb242f426974636f696e204142433a302e31362e30284542382e303b20626974636f7265292f6606080001".as_bytes()).unwrap();
-        let v = Version::decode_from_buf(b.as_slice()).unwrap();
+        let v = Version::from_binary_buf(b.as_slice()).unwrap();
         assert_eq!(v.version, 70015);
         assert_eq!(v.services, 37);
         assert_eq!(v.timestamp, 1523766002);
@@ -188,9 +188,9 @@ mod tests {
             start_height: 22,
             relay: true,
         };
-        let v = m.encode_into_buf().unwrap();
+        let v = m.to_binary_buf().unwrap();
         assert_eq!(v.len(), m.size());
-        assert_eq!(Version::decode_from_buf(v.as_slice()).unwrap(), m);
+        assert_eq!(Version::from_binary_buf(v.as_slice()).unwrap(), m);
     }
 
     #[test]

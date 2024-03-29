@@ -14,22 +14,22 @@ pub struct Block {
 
 #[async_trait]
 impl Encodable for Block {
-    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
-        let header = BlockHeader::decode_from(reader).await?;
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+        let header = BlockHeader::from_binary(reader).await?;
         let txn_count = varint_decode(reader).await? as usize;
         // todo: check for too many transactions
         let mut transactions = Vec::with_capacity(txn_count);
         for _ in 0..txn_count {
-            transactions.push(Tx::decode_from(reader).await?);
+            transactions.push(Tx::from_binary(reader).await?);
         }
         Ok(Block { header, transactions })
     }
 
-    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        self.header.encode_into(writer).await?;
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        self.header.to_binary(writer).await?;
         varint_encode(writer, self.transactions.len() as u64).await?;
         for txn in self.transactions.iter() {
-            txn.encode_into(writer).await?;
+            txn.to_binary(writer).await?;
         }
         Ok(())
     }

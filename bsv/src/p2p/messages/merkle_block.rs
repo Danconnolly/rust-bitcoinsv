@@ -19,13 +19,13 @@ pub struct MerkleBlock {
 
 #[async_trait]
 impl Encodable for MerkleBlock {
-    async fn decode_from<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
-        let header = BlockHeader::decode_from(reader).await?;
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+        let header = BlockHeader::from_binary(reader).await?;
         let total_transactions = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;
         let mut hashes = Vec::with_capacity(num_hashes);
         for _ in 0..num_hashes {
-            hashes.push(Hash::decode_from(reader).await?);
+            hashes.push(Hash::from_binary(reader).await?);
         }
         let num_flags = varint_decode(reader).await? as usize;
         let mut flags = Vec::with_capacity(num_flags);
@@ -40,12 +40,12 @@ impl Encodable for MerkleBlock {
         })
     }
 
-    async fn encode_into<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
-        self.header.encode_into(writer).await?;
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+        self.header.to_binary(writer).await?;
         writer.write_u32_le(self.total_transactions).await?;
         varint_encode(writer, self.hashes.len() as u64).await?;
         for hash in self.hashes.iter() {
-            hash.encode_into(writer).await?;
+            hash.to_binary(writer).await?;
         }
         varint_encode(writer, self.flags.len() as u64).await?;
         for flag in self.flags.iter() {
