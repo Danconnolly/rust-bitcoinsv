@@ -4,8 +4,8 @@ use tokio::io::{AsyncRead};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use tokio_stream::Stream;
-pub use tokio_stream::StreamExt;
 use crate::bitcoin::{BlockHeader, Encodable, Tx, varint_decode};
+use crate::Result;
 
 
 /// Deserialize the bytes in a block and produce a stream of the transactions.
@@ -18,9 +18,7 @@ use crate::bitcoin::{BlockHeader, Encodable, Tx, varint_decode};
 ///
 /// Create the FullBlockStream using a reader. Once initialized, the FullBlockStream will make
 /// the BlockHeader and the number of transactions available. You can then iterate over the
-/// transactions using the tokio_stream::StreamExt trait. At the end you can retrieve the reader
-/// from the FullBlockStream using the finish() method but note that it will need to have
-/// read all of the transactions in the block before it can be retrieved.
+/// transactions using the tokio_stream::StreamExt trait.
 ///
 /// Something like:
 ///         let mut steam = FullBlockStream::new(reader).await.unwrap();
@@ -29,30 +27,28 @@ use crate::bitcoin::{BlockHeader, Encodable, Tx, varint_decode};
 ///         while let Some(tx) = s.next().await {
 ///             // process tx
 ///         }
-///         let r = s.finish().await;
 ///
 /// Transactions are read using a background task and queued in a channel, ready for delivery to
 /// the calling task.
-pub struct FullBlockStream<R>
-    where
-        R: AsyncRead + Unpin + Send,
-{
+pub struct FullBlockStream {
+    /// The block header for this block.
     pub block_header: BlockHeader,
+    /// The number of transactions in this block.
     pub num_tx: u64,
-    receiver: mpsc::Receiver<crate::Result<Tx>>,
-    reader_handle: Option<JoinHandle<R>>,
+    // the channel receiver for transactions
+    receiver: mpsc::Receiver<Result<Tx>>,
+    // the background task that reads transactions from the block
+    // although we dont use this, we need to keep it in scope to keep the task running
+    _bgrnd_task: JoinHandle<()>,
 }
 
 // The size of the transaction buffer, this buffer is filled by a background task.
 const BUFFER_SIZE: usize = 1000;
 
-impl<R> FullBlockStream<R>
-    where
-        R: AsyncRead + Unpin + Send + 'static,
-{
+impl FullBlockStream {
     /// Create a new FullBlockStream, decoding the block from the reader. The block header and the
     /// number of transactions in the block will be immediately ready when this function has finished.
-    pub async fn new(mut reader: R) -> crate::Result<FullBlockStream<R>> {
+    pub async fn new(mut reader: Box<dyn AsyncRead + Unpin + Send>) -> crate::Result<FullBlockStream> {
         // read block header and number of transactions
         let block_header = BlockHeader::from_binary(&mut reader).await?;
         let num_tx = varint_decode(&mut reader).await?;
@@ -61,24 +57,12 @@ impl<R> FullBlockStream<R>
         let mut tx_reader = FullBlockTxReader::new(num_tx, reader, sender);
         let h = tokio::spawn(async move {tx_reader.read_tx().await});
         Ok(FullBlockStream {
-            block_header, num_tx, receiver: rx, reader_handle: Some(h),
+            block_header, num_tx, receiver: rx, _bgrnd_task: h,
         })
-    }
-
-    /// Retrieve the reader from the FullBlockStream. This will block until all transactions have
-    /// been read. Note that the FullBlockStream contains an internal buffer of limited size and if
-    /// this buffer fills up and is not cleared, the reader will block forever.
-    /// todo: look at Drop?
-    pub async fn finish(&mut self) -> R {
-        let h = self.reader_handle.take().unwrap();
-        h.await.unwrap()
     }
 }
 
-impl<R> Stream for FullBlockStream<R>
-    where
-        R: AsyncRead + Unpin + Send,
-{
+impl Stream for FullBlockStream {
     type Item = crate::Result<Tx>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
@@ -89,29 +73,22 @@ impl<R> Stream for FullBlockStream<R>
 
 /// The background task that reads transactions from the reader and sends them to the channel for
 /// the FullBlockStream.
-struct FullBlockTxReader<R>
-    where
-        R: AsyncRead + Unpin + Send,
-{
+struct FullBlockTxReader {
     num_tx: u64,
-    reader: Option<R>,
-    sender: mpsc::Sender<crate::Result<Tx>>,
+    reader: Box<dyn AsyncRead + Unpin + Send>,
+    sender: mpsc::Sender<Result<Tx>>,
 }
 
-impl<R> FullBlockTxReader<R>
-    where
-        R: AsyncRead + Unpin + Send,
-{
-    pub fn new(num_tx: u64, reader: R, sender: mpsc::Sender<crate::Result<Tx>>) -> FullBlockTxReader<R> {
+impl FullBlockTxReader {
+    pub fn new(num_tx: u64, reader: Box<dyn AsyncRead + Unpin + Send>, sender: mpsc::Sender<Result<Tx>>) -> Self {
         FullBlockTxReader {
-            num_tx, reader: Some(reader), sender,
+            num_tx, reader, sender,
         }
     }
 
-    async fn read_tx(&mut self) -> R {
-        let mut r = self.reader.take().unwrap();
+    async fn read_tx(&mut self) {
         for _ in 0..self.num_tx {
-            let t = Tx::from_binary(&mut r).await;
+            let t = Tx::from_binary(&mut self.reader).await;
             match t {
                 Ok(tx) => {
                     if self.sender.send(Ok(tx)).await.is_err() {
@@ -124,7 +101,6 @@ impl<R> FullBlockTxReader<R>
                 }
             }
         }
-        r
     }
 }
 
@@ -142,7 +118,7 @@ mod tests {
     #[tokio::test]
     async fn test_full_block_stream() {
         let block_bin = get_small_block_bin().await;
-        let cursor = Cursor::new(block_bin);
+        let cursor = Box::new(Cursor::new(block_bin));
         let mut s = FullBlockStream::new(cursor).await.unwrap();
         assert_eq!(s.block_header.hash(), Hash::from_hex("0000000000000000000988036522057056727ae85ad7cea92b2198418c9bb8f7").unwrap());
         assert_eq!(s.num_tx, 222);
@@ -152,8 +128,6 @@ mod tests {
             tx.unwrap();
         }
         assert_eq!(tx_count, 222);
-        let r = s.finish().await;
-        assert_eq!(r.position(), r.get_ref().len() as u64, "Cursor is not at the end");
     }
 
     // read block from a file for test purposes
