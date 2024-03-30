@@ -41,6 +41,7 @@ use crate::Result;
 // struct is dropped, the receiver of the channel will be dropped. The sender (in the background task)
 // will then return an error when it tries to send to the channel. This will cause the background task
 // to terminate.
+// I don't have any real tests for this, very keen to hear any ideas.
 pub struct FullBlockStream {
     /// The block header for this block.
     pub block_header: BlockHeader,
