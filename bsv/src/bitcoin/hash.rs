@@ -106,6 +106,13 @@ impl From<&[u8]> for Hash {
     }
 }
 
+impl From<Hash> for [u8; 32] {
+    /// Convert from Hash to u8 encoding
+    fn from(value: Hash) -> Self {
+        return value.hash;
+    }
+}
+
 impl From<&str> for Hash {
     /// This converts a hex encoded hash into a Hash struct.
     fn from(hash_as_hex: &str) -> Hash {
