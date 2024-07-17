@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## version 0.2.6 - 2024-07-21
+* Add functions to retrieve genesis block headers
+* cargo update
+
 ## version 0.2.4 - 2024-03-09
 * Add 'Sum' trait for Amount
 * cargo update

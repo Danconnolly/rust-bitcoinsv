@@ -3,6 +3,7 @@ use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 use crate::bitcoin::hash::Hash;
+use crate::bitcoin::params::BlockchainId;
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
 pub type BlockHash = Hash;
@@ -35,6 +36,16 @@ impl BlockHeader {
     pub fn hash(&self) -> BlockHash {
         let v = self.to_binary_buf().unwrap();
         Hash::sha256d(&v)
+    }
+
+    /// Get the Genesis BlockHeader for the given chain.
+    pub fn get_genesis(block_chain: BlockchainId) -> BlockHeader {
+        match block_chain {
+            BlockchainId::Mainnet => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c").unwrap(),
+            BlockchainId::Testnet => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18").unwrap(),
+            BlockchainId::Stn => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18").unwrap(),
+            BlockchainId::Regtest => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f2002000000").unwrap(),
+        }
     }
 }
 
@@ -132,4 +143,16 @@ mod tests {
         assert_eq!(s, o);
     }
 
+    // check that the genesis blocks have been correctly implemented
+    #[test]
+    fn check_genesis() {
+        let hdr = BlockHeader::get_genesis(BlockchainId::Mainnet);
+        assert_eq!(hdr.hash(), BlockHash::from_hex("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f").unwrap());
+        let hdr = BlockHeader::get_genesis(BlockchainId::Testnet);
+        assert_eq!(hdr.hash(), BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943").unwrap());
+        let hdr = BlockHeader::get_genesis(BlockchainId::Stn);
+        assert_eq!(hdr.hash(), BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943").unwrap());
+        let hdr = BlockHeader::get_genesis(BlockchainId::Regtest);
+        assert_eq!(hdr.hash(), BlockHash::from_hex("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206").unwrap());
+    }
 }
