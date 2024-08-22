@@ -333,9 +333,9 @@ mod tests {
     /// test encoding of a tx input
     #[test]
     fn txi_new() {
-        let txi = TxInput::new(TxHash::from_hex("388504ec982deb66c398056586ef7f47e173a49293ef0507f2d7d591109d7b9b").unwrap(),
-                                0, Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap(),
-                                None);
+        let txi = TxInput::new(&TxHash::from_hex("388504ec982deb66c398056586ef7f47e173a49293ef0507f2d7d591109d7b9b").unwrap(),
+                               0, &Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap(),
+                               None);
         let b = txi.to_binary_buf().unwrap();
         assert_eq!(hex::encode(b), "9b7b9d1091d5d7f20705ef9392a473e1477fef86650598c366eb2d98ec048538000000006a47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841ffffffff");
     }
