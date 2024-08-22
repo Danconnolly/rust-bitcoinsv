@@ -12,16 +12,16 @@ documentation = "https://docs.rs/bitcoinsv/latest/bitcoinsv/"
 keywords = ["crypto", "bitcoin-sv"]
 
 [dependencies]
-tokio = { version = ">=1.23.1", features = ["full"] }
 async-trait = "0.1.75"
-tokio-stream = "0.1"
-futures = "0.3.30"
-
 byteorder = "1.5.0"
+futures = "0.3.30"
 hex = "0.4.3"
 log = "0.4.20"
 ring = "0.17.7"
+secp256k1 = { version = "0.29.0" }
 serde = { version = "1.0.193", features = ["derive"] }
+tokio = { version = ">=1.23.1", features = ["full"] }
+tokio-stream = "0.1"
 uuid = { version = "1.3.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 [dev-dependencies]
