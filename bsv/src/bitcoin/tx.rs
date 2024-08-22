@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{Encodable, Script, varint_decode, varint_encode, varint_size};
 
 
 /// The TxHash is used to identify transactions.
@@ -103,6 +103,46 @@ impl Encodable for Tx {
     }
 }
 
+/// A builder for transactions.
+#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+pub struct TxBuilder {
+    version: u32,
+    inputs: Vec<TxInput>,
+    outputs: Vec<TxOutput>,
+    lock_time: u32,
+}
+
+impl TxBuilder {
+    pub fn new() -> TxBuilder {
+        TxBuilder {
+            version: 1,
+            inputs: vec![],
+            outputs: vec![],
+            lock_time: 0,
+        }
+    }
+
+    pub fn add_input(&mut self, input: &TxInput) -> &mut TxBuilder {
+        self.inputs.push(input.clone());
+        self
+    }
+
+    pub fn add_output(&mut self, output: &TxOutput) -> &mut TxBuilder {
+        self.outputs.push(output.clone());
+        self
+    }
+
+    pub fn build(&self) -> Tx {
+        Tx {
+            version: self.version,
+            inputs: self.inputs.clone(),
+            outputs: self.outputs.clone(),
+            lock_time: self.lock_time,
+        }
+    }
+}
+
+
 /// An Outpoint is a reference to a specific output of a specific transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct Outpoint {
@@ -143,6 +183,22 @@ pub struct TxInput {
     pub sequence: u32,
 }
 
+impl TxInput {
+    /// Create a new TxInput.
+    pub fn new(tx_hash: &TxHash, index: u32, script: &Script, sequence: Option<u32>) -> TxInput {
+        let s = sequence.unwrap_or(u32::MAX);
+        let t = tx_hash.clone();
+        let sc = script.raw.clone();
+        TxInput {
+            outpoint: Outpoint {
+                tx_hash: t, index
+            },
+            raw_script: sc,
+            sequence: s,
+        }
+    }
+}
+
 #[async_trait]
 impl Encodable for TxInput {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
@@ -172,11 +228,23 @@ impl Encodable for TxInput {
     }
 }
 
+
 /// A TxOutput is an output from a transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TxOutput {
     pub value: u64,
     pub raw_script: Vec<u8>,
+}
+
+impl TxOutput {
+    /// Simple new function.
+    pub fn new(value: u64, script: &Script) -> TxOutput {
+        let r = script.raw.clone();
+        TxOutput {
+            value,
+            raw_script: r,
+        }
+    }
 }
 
 #[async_trait]
@@ -260,6 +328,16 @@ mod tests {
         assert_eq!(i.outpoint.tx_hash, Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a"));
         assert_eq!(i.outpoint.index, 1);
         assert_eq!(tx.outputs.len(), 2);
+    }
+
+    /// test encoding of a tx input
+    #[test]
+    fn txi_new() {
+        let txi = TxInput::new(TxHash::from_hex("388504ec982deb66c398056586ef7f47e173a49293ef0507f2d7d591109d7b9b").unwrap(),
+                                0, Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap(),
+                                None);
+        let b = txi.to_binary_buf().unwrap();
+        assert_eq!(hex::encode(b), "9b7b9d1091d5d7f20705ef9392a473e1477fef86650598c366eb2d98ec048538000000006a47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841ffffffff");
     }
 
     fn get_tx1() -> (Vec<u8>, Hash) {
