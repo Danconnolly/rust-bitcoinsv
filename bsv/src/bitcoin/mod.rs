@@ -8,7 +8,8 @@ mod params;
 mod script;
 mod tx;
 mod var_int;
-
+mod address;
+mod hash160;
 
 pub use self::block::FullBlockStream;
 pub use self::encoding::Encodable;

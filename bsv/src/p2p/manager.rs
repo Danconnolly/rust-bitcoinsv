@@ -63,7 +63,7 @@ impl P2PManagerConfig {
 impl Default for P2PManagerConfig {
     // Default configuration, connects to mainnet, targets 8 peers.
     fn default() -> Self {
-        P2PManagerConfig::default(BlockchainId::Mainnet)
+        P2PManagerConfig::default(BlockchainId::Main)
     }
 }
 
@@ -287,11 +287,11 @@ impl P2PManagerActor {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitcoin::BlockchainId::Mainnet;
+    use crate::bitcoin::BlockchainId::Main;
 
     #[tokio::test]
     async fn start_stop_test() {
-        let (h, j) = P2PManager::new(P2PManagerConfig::default(Mainnet));
+        let (h, j) = P2PManager::new(P2PManagerConfig::default(Main));
         let s = h.get_state().await;
         assert!(s.is_ok());
         assert_eq!(s.unwrap(), P2PManagerState::Running);

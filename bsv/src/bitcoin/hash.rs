@@ -8,8 +8,11 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::Encodable;
 
 /// A struct representing a hash, specifically a SHA256d hash.
+///
+/// This is the hash type that is generally used within the Bitcoin infrastructure.
+///
 /// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [Hash]. Those aliases
-/// should be used instead of this struct.
+/// should generally be used instead of this struct.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash{
     pub hash: [u8; 32],

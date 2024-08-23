@@ -5,7 +5,7 @@ use log::trace;
 use tokio::sync::RwLock;
 use uuid::Uuid;
 use crate::bitcoin::BlockchainId;
-use crate::bitcoin::BlockchainId::Mainnet;
+use crate::bitcoin::BlockchainId::Main;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
@@ -51,7 +51,7 @@ impl ConnectionConfig {
 
 impl Default for ConnectionConfig {
     fn default() -> Self {
-        ConnectionConfig::default_for(Mainnet)
+        ConnectionConfig::default_for(Main)
     }
 }
 

@@ -25,7 +25,7 @@ async fn main() {
     env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let args: Args = Args::parse();
     let peer = PeerAddress::new(format!("{}:{}", args.ip, args.port).parse().unwrap());
-    let config = Arc::new(ConnectionConfig::default_for(BlockchainId::Mainnet));
+    let config = Arc::new(ConnectionConfig::default_for(BlockchainId::Main));
     let (c, handle) = Connection::new(peer, config, None);
     let mut rx = c.subscribe();
     loop {
