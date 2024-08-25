@@ -10,6 +10,7 @@ mod tx;
 mod var_int;
 mod address;
 mod hash160;
+mod base58ck;
 
 pub use self::block::FullBlockStream;
 pub use self::encoding::Encodable;

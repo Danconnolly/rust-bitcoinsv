@@ -13,6 +13,7 @@ keywords = ["crypto", "bitcoin-sv"]
 
 [dependencies]
 async-trait = "0.1.75"
+base58 = "0.2.0"
 byteorder = "1.5.0"
 futures = "0.3.30"
 hex = "0.4.3"
@@ -26,6 +27,7 @@ tokio-stream = "0.1"
 uuid = { version = "1.3.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 [dev-dependencies]
+hex-literal = "0.4.1"
 serde_json = { version = "1.0.108", features = [] }
 
 [lib]

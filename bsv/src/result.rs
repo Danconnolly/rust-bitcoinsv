@@ -1,5 +1,7 @@
 use std::io;
+use std::str::Utf8Error;
 use std::string::FromUtf8Error;
+use base58::FromBase58Error;
 use hex::FromHexError;
 
 // Standard error & result types.
@@ -16,10 +18,14 @@ pub enum Error {
     BadArgument(String),
     /// The data provided is invalid
     BadData(String),
+    /// The data did not match the checksum.
+    ChecksumMismatch,
     /// Internal error
     Internal(String),
     /// Hex string could not be decoded
     FromHexError(FromHexError),
+    /// Base58 string could not be decoded
+    FromBase58Error(FromBase58Error),
     /// Standard library IO error
     IOError(io::Error),
     /// String conversion error
@@ -31,8 +37,10 @@ impl std::fmt::Display for Error {
         match self {
             Error::BadArgument(s) => f.write_str(&format!("Bad argument: {}", s)),
             Error::BadData(s) => f.write_str(&format!("Bad data: {}", s)),
+            Error::ChecksumMismatch => f.write_str(&"Checksum mismatch".to_string()),
             Error::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
             Error::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
+            Error::FromBase58Error(e) => f.write_str(&format!("Base58 decoding error: {:?}", e)),
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
         }
@@ -44,8 +52,10 @@ impl std::error::Error for Error {
         match self {
             Error::BadArgument(_) => "Bad argument",
             Error::BadData(_) => "Bad data",
+            Error::ChecksumMismatch => "Checksum mismatch",
             Error::Internal(_) => "Internal error", // Added this line
             Error::FromHexError(_) => "Hex decoding error",
+            Error::FromBase58Error(_) => "Base58 decoding error",
             Error::IOError(_) => "IO error",
             Error::Utf8Error(_) => "UTF8 error",
         }
@@ -63,6 +73,12 @@ impl std::error::Error for Error {
 impl From<FromHexError> for Error {
     fn from(e: FromHexError) -> Self {
         Error::FromHexError(e)
+    }
+}
+
+impl From<FromBase58Error> for Error {
+    fn from(e: FromBase58Error) -> Self {
+        Error::FromBase58Error(e)
     }
 }
 

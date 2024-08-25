@@ -17,3 +17,4 @@ pub use result::{Error, Result};
 
 // re-export the secp256k1 crate
 pub extern crate secp256k1;
+extern crate core;
