@@ -13,7 +13,7 @@ pub mod p2p;
 pub mod util;
 
 mod result;
-pub use result::{Error, Result};
+pub use result::{BsvError, BsvResult};
 
 // re-export the secp256k1 crate
 pub extern crate secp256k1;

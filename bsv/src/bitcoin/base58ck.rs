@@ -1,6 +1,6 @@
 use base58::{FromBase58, ToBase58};
 use crate::bitcoin::Hash;
-use crate::{Error, Result};
+use crate::{BsvError, BsvResult};
 
 /// Functions for base-58 encoding with checksum.
 ///
@@ -26,15 +26,15 @@ pub fn encode_with_checksum(data: &[u8]) -> String {
 ///
 /// The checksum is the first four bytes of the sha256d of the data and is concatenated onto the end
 /// of the base58 encoding.
-pub fn decode_with_checksum(encoded: &String) -> Result<Box<[u8]>> {
+pub fn decode_with_checksum(encoded: &String) -> BsvResult<Box<[u8]>> {
     let mut data = encoded.from_base58()?;
     let l = data.len();
     if l < 5 {
-        Err(Error::BadData("base58 string too short to contain checksum".parse().unwrap()))
+        Err(BsvError::BadData("base58 string too short to contain checksum".parse().unwrap()))
     } else {
         let ck = Hash::sha256d(&data[..l-4]);
         if ck.hash[0..4] != data[l-4..] {
-            Err(Error::ChecksumMismatch)
+            Err(BsvError::ChecksumMismatch)
         } else {
             data.truncate(l-4);
             Ok(Box::from(data))

@@ -11,7 +11,7 @@ pub fn varint_size(value: u64) -> usize {
 }
 
 /// Decode a variable length integer from a byte stream, async version.
-pub async fn varint_decode<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<u64> {
+pub async fn varint_decode<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<u64> {
     let n0 = reader.read_u8().await.unwrap();
     let v = match n0 {
         0xff => reader.read_u64_le().await.unwrap(),
@@ -22,7 +22,7 @@ pub async fn varint_decode<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate
 }
 
 /// Encode a variable length integer into a byte stream, async version.
-pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(writer: &mut W, value: u64) -> crate::Result<()> {
+pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(writer: &mut W, value: u64) -> crate::BsvResult<()> {
     match value {
         0..=252 => writer.write_u8(value as u8).await?,
         253..=0xffff => {

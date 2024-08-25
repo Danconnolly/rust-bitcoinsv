@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
-use crate::{Error, Result};
+use crate::{BsvError, BsvResult};
 use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
 use crate::p2p::params::{MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION};
 use crate::util::{epoch_secs, epoch_secs_u32};
@@ -44,21 +44,21 @@ pub struct Version {
 
 impl Version {
     /// Checks if the version message is valid
-    pub fn validate(&self) -> Result<()> {
+    pub fn validate(&self) -> BsvResult<()> {
         if self.version < MIN_SUPPORTED_PROTOCOL_VERSION {
-            return Err(Error::BadData(format!("Unsupported protocol version: {}", self.version)));
+            return Err(BsvError::BadData(format!("Unsupported protocol version: {}", self.version)));
         } else if self.version > PROTOCOL_VERSION {
             warn!("unknown protocol version: {}", self.version);
         }
         if (self.timestamp - epoch_secs()).abs() > 2 * 60 * 60 {
-            return Err(Error::BadData(format!("Timestamp too old: {}", self.timestamp)));
+            return Err(BsvError::BadData(format!("Timestamp too old: {}", self.timestamp)));
         }
         Ok(())
     }
 
     // the version message does not include the timestamp in the addr, so we have our own function to read the
     // addr structure here
-    async fn read_version_addr<R: AsyncReadExt + Unpin + Send>(reader: &mut R) -> Result<NodeAddr> where NodeAddr: Sized {
+    async fn read_version_addr<R: AsyncReadExt + Unpin + Send>(reader: &mut R) -> BsvResult<NodeAddr> where NodeAddr: Sized {
         let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
         reader.read_exact(&mut ip_bin).await?;    // big endian order
@@ -74,7 +74,7 @@ impl Version {
 
     // the version message does not include the timestamp in the addr, so we have our own function to write the
     // addr structure here
-    async fn write_version_addr<W: AsyncWriteExt + Unpin + Send>(node_addr: &NodeAddr, writer: &mut W) -> Result<()> {
+    async fn write_version_addr<W: AsyncWriteExt + Unpin + Send>(node_addr: &NodeAddr, writer: &mut W) -> BsvResult<()> {
         writer.write_u64_le(node_addr.services).await?;
         match node_addr.ip {
             IpAddr::V4(v4) => {
@@ -108,7 +108,7 @@ impl Default for Version {
 
 #[async_trait]
 impl Encodable for Version {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let timestamp = reader.read_i64_le().await?;
@@ -125,7 +125,7 @@ impl Encodable for Version {
         Ok(Version { version, services, timestamp, recv_addr, tx_addr, nonce, user_agent, start_height, relay, })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()> {
         writer.write_u32_le(self.version).await?;
         writer.write_u64_le(self.services).await?;
         writer.write_i64_le(self.timestamp).await?;

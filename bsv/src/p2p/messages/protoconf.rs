@@ -52,10 +52,10 @@ impl Default for Protoconf {
 
 #[async_trait]
 impl Encodable for Protoconf {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let num_entries = varint_decode(reader).await?;
         if num_entries < 2 {
-            return Err(crate::Error::BadData("Protoconf must have at least 2 entries".to_string()));
+            return Err(crate::BsvError::BadData("Protoconf must have at least 2 entries".to_string()));
         } else if num_entries > 2 {
             warn!("Protoconf has more than 2 entries, ignoring extra entries.");
         }
@@ -71,7 +71,7 @@ impl Encodable for Protoconf {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         varint_encode(writer, 2).await?;
         writer.write_u32_le(self.max_recv_payload_length).await?;
         varint_encode(writer, self.stream_policies.len() as u64).await?;

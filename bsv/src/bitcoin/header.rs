@@ -51,7 +51,7 @@ impl BlockHeader {
 
 #[async_trait]
 impl Encodable for BlockHeader {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         Ok(BlockHeader {
             version: reader.read_u32_le().await?,
             prev_hash: Hash::from_binary(reader).await?,
@@ -62,7 +62,7 @@ impl Encodable for BlockHeader {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u32_le(self.version).await?;
         self.prev_hash.to_binary(writer).await?;
         self.merkle_root.to_binary(writer).await?;
@@ -78,7 +78,7 @@ impl Encodable for BlockHeader {
 }
 
 impl FromHex for BlockHeader {
-    type Error = crate::Error;
+    type Error = crate::BsvError;
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
         BlockHeader::from_binary_buf(bytes.as_slice())

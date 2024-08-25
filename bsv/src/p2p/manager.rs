@@ -5,7 +5,7 @@ use std::sync::Arc;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use crate::{Error, Result};
+use crate::{BsvError, BsvResult};
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, ConnectionConfig};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
@@ -138,8 +138,8 @@ impl P2PManager {
     /// Stop the P2PManager, shutting down all connections and terminating all processes.
     ///
     /// The P2PManager can not be re-started after this command.
-    pub async fn stop(&self) -> Result<()> {
-        self.mgr_sender.send(P2PMgrControlMessage::Stop).await.map_err(|_| Error::Internal("Failed to send stop message".parse().unwrap()))?;
+    pub async fn stop(&self) -> BsvResult<()> {
+        self.mgr_sender.send(P2PMgrControlMessage::Stop).await.map_err(|_| BsvError::Internal("Failed to send stop message".parse().unwrap()))?;
         Ok(())
     }
 
@@ -147,22 +147,22 @@ impl P2PManager {
     ///
     /// Existing connections continue to be maintained but will not re-connect if disconnected.
     /// Incoming connections will be rejected.
-    pub async fn pause(&self) -> Result<()> {
-        self.mgr_sender.send(P2PMgrControlMessage::Pause).await.map_err(|_| Error::Internal("Failed to send pause message".parse().unwrap()))?;
+    pub async fn pause(&self) -> BsvResult<()> {
+        self.mgr_sender.send(P2PMgrControlMessage::Pause).await.map_err(|_| BsvError::Internal("Failed to send pause message".parse().unwrap()))?;
         Ok(())
     }
 
     /// Resume the paused P2PManager.
-    pub async fn resume(&self) -> Result<()> {
-        self.mgr_sender.send(P2PMgrControlMessage::Resume).await.map_err(|_| Error::Internal("Failed to send resume message".parse().unwrap()))?;
+    pub async fn resume(&self) -> BsvResult<()> {
+        self.mgr_sender.send(P2PMgrControlMessage::Resume).await.map_err(|_| BsvError::Internal("Failed to send resume message".parse().unwrap()))?;
         Ok(())
     }
 
     /// Get the current state of the P2PManager.
-    pub async fn get_state(&self) -> Result<P2PManagerState> {
+    pub async fn get_state(&self) -> BsvResult<P2PManagerState> {
         let (tx, rx) = oneshot::channel();
-        self.mgr_sender.send(P2PMgrControlMessage::GetState { reply: tx }).await.map_err(|_| Error::Internal("Failed to send message".parse().unwrap()))?;
-        let r = rx.await.map_err(|_| Error::Internal("Failed to receive message".parse().unwrap()))?;
+        self.mgr_sender.send(P2PMgrControlMessage::GetState { reply: tx }).await.map_err(|_| BsvError::Internal("Failed to send message".parse().unwrap()))?;
+        let r = rx.await.map_err(|_| BsvError::Internal("Failed to receive message".parse().unwrap()))?;
         Ok(r)
     }
 }

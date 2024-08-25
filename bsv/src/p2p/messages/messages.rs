@@ -1,4 +1,4 @@
-use crate::{Error, Result};
+use crate::{BsvError, BsvResult};
 use std::fmt;
 use std::sync::Arc;
 use log::{trace, warn};
@@ -175,7 +175,7 @@ pub enum P2PMessage {
 
 impl P2PMessage {
     /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &StreamConfig) -> Result<Self> {
+    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &StreamConfig) -> BsvResult<Self> {
         let header = P2PMessageHeader::from_binary(reader).await?;
         trace!("P2PMessage::read() - header: {:?}", header);
         header.validate(&comms_config)?;
@@ -225,7 +225,7 @@ impl P2PMessage {
     }
 
     /// Writes a Bitcoin P2P message with its payload to bytes
-    pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &StreamConfig) -> Result<()> {
+    pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &StreamConfig) -> BsvResult<()> {
         match self {
             P2PMessage::Addr(p) => self.write_with_payload(writer, ADDR, config, p).await,
             P2PMessage::Block(p) => self.write_with_payload(writer, BLOCK, config, p).await,
@@ -249,7 +249,7 @@ impl P2PMessage {
             P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, config, v).await,
             P2PMessage::Unknown(s, _size) => {
                 let msg = format!("Unknown command: {:?}", s);
-                Err(Error::BadData(msg))
+                Err(BsvError::BadData(msg))
             }
         }
     }
@@ -282,7 +282,7 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that does not have a payload
-    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, command: [u8; 12], config: &StreamConfig) -> Result<()> {
+    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, command: [u8; 12], config: &StreamConfig) -> BsvResult<()> {
         let header = P2PMessageHeader {
             magic: config.magic,
             command,
@@ -295,7 +295,7 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that has a payload
-    async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], config: &StreamConfig, payload: &X) -> Result<()>
+    async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], config: &StreamConfig, payload: &X) -> BsvResult<()>
         where W: AsyncWrite + Unpin + Send,
             X: Encodable,
     {
@@ -303,7 +303,7 @@ impl P2PMessage {
             if payload.size() > 0xffffffff {
                 // we should use the extended message header
                 if command != BLOCK {
-                    return Err(Error::BadData("payload too large".to_string()));
+                    return Err(BsvError::BadData("payload too large".to_string()));
                 }
                 let header = P2PMessageHeader {
                     magic: config.magic,

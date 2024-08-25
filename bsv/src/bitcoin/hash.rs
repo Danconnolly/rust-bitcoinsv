@@ -46,7 +46,7 @@ impl Hash {
 
 #[async_trait]
 impl Encodable for Hash {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let mut hash_value: [u8; 32] = [0; 32];
         reader.read_exact(&mut hash_value).await?;
         Ok(Hash {
@@ -54,7 +54,7 @@ impl Encodable for Hash {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_all(&self.hash).await?;
         Ok(())
     }
@@ -65,7 +65,7 @@ impl Encodable for Hash {
 }
 
 impl FromHex for Hash {
-    type Error = crate::Error;
+    type Error = crate::BsvError;
 
     /// Converts a string of 64 hex characters into a hash. The bytes of the hex encoded form are reversed in
     /// accordance with Bitcoin standards.
@@ -73,7 +73,7 @@ impl FromHex for Hash {
         let hex = hex.as_ref();
         if hex.len() != Hash::HEX_SIZE {
             let msg = format!("Length of hex encoded hash must be 64. Len is {:}.", hex.len());
-            return Err(crate::Error::BadArgument(msg));
+            return Err(crate::BsvError::BadArgument(msg));
         }
         match hex::decode(hex) {
             Ok(mut hash_bytes) => {
@@ -83,7 +83,7 @@ impl FromHex for Hash {
                 hash_array.copy_from_slice(&hash_bytes);
                 Ok(Hash { hash: hash_array })
             },
-            Err(e) => Err(crate::Error::FromHexError(e)),
+            Err(e) => Err(crate::BsvError::FromHexError(e)),
         }
     }
 }

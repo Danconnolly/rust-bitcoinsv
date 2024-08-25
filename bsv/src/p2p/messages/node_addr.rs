@@ -50,7 +50,7 @@ impl Default for NodeAddr {
 
 #[async_trait]
 impl Encodable for NodeAddr {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let timestamp = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
@@ -66,7 +66,7 @@ impl Encodable for NodeAddr {
         Ok(NodeAddr { timestamp, services, ip, port, })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u64_le(self.services).await?;
         match self.ip {

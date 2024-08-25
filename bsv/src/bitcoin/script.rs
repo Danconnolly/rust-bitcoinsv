@@ -11,7 +11,7 @@ pub struct Script {
 }
 
 impl FromHex for Script {
-    type Error = crate::Error;
+    type Error = crate::BsvError;
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let raw = hex::decode(hex)?;
