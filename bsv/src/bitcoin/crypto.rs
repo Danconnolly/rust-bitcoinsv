@@ -2,9 +2,10 @@ use std::fmt::Display;
 use std::hash::Hash;
 use secp256k1::Secp256k1;
 use crate::bitcoin::{base58ck, BlockchainId};
-use crate::bitcoin::params::BlockchainParams;
 use crate::{BsvError, BsvResult};
 use crate::bitcoin::hash160::Hash160;
+use crate::bitcoin::params::KeyAddressKind;
+
 
 /// A Bitcoin private key.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -38,9 +39,9 @@ impl PrivateKey {
     }
 
     /// Gets the WIF encoding of this private key.
-    pub fn to_wif(self, blockchain: BlockchainId) -> String {
+    pub fn to_wif(self, kind: KeyAddressKind) -> String {
         let mut ret = Vec::with_capacity(34);
-        ret[0] = BlockchainParams::get_params(blockchain).private_key_prefix;
+        ret[0] = kind.get_private_key_prefix();
         ret[1..33].copy_from_slice(&self.inner[..]);
         ret[33] = 1;    // always use compressed public keys
         base58ck::encode_with_checksum(&ret)
@@ -122,12 +123,4 @@ impl From<&PrivateKey> for PublicKey {
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-//
-//     #[test]
-//     fn test_main_keys() {
-//
-//     }
-// }
+// todo: add more tests
