@@ -9,6 +9,7 @@ use ripemd::digest::Update;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{Encodable, Hash};
+use crate::bitcoin::crypto::PublicKey;
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.
 ///
@@ -122,6 +123,13 @@ impl From<&str> for Hash160 {
     /// This converts a hex encoded hash into a Hash160.
     fn from(hash_as_hex: &str) -> Self {
         Self::from_hex(hash_as_hex).unwrap()
+    }
+}
+
+impl From<PublicKey> for Hash160 {
+    /// Hash a [PublicKey]. Used to produce a Bitcoin address.
+    fn from(value: PublicKey) -> Self {
+        value.pubkey_hash()
     }
 }
 

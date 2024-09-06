@@ -12,9 +12,9 @@ use crate::{BsvError, BsvResult};
 /// Encodes `data` as a base58 string including the checksum.
 ///
 /// The checksum is the first four bytes of the sha256d of the data and is concatenated onto the end.
-pub fn encode_with_checksum(data: &[u8]) -> String {
+pub fn encode_with_checksum(data: &Vec<u8>) -> String {
     let mut checksum = Hash::sha256d(data).hash[0..4].to_vec();
-    let mut ck_data = data.to_vec();
+    let mut ck_data = data.clone();
     ck_data.append(&mut checksum);
     ck_data.to_base58()
 }
@@ -26,7 +26,7 @@ pub fn encode_with_checksum(data: &[u8]) -> String {
 ///
 /// The checksum is the first four bytes of the sha256d of the data and is concatenated onto the end
 /// of the base58 encoding.
-pub fn decode_with_checksum(encoded: &String) -> BsvResult<Box<[u8]>> {
+pub fn decode_with_checksum(encoded: &String) -> BsvResult<Vec<u8>> {
     let mut data = encoded.from_base58()?;
     let l = data.len();
     if l < 5 {
@@ -37,7 +37,7 @@ pub fn decode_with_checksum(encoded: &String) -> BsvResult<Box<[u8]>> {
             Err(BsvError::ChecksumMismatch)
         } else {
             data.truncate(l-4);
-            Ok(Box::from(data))
+            Ok(data)
         }
     }
 }
@@ -53,7 +53,7 @@ mod tests {
         // 160 hash is 2c7a568d346629f5308a5b75d825d28b09297153
         // prepend 0x00 for mainnet address
         let addr = hex!("002c7a568d346629f5308a5b75d825d28b09297153");
-        assert_eq!(encode_with_checksum(&addr), "154BHe8d7Dmm7pWLG8J9gceXiCfCRDtWAo");
+        assert_eq!(encode_with_checksum(&Vec::from(addr)), "154BHe8d7Dmm7pWLG8J9gceXiCfCRDtWAo");
     }
 
     #[test]

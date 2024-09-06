@@ -124,6 +124,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
+ "rand",
  "ring",
  "ripemd",
  "secp256k1",
@@ -673,6 +674,7 @@ version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e0cc0f1cf93f4969faf3ea1c7d8a9faed25918d96affa959720823dfe86d4f3"
 dependencies = [
+ "rand",
  "secp256k1-sys",
 ]
 

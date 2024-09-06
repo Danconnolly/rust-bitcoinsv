@@ -1,16 +1,17 @@
 /// The bsv.bitcoin module contains the bitcoin types and configuration for Bitcoin SV.
 
+mod address;
+mod base58ck;
 mod block;
+mod crypto;
 mod encoding;
 pub mod hash;
+mod hash160;
 mod header;
 mod params;
 mod script;
 mod tx;
 mod var_int;
-mod address;
-mod hash160;
-mod base58ck;
 
 pub use self::block::FullBlockStream;
 pub use self::encoding::Encodable;

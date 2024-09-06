@@ -19,6 +19,33 @@ pub enum BlockchainId {
     Regtest = 3,
 }
 
+/// Each blockchain has some different parameters.
+pub struct BlockchainParams {
+    /// A byte that is prefixed to a private key when it is exported.
+    pub private_key_prefix: u8,
+}
+
+impl BlockchainParams {
+    /// Get the BlockchainParams for a specific blockchain.
+    pub fn get_params(blockchain: BlockchainId) -> Self {
+        match blockchain {
+            BlockchainId::Main => BlockchainParams {
+                private_key_prefix: 0x80,
+            },
+            BlockchainId::Test => BlockchainParams {
+                private_key_prefix: 0xef,
+            },
+            BlockchainId::Regtest => BlockchainParams {
+                private_key_prefix: 0xef,
+            },
+            BlockchainId::Stn => BlockchainParams {
+                private_key_prefix: 0xef,
+            },
+        }
+    }
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
