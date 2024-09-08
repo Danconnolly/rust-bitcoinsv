@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use bytes::Bytes;
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
 use crate::BsvResult;
@@ -23,10 +24,22 @@ use crate::BsvResult;
 ///
 /// So, there are two traits for encoding and decoding Bitcoin structures to and from binary. This is
 /// the non-async trait which makes use of [bytes::Bytes] to avoid copying memory around. The async
-/// trait is [AsyncEncodable].
+/// trait is [AsyncEncodable]. If you don't need the async capabilities, use this one.
 pub trait Encodable {
+    /// Read the data structure from a buffer.
+    fn from_binary(buffer: &Bytes) -> BsvResult<Self>
+        where Self: Sized;
 
+    /// Write the data structure to a buffer.
+    fn to_binary(&self) -> BsvResult<Bytes>;
+
+    /// Return the size of the serialized form.
+    // It is vital that implementations of this function use a method that does not just serialize the object
+    // and count the bytes. This is because this function is used to determine the size of the buffer to allocate
+    // for the serialization.
+    fn size(&self) -> usize;
 }
+
 
 /// Asynchronously read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
 ///
@@ -36,12 +49,12 @@ pub trait Encodable {
 /// For a discussion on async versus non-async, see [Encodable].
 #[async_trait]
 pub trait AsyncEncodable {
-    /// Read the data structure from a reader.
+    /// Read the data structure from an async reader.
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self>
     where
         Self: Sized;
 
-    /// Write the data structure to a writer.
+    /// Write the data structure to an async writer.
     async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()>;
 
     /// Return the size of the serialized form.
