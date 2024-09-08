@@ -3,7 +3,6 @@ use std::fmt;
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
-use ring::test::from_hex;
 use ripemd::{Digest, Ripemd160};
 use ripemd::digest::Update;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
