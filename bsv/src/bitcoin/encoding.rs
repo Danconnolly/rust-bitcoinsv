@@ -2,6 +2,32 @@ use async_trait::async_trait;
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
 
+
+/// Read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
+///
+/// This is the non-async trait for reading and writing to buffers. See [AsyncEncodable] for the
+/// async trait to read and write with truly async sources.
+///
+/// The advantage of using async sources is that you can read and write data a byte at a time. If the
+/// data you are reading is enormous, this can be very beneficial because you can handle the data as
+/// it arrives, possibly without storing it. This is particularly useful in a hostile environment that
+/// allows huge data.
+///
+/// However, lets be frank, its a pain in the neck. Doing this properly requires handling the incoming
+/// data in a streaming fashion all the way up the stack. Handling objects (transactions, etc) entirely
+/// in memory is much easier and arguably performs better, particularly when you can allocate a
+/// contiguous space in memory to hold the entire object, instead of having to allocate multiple
+/// sections for the various parts. Also note that the Bitcoin P2P protocol is message based,
+/// with the message size included in the header, so an entire message can be fetched at once before
+/// processing.
+///
+/// So, there are two traits for encoding and decoding Bitcoin structures to and from binary. This is
+/// the non-async trait which makes use of [bytes::Bytes] to avoid copying memory around. The async
+/// trait is [AsyncEncodable].
+pub trait Encodable {
+
+}
+
 /// Asynchronously read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
 ///
 /// This trait includes standard implementations to read from a buffer instead of from a truly
