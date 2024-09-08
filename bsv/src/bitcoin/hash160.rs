@@ -48,7 +48,7 @@ impl Hash160 {
 
 #[async_trait]
 impl AsyncEncodable for Hash160 {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let mut hash_value: [u8; Self::SIZE] = [0; Self::SIZE];
         reader.read_exact(&mut hash_value).await?;
         Ok(Hash160 {
@@ -56,12 +56,12 @@ impl AsyncEncodable for Hash160 {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_all(&self.hash).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         Self::SIZE
     }
 }

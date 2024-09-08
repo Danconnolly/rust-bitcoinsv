@@ -108,7 +108,7 @@ impl Default for Version {
 
 #[async_trait]
 impl AsyncEncodable for Version {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let timestamp = reader.read_i64_le().await?;
@@ -125,7 +125,7 @@ impl AsyncEncodable for Version {
         Ok(Version { version, services, timestamp, recv_addr, tx_addr, nonce, user_agent, start_height, relay, })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()> {
         writer.write_u32_le(self.version).await?;
         writer.write_u64_le(self.services).await?;
         writer.write_i64_le(self.timestamp).await?;
@@ -139,9 +139,9 @@ impl AsyncEncodable for Version {
         Ok(())
     }
 
-    fn size(&self) -> usize {
-        33 + (self.recv_addr.size() - 4)        // version addr is smaller
-            + (self.tx_addr.size() - 4)
+    fn async_size(&self) -> usize {
+        33 + (self.recv_addr.async_size() - 4)        // version addr is smaller
+            + (self.tx_addr.async_size() - 4)
             + varint_size(self.user_agent.as_bytes().len() as u64)
             + self.user_agent.as_bytes().len()
     }
@@ -189,7 +189,7 @@ mod tests {
             relay: true,
         };
         let v = m.to_binary_buf().unwrap();
-        assert_eq!(v.len(), m.size());
+        assert_eq!(v.len(), m.async_size());
         assert_eq!(Version::from_binary_buf(v.as_slice()).unwrap(), m);
     }
 

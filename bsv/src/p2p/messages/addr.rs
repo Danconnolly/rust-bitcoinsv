@@ -18,7 +18,7 @@ impl Addr {
 
 #[async_trait]
 impl AsyncEncodable for Addr {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let i = varint_decode(reader).await?;
         if i > Addr::MAX_ADDR_COUNT {
             let msg = format!("Too many addrs: {}", i);
@@ -26,24 +26,24 @@ impl AsyncEncodable for Addr {
         }
         let mut addrs = Vec::with_capacity(i as usize);
         for _ in 0..i {
-            addrs.push(NodeAddr::from_binary(reader).await?);
+            addrs.push(NodeAddr::async_from_binary(reader).await?);
         }
         Ok(Addr { addrs })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         if self.addrs.len() as u64 > Addr::MAX_ADDR_COUNT {
             let msg = format!("Too many addrs: {}", self.addrs.len());
             return Err(crate::BsvError::BadData(msg));
         }
         varint_encode(writer, self.addrs.len() as u64).await?;
         for addr in self.addrs.iter() {
-            addr.to_binary(writer).await?;
+            addr.async_to_binary(writer).await?;
         }
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         varint_size(self.addrs.len() as u64) + self.addrs.len() * NodeAddr::SIZE
     }
 }

@@ -176,31 +176,31 @@ pub enum P2PMessage {
 impl P2PMessage {
     /// Read a full P2P message from the reader
     pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &StreamConfig) -> BsvResult<Self> {
-        let header = P2PMessageHeader::from_binary(reader).await?;
+        let header = P2PMessageHeader::async_from_binary(reader).await?;
         trace!("P2PMessage::read() - header: {:?}", header);
         header.validate(&comms_config)?;
         // payload size has been checked for max limit in header.validate()
         let msg= match header.command {
-            ADDR => P2PMessage::Addr(Addr::from_binary(reader).await?),
-            BLOCK => P2PMessage::Block(Block::from_binary(reader).await?),
+            ADDR => P2PMessage::Addr(Addr::async_from_binary(reader).await?),
+            BLOCK => P2PMessage::Block(Block::async_from_binary(reader).await?),
             GETADDR => P2PMessage::GetAddr,
-            GETBLOCKS => P2PMessage::GetBlocks(BlockLocator::from_binary(reader).await?),
-            GETDATA => P2PMessage::GetData(Inv::from_binary(reader).await?),
-            GETHEADERS => P2PMessage::GetHeaders(BlockLocator::from_binary(reader).await?),
-            HEADERS => P2PMessage::Headers(Headers::from_binary(reader).await?),
-            INV => P2PMessage::Inv(Inv::from_binary(reader).await?),
+            GETBLOCKS => P2PMessage::GetBlocks(BlockLocator::async_from_binary(reader).await?),
+            GETDATA => P2PMessage::GetData(Inv::async_from_binary(reader).await?),
+            GETHEADERS => P2PMessage::GetHeaders(BlockLocator::async_from_binary(reader).await?),
+            HEADERS => P2PMessage::Headers(Headers::async_from_binary(reader).await?),
+            INV => P2PMessage::Inv(Inv::async_from_binary(reader).await?),
             MEMPOOL => P2PMessage::Mempool,
-            MERKLEBLOCK => P2PMessage::MerkleBlock(MerkleBlock::from_binary(reader).await?),
-            NOTFOUND => P2PMessage::NotFound(Inv::from_binary(reader).await?),
-            PING => P2PMessage::Ping(Ping::from_binary(reader).await?),
-            PONG => P2PMessage::Pong(Ping::from_binary(reader).await?),
-            PROTOCONF => P2PMessage::Protoconf(Protoconf::from_binary(reader).await?),
-            REJECT => P2PMessage::Reject(Reject::from_binary(reader).await?),
-            SENDCMPCT => P2PMessage::SendCmpct(SendCmpct::from_binary(reader).await?),
+            MERKLEBLOCK => P2PMessage::MerkleBlock(MerkleBlock::async_from_binary(reader).await?),
+            NOTFOUND => P2PMessage::NotFound(Inv::async_from_binary(reader).await?),
+            PING => P2PMessage::Ping(Ping::async_from_binary(reader).await?),
+            PONG => P2PMessage::Pong(Ping::async_from_binary(reader).await?),
+            PROTOCONF => P2PMessage::Protoconf(Protoconf::async_from_binary(reader).await?),
+            REJECT => P2PMessage::Reject(Reject::async_from_binary(reader).await?),
+            SENDCMPCT => P2PMessage::SendCmpct(SendCmpct::async_from_binary(reader).await?),
             SENDHEADERS => P2PMessage::SendHeaders,
-            TX => P2PMessage::Tx(Tx::from_binary(reader).await?),
+            TX => P2PMessage::Tx(Tx::async_from_binary(reader).await?),
             VERACK => P2PMessage::Verack,
-            VERSION => P2PMessage::Version(Version::from_binary(reader).await?),
+            VERSION => P2PMessage::Version(Version::async_from_binary(reader).await?),
             _ => {
                 if header.payload_size == 0 {
                     trace!("received unknown command={:?} with empty payload", std::str::from_utf8(&header.command).unwrap());
@@ -257,26 +257,26 @@ impl P2PMessage {
     /// Get the size of the payload of the message
     pub fn size(&self) -> usize {
         match self {
-            P2PMessage::Addr(p) => p.size(),
-            P2PMessage::Block(p) => p.size(),
+            P2PMessage::Addr(p) => p.async_size(),
+            P2PMessage::Block(p) => p.async_size(),
             P2PMessage::GetAddr => 0,
-            P2PMessage::GetBlocks(p) => p.size(),
-            P2PMessage::GetData(p) => p.size(),
-            P2PMessage::GetHeaders(p) => p.size(),
-            P2PMessage::Headers(p) => p.size(),
-            P2PMessage::Inv(p) => p.size(),
+            P2PMessage::GetBlocks(p) => p.async_size(),
+            P2PMessage::GetData(p) => p.async_size(),
+            P2PMessage::GetHeaders(p) => p.async_size(),
+            P2PMessage::Headers(p) => p.async_size(),
+            P2PMessage::Inv(p) => p.async_size(),
             P2PMessage::Mempool => 0,
-            P2PMessage::MerkleBlock(p) => p.size(),
-            P2PMessage::NotFound(p) => p.size(),
-            P2PMessage::Ping(p) => p.size(),
-            P2PMessage::Pong(p) => p.size(),
-            P2PMessage::Protoconf(p) => p.size(),
-            P2PMessage::Reject(p) => p.size(),
-            P2PMessage::SendCmpct(p) => p.size(),
+            P2PMessage::MerkleBlock(p) => p.async_size(),
+            P2PMessage::NotFound(p) => p.async_size(),
+            P2PMessage::Ping(p) => p.async_size(),
+            P2PMessage::Pong(p) => p.async_size(),
+            P2PMessage::Protoconf(p) => p.async_size(),
+            P2PMessage::Reject(p) => p.async_size(),
+            P2PMessage::SendCmpct(p) => p.async_size(),
             P2PMessage::SendHeaders => 0,
-            P2PMessage::Tx(p) => p.size(),
+            P2PMessage::Tx(p) => p.async_size(),
             P2PMessage::Verack => 0,
-            P2PMessage::Version(v) => v.size(),
+            P2PMessage::Version(v) => v.async_size(),
             P2PMessage::Unknown(_s, size) => *size,
         }
     }
@@ -300,7 +300,7 @@ impl P2PMessage {
             X: AsyncEncodable,
     {
         if config.protocol_version >= 70016 {
-            if payload.size() > 0xffffffff {
+            if payload.async_size() > 0xffffffff {
                 // we should use the extended message header
                 if command != BLOCK {
                     return Err(BsvError::BadData("payload too large".to_string()));
@@ -308,11 +308,11 @@ impl P2PMessage {
                 let header = P2PMessageHeader {
                     magic: config.magic,
                     command,
-                    payload_size: payload.size() as u64,
+                    payload_size: payload.async_size() as u64,
                     checksum: ZERO_CHECKSUM,
                 };
-                header.to_binary(writer).await?;
-                payload.to_binary(writer).await?;
+                header.async_to_binary(writer).await?;
+                payload.async_to_binary(writer).await?;
                 return Ok(());
             }
         }
@@ -324,7 +324,7 @@ impl P2PMessage {
             payload_size: buf.len() as u64,
             checksum: hash.hash[..4].try_into().unwrap(),
         };
-        header.to_binary(writer).await?;
+        header.async_to_binary(writer).await?;
         let _ = writer.write(&buf).await?;
         Ok(())
     }

@@ -78,7 +78,7 @@ impl P2PMessageHeader {
 
 #[async_trait]
 impl AsyncEncodable for P2PMessageHeader {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
         // read standard header
         let mut magic = vec![0u8; 4];
         reader.read_exact(&mut magic).await?;
@@ -102,7 +102,7 @@ impl AsyncEncodable for P2PMessageHeader {
             payload_size, checksum: checksum.try_into().unwrap(), })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()> {
         // do we need to write an extended header?
         if self.is_extended() {
             writer.write_all(&self.magic).await?;
@@ -121,7 +121,7 @@ impl AsyncEncodable for P2PMessageHeader {
         }
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         if self.is_extended() {
             P2PMessageHeader::EXTENDED_SIZE
         } else {
@@ -169,7 +169,7 @@ mod tests {
             checksum: [0xa0, 0xa1, 0xa2, 0xa3],
         };
         let v = h.to_binary_buf().unwrap();
-        assert_eq!(v.len(), h.size());
+        assert_eq!(v.len(), h.async_size());
         assert_eq!(P2PMessageHeader::from_binary_buf(v.as_slice()).unwrap(), h);
     }
 

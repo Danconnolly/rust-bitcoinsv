@@ -51,20 +51,20 @@ impl ToHex for Tx {
 
 #[async_trait]
 impl AsyncEncodable for Tx {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let num_inputs = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut inputs = Vec::with_capacity(num_inputs as usize);
         for _i in 0..num_inputs {
-            let input= TxInput::from_binary(reader).await?;
+            let input= TxInput::async_from_binary(reader).await?;
             inputs.push(input);
         }
         let num_outputs = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut outputs = Vec::with_capacity(num_outputs as usize);
         for _i in 0..num_outputs {
-            let output = TxOutput::from_binary(reader).await?;
+            let output = TxOutput::async_from_binary(reader).await?;
             outputs.push(output);
         }
         let lock_time = reader.read_u32_le().await?;
@@ -76,28 +76,28 @@ impl AsyncEncodable for Tx {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u32_le(self.version).await?;
         varint_encode(writer, self.inputs.len() as u64).await?;
         for input in self.inputs.iter() {
-            input.to_binary(writer).await?;
+            input.async_to_binary(writer).await?;
         }
         varint_encode(writer, self.outputs.len() as u64).await?;
         for output in self.outputs.iter() {
-            output.to_binary(writer).await?;
+            output.async_to_binary(writer).await?;
         }
         writer.write_u32_le(self.lock_time).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         let mut sz = varint_size(self.inputs.len() as u64);
         for input in self.inputs.iter() {
-            sz += input.size();
+            sz += input.async_size();
         }
         sz += varint_size(self.outputs.len() as u64);
         for output in self.outputs.iter() {
-            sz += output.size();
+            sz += output.async_size();
         }
         sz + 8
     }
@@ -156,21 +156,21 @@ impl Outpoint {
 
 #[async_trait]
 impl AsyncEncodable for Outpoint {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
-        let tx_hash = Hash::from_binary(reader).await?;
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+        let tx_hash = Hash::async_from_binary(reader).await?;
         let index = reader.read_u32_le().await?;
         Ok(Outpoint {
             tx_hash, index,
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
-        self.tx_hash.to_binary(writer).await?;
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+        self.tx_hash.async_to_binary(writer).await?;
         writer.write_u32_le(self.index).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         Outpoint::SIZE
     }
 }
@@ -201,8 +201,8 @@ impl TxInput {
 
 #[async_trait]
 impl AsyncEncodable for TxInput {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
-        let outpoint = Outpoint::from_binary(reader).await?;
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+        let outpoint = Outpoint::async_from_binary(reader).await?;
         let script_size = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut script = vec![0u8; script_size as usize];
@@ -215,16 +215,16 @@ impl AsyncEncodable for TxInput {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
-        self.outpoint.to_binary(writer).await?;
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+        self.outpoint.async_to_binary(writer).await?;
         varint_encode(writer, self.raw_script.len() as u64).await?;
         writer.write_all(&self.raw_script).await?;
         writer.write_u32_le(self.sequence).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
-        self.outpoint.size() + varint_size(self.raw_script.len() as u64) + self.raw_script.len() + 4
+    fn async_size(&self) -> usize {
+        self.outpoint.async_size() + varint_size(self.raw_script.len() as u64) + self.raw_script.len() + 4
     }
 }
 
@@ -249,7 +249,7 @@ impl TxOutput {
 
 #[async_trait]
 impl AsyncEncodable for TxOutput {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let value = reader.read_u64_le().await?;
         let script_size = varint_decode(reader).await?;
         // todo: check size before allocation?
@@ -261,14 +261,14 @@ impl AsyncEncodable for TxOutput {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u64_le(self.value).await?;
         varint_encode(writer, self.raw_script.len() as u64).await?;
         writer.write_all(&self.raw_script).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         8 + varint_size(self.raw_script.len() as u64) + self.raw_script.len()
     }
 }
@@ -287,7 +287,7 @@ mod tests {
         let tx = Tx::from_binary_buf(tx_bin.as_slice()).unwrap();
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
-        assert_eq!(tx_bin.len(), tx.size());
+        assert_eq!(tx_bin.len(), tx.async_size());
     }
 
     /// If the binary is incomplete, we should get an error
@@ -303,7 +303,7 @@ mod tests {
         let (mut tx_bin, tx_hash) = get_tx1();
         tx_bin.append(&mut vec![0u8; 100]);
         let tx = Tx::from_binary_buf(tx_bin.as_slice()).unwrap();
-        assert_eq!(tx.size(), 211);
+        assert_eq!(tx.async_size(), 211);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
     }
