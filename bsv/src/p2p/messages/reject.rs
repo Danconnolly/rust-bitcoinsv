@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 
 // Message rejection error codes
 pub const REJECT_MALFORMED: u8 = 0x01;
@@ -28,7 +28,7 @@ pub struct Reject {
 }
 
 #[async_trait]
-impl Encodable for Reject {
+impl AsyncEncodable for Reject {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let str_size = varint_decode(reader).await? as usize;
         let mut str_bytes = vec![0; str_size];

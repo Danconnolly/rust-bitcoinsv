@@ -3,7 +3,7 @@ use std::fmt;
 use std::str;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 use crate::p2p::messages::messages::commands::{BLOCK, EXTMSG};
 use crate::p2p::messages::messages::PROTOCONF;
 use crate::p2p::messages::protoconf::MAX_PROTOCONF_SIZE;
@@ -77,7 +77,7 @@ impl P2PMessageHeader {
 }
 
 #[async_trait]
-impl Encodable for P2PMessageHeader {
+impl AsyncEncodable for P2PMessageHeader {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
         // read standard header
         let mut magic = vec![0u8; 4];

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite};
-use crate::bitcoin::{BlockHeader, Encodable, Tx, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{BlockHeader, AsyncEncodable, Tx, varint_decode, varint_encode, varint_size};
 
 /// A Block message is sent in response to a `getdata` message. It contains the header and every
 /// transaction in the block.
@@ -13,7 +13,7 @@ pub struct Block {
 }
 
 #[async_trait]
-impl Encodable for Block {
+impl AsyncEncodable for Block {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let header = BlockHeader::from_binary(reader).await?;
         let txn_count = varint_decode(reader).await? as usize;

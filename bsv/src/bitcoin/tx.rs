@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
-use crate::bitcoin::{Encodable, Script, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, Script, varint_decode, varint_encode, varint_size};
 
 
 /// The TxHash is used to identify transactions.
@@ -50,7 +50,7 @@ impl ToHex for Tx {
 
 
 #[async_trait]
-impl Encodable for Tx {
+impl AsyncEncodable for Tx {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let num_inputs = varint_decode(reader).await?;
@@ -155,7 +155,7 @@ impl Outpoint {
 }
 
 #[async_trait]
-impl Encodable for Outpoint {
+impl AsyncEncodable for Outpoint {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let tx_hash = Hash::from_binary(reader).await?;
         let index = reader.read_u32_le().await?;
@@ -200,7 +200,7 @@ impl TxInput {
 }
 
 #[async_trait]
-impl Encodable for TxInput {
+impl AsyncEncodable for TxInput {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let outpoint = Outpoint::from_binary(reader).await?;
         let script_size = varint_decode(reader).await?;
@@ -248,7 +248,7 @@ impl TxOutput {
 }
 
 #[async_trait]
-impl Encodable for TxOutput {
+impl AsyncEncodable for TxOutput {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let value = reader.read_u64_le().await?;
         let script_size = varint_decode(reader).await?;

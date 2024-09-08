@@ -2,14 +2,14 @@ use async_trait::async_trait;
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
 
-// Bitcoin encoding standard binary serialization traits.
-
-/// Read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
+/// Asynchronously read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
 ///
-/// This trait uses function names that are consistent with the Rust serde standard names. Note that
-/// it doesnt really make sense to separate the decode and encoding functions into separate traits.
+/// This trait includes standard implementations to read from a buffer instead of from a truly
+/// asynchronous source but these should only be used if the [Encodable] trait is not implemented.
+///
+/// For a discussion on async versus non-async, see [Encodable].
 #[async_trait]
-pub trait Encodable {
+pub trait AsyncEncodable {
     /// Read the data structure from a reader.
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self>
     where

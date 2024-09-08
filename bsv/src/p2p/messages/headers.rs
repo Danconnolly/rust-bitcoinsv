@@ -1,7 +1,7 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite};
-use crate::bitcoin::{BlockHeader, Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size};
 
 
 /// List of block headers
@@ -12,7 +12,7 @@ pub struct Headers {
 }
 
 #[async_trait]
-impl Encodable for Headers {
+impl AsyncEncodable for Headers {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let num_headers = varint_decode(reader).await? as usize;
         let mut headers = Vec::with_capacity(num_headers);

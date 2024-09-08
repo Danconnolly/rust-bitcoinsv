@@ -1,7 +1,7 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::bitcoin::hash::Hash;
 
 /// Block locator message. This message is used to find a known block in the blockchain.
@@ -20,7 +20,7 @@ impl BlockLocator {
 }
 
 #[async_trait]
-impl Encodable for BlockLocator {
+impl AsyncEncodable for BlockLocator {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;

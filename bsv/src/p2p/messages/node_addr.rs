@@ -2,7 +2,7 @@ use std::fmt;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 use crate::util::epoch_secs_u32;
 
 // based on code imported from rust-sv
@@ -49,7 +49,7 @@ impl Default for NodeAddr {
 }
 
 #[async_trait]
-impl Encodable for NodeAddr {
+impl AsyncEncodable for NodeAddr {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let timestamp = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;

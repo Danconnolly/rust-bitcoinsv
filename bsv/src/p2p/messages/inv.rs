@@ -1,7 +1,7 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::bitcoin::hash::Hash;
 
 
@@ -13,7 +13,7 @@ pub struct Inv {
 }
 
 #[async_trait]
-impl Encodable for Inv {
+impl AsyncEncodable for Inv {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let num_objects = varint_decode(reader).await? as usize;
         // if num_objects > MAX_INV_ENTRIES {
@@ -114,7 +114,7 @@ impl fmt::Display for InvType {
 
 
 #[async_trait]
-impl Encodable for InvItem {
+impl AsyncEncodable for InvItem {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let obj_type = reader.read_u32_le().await?;
         let hash = Hash::from_binary(reader).await?;

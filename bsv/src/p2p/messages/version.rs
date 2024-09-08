@@ -4,7 +4,7 @@ use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::{BsvError, BsvResult};
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::p2p::params::{MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION};
 use crate::util::{epoch_secs, epoch_secs_u32};
 
@@ -107,7 +107,7 @@ impl Default for Version {
 }
 
 #[async_trait]
-impl Encodable for Version {
+impl AsyncEncodable for Version {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;

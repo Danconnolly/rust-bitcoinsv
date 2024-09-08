@@ -7,7 +7,7 @@ use ripemd::{Digest, Ripemd160};
 use ripemd::digest::Update;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{Encodable, Hash};
+use crate::bitcoin::{AsyncEncodable, Hash};
 use crate::bitcoin::crypto::PublicKey;
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.
@@ -47,7 +47,7 @@ impl Hash160 {
 }
 
 #[async_trait]
-impl Encodable for Hash160 {
+impl AsyncEncodable for Hash160 {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let mut hash_value: [u8; Self::SIZE] = [0; Self::SIZE];
         reader.read_exact(&mut hash_value).await?;
@@ -181,7 +181,7 @@ mod tests {
     use super::*;
     use hex;
     use hex::{FromHex, ToHex};
-    use crate::bitcoin::Encodable;
+    use crate::bitcoin::AsyncEncodable;
 
     #[test]
     fn generate_test() {

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 
 /// Specifies whether compact blocks are supported
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
@@ -22,7 +22,7 @@ impl SendCmpct {
 }
 
 #[async_trait]
-impl Encodable for SendCmpct {
+impl AsyncEncodable for SendCmpct {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let enable = reader.read_u8().await?;
         let version = reader.read_u64_le().await?;

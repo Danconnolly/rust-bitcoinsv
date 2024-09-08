@@ -3,7 +3,7 @@ use std::task::{Context, Poll};
 use tokio::io::{AsyncRead};
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
-use crate::bitcoin::{BlockHeader, Encodable, Tx, varint_decode};
+use crate::bitcoin::{BlockHeader, AsyncEncodable, Tx, varint_decode};
 use crate::BsvResult;
 
 

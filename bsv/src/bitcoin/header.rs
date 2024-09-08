@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::params::BlockchainId;
 
@@ -50,7 +50,7 @@ impl BlockHeader {
 }
 
 #[async_trait]
-impl Encodable for BlockHeader {
+impl AsyncEncodable for BlockHeader {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         Ok(BlockHeader {
             version: reader.read_u32_le().await?,

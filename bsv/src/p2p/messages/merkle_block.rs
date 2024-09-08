@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{BlockHeader, Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::bitcoin::hash::Hash;
 
 
@@ -18,7 +18,7 @@ pub struct MerkleBlock {
 }
 
 #[async_trait]
-impl Encodable for MerkleBlock {
+impl AsyncEncodable for MerkleBlock {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let header = BlockHeader::from_binary(reader).await?;
         let total_transactions = reader.read_u32_le().await?;

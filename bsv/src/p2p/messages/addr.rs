@@ -1,7 +1,7 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncWrite};
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::p2p::messages::NodeAddr;
 
 /// Addr message. This message is sent to advertise known nodes to the network.
@@ -17,7 +17,7 @@ impl Addr {
 }
 
 #[async_trait]
-impl Encodable for Addr {
+impl AsyncEncodable for Addr {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let i = varint_decode(reader).await?;
         if i > Addr::MAX_ADDR_COUNT {

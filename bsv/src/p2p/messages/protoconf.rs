@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{varint_size, Encodable, varint_decode, varint_encode};
+use crate::bitcoin::{varint_size, AsyncEncodable, varint_decode, varint_encode};
 
 /// The maximum size of a protoconf message.
 pub const MAX_PROTOCONF_SIZE: u64 = 1_048_576;
@@ -51,7 +51,7 @@ impl Default for Protoconf {
 }
 
 #[async_trait]
-impl Encodable for Protoconf {
+impl AsyncEncodable for Protoconf {
     async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let num_entries = varint_decode(reader).await?;
         if num_entries < 2 {
