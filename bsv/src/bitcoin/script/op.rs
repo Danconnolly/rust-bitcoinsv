@@ -3,12 +3,6 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use crate::{BsvError, BsvResult};
 use crate::bitcoin::encoding::Encodable;
 
-// todo:
-// Pushes 0 onto the stack
-// OP_FALSE= 0;
-// Pushes 1 onto the stack
-// pub const OP_TRUE= 81;
-
 
 /// An Operation is an opcode plus relevant data.
 ///
@@ -19,6 +13,8 @@ use crate::bitcoin::encoding::Encodable;
 pub enum Operation {
     /// Pushes 0 onto the stack.
     OP_0,
+    /// Pushes 0 onto the stack, alias for OP_0.
+    OP_FALSE,
     /// Pushes data onto the stack where the data must be 1-75 bytes long.
     OP_PUSH(Bytes),
     /// The next byte sets the number of bytes to push onto the stack
@@ -31,6 +27,8 @@ pub enum Operation {
     OP_1NEGATE,
     /// Pushes 1 onto the stack
     OP_1,
+    /// Pushes 1 onto the stack, alias for OP_1.
+    OP_TRUE,
     /// Pushes 2 onto the stack
     OP_2,
     /// Pushes 3 onto the stack
@@ -429,6 +427,7 @@ impl Encodable for Operation {
             false => Err(BsvError::DataTooSmall),
             true => match self {
                 Operation::OP_0 => Ok(buffer.put_u8(0)),
+                Operation::OP_FALSE => Ok(buffer.put_u8(0)),
                 Operation::OP_PUSH(data) => {
                     if buffer.remaining_mut() < data.len() + 1 {
                         Err(BsvError::DataTooSmall)
@@ -467,6 +466,7 @@ impl Encodable for Operation {
                 Operation::OP_1NEGATE => Ok(buffer.put_u8(79)),
                 Operation::OP_RESERVED => Ok(buffer.put_u8(80)),
                 Operation::OP_1 => Ok(buffer.put_u8(81)),
+                Operation::OP_TRUE => Ok(buffer.put_u8(81)),
                 Operation::OP_2 => Ok(buffer.put_u8(82)),
                 Operation::OP_3 => Ok(buffer.put_u8(83)),
                 Operation::OP_4 => Ok(buffer.put_u8(84)),
