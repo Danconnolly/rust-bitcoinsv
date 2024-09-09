@@ -5,7 +5,7 @@ use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 
 /// A struct representing a hash, specifically a SHA256d hash.
 ///
@@ -45,8 +45,8 @@ impl Hash {
 }
 
 #[async_trait]
-impl Encodable for Hash {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+impl AsyncEncodable for Hash {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let mut hash_value: [u8; 32] = [0; 32];
         reader.read_exact(&mut hash_value).await?;
         Ok(Hash {
@@ -54,12 +54,12 @@ impl Encodable for Hash {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_all(&self.hash).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         Hash::SIZE
     }
 }

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{BlockHeader, Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::bitcoin::hash::Hash;
 
 
@@ -18,14 +18,14 @@ pub struct MerkleBlock {
 }
 
 #[async_trait]
-impl Encodable for MerkleBlock {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
-        let header = BlockHeader::from_binary(reader).await?;
+impl AsyncEncodable for MerkleBlock {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+        let header = BlockHeader::async_from_binary(reader).await?;
         let total_transactions = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;
         let mut hashes = Vec::with_capacity(num_hashes);
         for _ in 0..num_hashes {
-            hashes.push(Hash::from_binary(reader).await?);
+            hashes.push(Hash::async_from_binary(reader).await?);
         }
         let num_flags = varint_decode(reader).await? as usize;
         let mut flags = Vec::with_capacity(num_flags);
@@ -40,12 +40,12 @@ impl Encodable for MerkleBlock {
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
-        self.header.to_binary(writer).await?;
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+        self.header.async_to_binary(writer).await?;
         writer.write_u32_le(self.total_transactions).await?;
         varint_encode(writer, self.hashes.len() as u64).await?;
         for hash in self.hashes.iter() {
-            hash.to_binary(writer).await?;
+            hash.async_to_binary(writer).await?;
         }
         varint_encode(writer, self.flags.len() as u64).await?;
         for flag in self.flags.iter() {
@@ -54,8 +54,8 @@ impl Encodable for MerkleBlock {
         Ok(())
     }
 
-    fn size(&self) -> usize {
-        self.header.size() + 4 + varint_size(self.hashes.len() as u64) + self.hashes.len() * 32 +
+    fn async_size(&self) -> usize {
+        self.header.async_size() + 4 + varint_size(self.hashes.len() as u64) + self.hashes.len() * 32 +
             varint_size(self.flags.len() as u64) + self.flags.len()
     }
 }

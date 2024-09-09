@@ -1,7 +1,7 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{Encodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::bitcoin::hash::Hash;
 
 
@@ -13,8 +13,8 @@ pub struct Inv {
 }
 
 #[async_trait]
-impl Encodable for Inv {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+impl AsyncEncodable for Inv {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let num_objects = varint_decode(reader).await? as usize;
         // if num_objects > MAX_INV_ENTRIES {
         //     let msg = format!("Num objects exceeded maximum: {}", num_objects);
@@ -22,24 +22,24 @@ impl Encodable for Inv {
         // }
         let mut objects = Vec::with_capacity(num_objects);
         for _ in 0..num_objects {
-            objects.push(InvItem::from_binary(reader).await?);
+            objects.push(InvItem::async_from_binary(reader).await?);
         }
         Ok(Inv { objects })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         // if self.objects.len() as u64 > MAX_INV_ENTRIES {
         //     let msg = format!("Too many objects: {}", self.objects.len());
         //     return Err(crate::Error::BadData(msg));
         // }
         varint_encode(writer, self.objects.len() as u64).await?;
         for object in self.objects.iter() {
-            object.to_binary(writer).await?;
+            object.async_to_binary(writer).await?;
         }
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         varint_size(self.objects.len() as u64) + self.objects.len() * InvItem::SIZE
     }
 }
@@ -114,24 +114,24 @@ impl fmt::Display for InvType {
 
 
 #[async_trait]
-impl Encodable for InvItem {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+impl AsyncEncodable for InvItem {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let obj_type = reader.read_u32_le().await?;
-        let hash = Hash::from_binary(reader).await?;
+        let hash = Hash::async_from_binary(reader).await?;
         Ok(InvItem { obj_type: InvType::try_from(obj_type)?, hash })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         match self.obj_type {
             InvType::InvError => writer.write_u32_le(0).await?,
             InvType::Tx => writer.write_u32_le(1).await?,
             InvType::Block => writer.write_u32_le(2).await?,
             InvType::CompactBlock => writer.write_u32_le(4).await?,
         }
-        self.hash.to_binary(writer).await
+        self.hash.async_to_binary(writer).await
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         InvItem::SIZE
     }
 }

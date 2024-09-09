@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 
 /// Ping or pong message
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
@@ -19,18 +19,18 @@ impl Ping {
 }
 
 #[async_trait]
-impl Encodable for Ping {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+impl AsyncEncodable for Ping {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let nonce = reader.read_u64_le().await?;
         Ok(Ping { nonce })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u64_le(self.nonce).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         Self::SIZE
     }
 }
@@ -52,7 +52,7 @@ mod tests {
     fn write_read() {
         let p = Ping { nonce: 13579 };
         let v = p.to_binary_buf().unwrap();
-        assert_eq!(v.len(), p.size());
+        assert_eq!(v.len(), p.async_size());
         assert_eq!(Ping::from_binary_buf(v.as_slice()).unwrap(), p);
     }
 }
