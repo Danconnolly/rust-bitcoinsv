@@ -1,4 +1,4 @@
-use bytes::{Buf, BufMut, Bytes};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use crate::{BsvError, BsvResult};
 use crate::bitcoin::encoding::Encodable;
@@ -586,7 +586,7 @@ impl Encodable for Operation {
 
 #[cfg(test)]
 mod tests {
-    use bytes::{Bytes, BytesMut};
+    use bytes::BytesMut;
     use crate::bitcoin::Encodable;
     use crate::bitcoin::script::Operation;
 
