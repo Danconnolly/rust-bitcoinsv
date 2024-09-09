@@ -586,9 +586,11 @@ impl Encodable for Operation {
 
 #[cfg(test)]
 mod tests {
+    use bytes::{Bytes, BytesMut};
     use crate::bitcoin::Encodable;
     use crate::bitcoin::script::Operation;
 
+    /// Do a few simple read tests.
     #[test]
     fn simple_reads() {
         let mut op1: &[u8] = &[0u8];
@@ -604,5 +606,28 @@ mod tests {
         let mut op3: &[u8] = &[76u8, 4, 1, 2, 3, 4];
         let r = Operation::from_binary(&mut op3).unwrap();
         assert!(matches!(r, Operation::OP_PUSHDATA1{ .. }));
+    }
+
+    /// Check that every opcode encodes and decodes to the same value.
+    #[test]
+    fn check_op_coding() {
+        for j in 0u8..179 {
+            let mut i: &[u8] = &[j];
+            let o = Operation::from_binary(&mut i);
+            if o.is_ok() {
+                let o = o.unwrap();
+                if o != Operation::OP_RESERVED && o!= Operation::OP_NOP {
+                    let mut b = BytesMut::with_capacity(10);
+                    o.to_binary(&mut b).unwrap();
+                    assert_eq!(b[0], j);
+                }
+            } else {
+                // the data ops will not parse properly without making some fake data
+                // but the rest should succeed
+                if j < 1 || j > 78 {
+                    assert!(false);
+                }
+            }
+        }
     }
 }
