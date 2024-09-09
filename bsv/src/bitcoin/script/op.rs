@@ -1,37 +1,32 @@
-use bytes::Bytes;
+use bytes::{Buf, BufMut, Bytes};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
-use crate::bitcoin::Encodable;
 use crate::{BsvError, BsvResult};
+use crate::bitcoin::encoding::Encodable;
 
+// todo:
 // Pushes 0 onto the stack
 // OP_FALSE= 0;
-
-// /// Pushes 1 onto the stack
+// Pushes 1 onto the stack
 // pub const OP_TRUE= 81;
 
 
-// todo: add Copy
+/// An Operation is an opcode plus relevant data.
+///
+/// todo: add Copy trait
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[allow(non_camel_case_types)]      // we want to keep the Bitcoin standard naming convention
 #[repr(u8)]
 pub enum Operation {
     /// Pushes 0 onto the stack.
-    OP_0 = 0,
+    OP_0,
     /// Pushes data onto the stack where the data must be 1-75 bytes long.
-    ///
-    /// The data stored in the enum is the raw data, including the opcode and the data.
-    OP_PUSH(Bytes) = 1,
+    OP_PUSH(Bytes),
     /// The next byte sets the number of bytes to push onto the stack
-    ///
-    /// The data stored in the enum is the raw data, including the opcode, the size, and the data.
-    OP_PUSHDATA1(Bytes) = 76,
+    OP_PUSHDATA1(Bytes),
     /// The next two bytes sets the number of bytes to push onto the stack
-    ///
-    /// The data stored in the enum is the raw data, including the opcode, the size, and the data.
-    OP_PUSHDATA2(Bytes) = 77,
+    OP_PUSHDATA2(Bytes),
     /// The next four bytes sets the number of bytes to push onto the stack
-    ///
-    /// The data stored in the enum is the raw data, including the opcode, the size, and the data.
-    OP_PUSHDATA4(Bytes) = 78,
+    OP_PUSHDATA4(Bytes),
     /// Pushes -1 onto the stack
     OP_1NEGATE = 79,
     /// Pushes 1 onto the stack
@@ -309,77 +304,139 @@ pub enum Operation {
 
 impl Operation {
     // helper function to get pushdata of a particular size from the buffer
-    fn get_pushdata(size: usize, buffer: &Bytes) -> BsvResult<Bytes> where Self: Sized {
-        if size > buffer.len() {
+    fn get_pushdata(size: usize, buffer: &mut dyn Buf) -> BsvResult<Bytes> where Self: Sized {
+        if size > buffer.remaining() {
             Err(BsvError::DataTooSmall)
         } else {
-            Ok(buffer.slice(0..size))
+            Ok(buffer.copy_to_bytes(size))
         }
     }
 }
 
 impl Encodable for Operation {
-    fn from_binary(buffer: &Bytes) -> BsvResult<Self> where Self: Sized {
-        match buffer[0] {
-            0 => Ok(Operation::OP_0),
-            76 => {
-                let size = buffer[1];
-                Ok(Operation::OP_PUSHDATA1(Self::get_pushdata(size as usize + 2, &buffer)?))
-            },
-            other => {
-                if other > 0 && other < 76 {
-                    Ok(Operation::OP_PUSH(Self::get_pushdata(other as usize + 1, &buffer)?))
-                } else {
-                    Err(BsvError::UnrecognizedOpCode)
+    fn from_binary(buffer: &mut dyn Buf) -> BsvResult<Self> where Self: Sized {
+        match buffer.has_remaining() {
+            false => Err(BsvError::DataTooSmall),
+            true => match buffer.get_u8() {
+                0 => Ok(Operation::OP_0),
+                76 => {
+                    if buffer.has_remaining() {
+                        let size = buffer.get_u8() as usize;
+                        Ok(Operation::OP_PUSHDATA1(Self::get_pushdata(size, buffer)?))
+                    } else {
+                        Err(BsvError::DataTooSmall)
+                    }
+                },
+                77 => {
+                    if buffer.remaining() >= 2 {
+                        let size = buffer.get_u16_le() as usize;
+                        Ok(Operation::OP_PUSHDATA2(Self::get_pushdata(size, buffer)?))
+                    } else {
+                        Err(BsvError::DataTooSmall)
+                    }
+                },
+                78 => {
+                    if buffer.remaining() >= 4 {
+                        let size = buffer.get_u32_le() as usize;
+                        Ok(Operation::OP_PUSHDATA4(Self::get_pushdata(size, buffer)?))
+                    } else {
+                        Err(BsvError::DataTooSmall)
+                    }
+                },
+                other => {
+                    if other > 0 && other < 76 {
+                        Ok(Operation::OP_PUSH(Self::get_pushdata(other as usize, buffer)?))
+                    } else {
+                        Err(BsvError::UnrecognizedOpCode)
+                    }
                 }
             }
         }
     }
 
-    fn to_binary(&self) -> Bytes {
-        match self {
-            Operation::OP_0 => Bytes::from_static(&[0u8]),
-            Operation::OP_PUSH(data) => {
-                data.clone()
-            },
-            Operation::OP_PUSHDATA1(data) => {
-                data.clone()
-            },
-            Operation::OP_PUSHDATA2(data) => {
-                data.clone()
-            },
-            Operation::OP_PUSHDATA4(data) => {
-                data.clone()
-            },
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> BsvResult<()> {
+        match buffer.has_remaining_mut() {
+            false => Err(BsvError::DataTooSmall),
+            true => match self {
+                Operation::OP_0 => Ok(buffer.put_u8(0)),
+                Operation::OP_PUSH(data) => {
+                    if buffer.remaining_mut() < data.len() + 1 {
+                        Err(BsvError::DataTooSmall)
+                    } else {
+                        buffer.put_u8(data.len() as u8);
+                        Ok(buffer.put_slice(data))
+                    }
+                },
+                Operation::OP_PUSHDATA1(data) => {
+                    if buffer.remaining_mut() < data.len() + 2 {
+                        Err(BsvError::DataTooSmall)
+                    } else {
+                        buffer.put_u8(76);
+                        buffer.put_u8(data.len() as u8);
+                        Ok(buffer.put_slice(data))
+                    }
+                },
+                Operation::OP_PUSHDATA2(data) => {
+                    if buffer.remaining_mut() < data.len() + 3 {
+                        Err(BsvError::DataTooSmall)
+                    } else {
+                        buffer.put_u8(77);
+                        buffer.put_u16_le(data.len() as u16);
+                        Ok(buffer.put_slice(data))
+                    }
+                },
+                Operation::OP_PUSHDATA4(data) => {
+                    if buffer.remaining_mut() < data.len() + 5 {
+                        Err(BsvError::DataTooSmall)
+                    } else {
+                        buffer.put_u8(78);
+                        buffer.put_u32_le(data.len() as u32);
+                        Ok(buffer.put_slice(data))
+                    }
+                },
+                _ => todo!(),
+            }
         }
     }
 
     fn size(&self) -> usize {
-        todo!()
+        match self {
+            Operation::OP_PUSH(data) => {
+                data.len() + 1
+            },
+            Operation::OP_PUSHDATA1(data) => {
+                data.len() + 2
+            },
+            Operation::OP_PUSHDATA2(data) => {
+                data.len() + 3
+            },
+            Operation::OP_PUSHDATA4(data) => {
+                data.len() + 5
+            },
+            _ => 1
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bytes::Bytes;
     use crate::bitcoin::Encodable;
     use crate::bitcoin::script::Operation;
 
     #[test]
     fn simple_reads() {
-        let op1 = vec!(0u8);
-        let b = Bytes::from(op1);
-        let r = Operation::from_binary(&b).unwrap();
+        let mut op1: &[u8] = &[0u8];
+        let r = Operation::from_binary(&mut op1).unwrap();
         assert_eq!(r, Operation::OP_0);
 
         // op_push 4 bytes
-        let b = Bytes::from_static(&[4u8, 0, 1, 2, 3]);
-        let r = Operation::from_binary(&Bytes::from(b)).unwrap();
+        let mut op2: &[u8] = &[4u8, 0, 1, 2, 3];
+        let r = Operation::from_binary(&mut op2).unwrap();
         assert!(matches!(r, Operation::OP_PUSH{ .. }));
 
         // op_pushdata1
-        let b = Bytes::from_static(&[76u8, 4, 1, 2, 3, 4]);
-        let r = Operation::from_binary(&Bytes::from(b)).unwrap();
+        let mut op3: &[u8] = &[76u8, 4, 1, 2, 3, 4];
+        let r = Operation::from_binary(&mut op3).unwrap();
         assert!(matches!(r, Operation::OP_PUSHDATA1{ .. }));
     }
 }
