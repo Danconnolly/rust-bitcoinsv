@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use bytes::Bytes;
+use bytes::{Buf, BufMut};
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
 use crate::BsvResult;
@@ -27,11 +27,11 @@ use crate::BsvResult;
 /// trait is [AsyncEncodable]. If you don't need the async capabilities, use this one.
 pub trait Encodable {
     /// Read the data structure from a buffer.
-    fn from_binary(buffer: &Bytes) -> BsvResult<Self>
+    fn from_binary(buffer: &mut dyn Buf) -> BsvResult<Self>
         where Self: Sized;
 
     /// Write the data structure to a buffer.
-    fn to_binary(&self) -> BsvResult<Bytes>;
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> BsvResult<()>;
 
     /// Return the size of the serialized form.
     // It is vital that implementations of this function use a method that does not just serialize the object

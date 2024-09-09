@@ -477,7 +477,7 @@ mod tests {
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv6Addr};
     use hex::FromHex;
-    use crate::bitcoin::{BlockHeader, Outpoint, Tx, TxInput, TxOutput};
+    use crate::bitcoin::{BlockHeader, Outpoint, Script, Tx, TxInput, TxOutput};
     use crate::p2p::messages::inv::{InvItem, InvType};
     use crate::p2p::messages::NodeAddr;
     use crate::p2p::messages::reject::REJECT_INVALID;
@@ -522,12 +522,12 @@ mod tests {
                             tx_hash: Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
                             index: 3,
                         },
-                        raw_script: vec![5; 5],
+                        script: Script::from(vec![5; 5]),
                         sequence: 2,
                     }],
                     outputs: vec![TxOutput {
                         value: 42,
-                        raw_script: vec![9; 21],
+                        script: Script::from(vec![9; 21]),
                     }],
                     lock_time: 0x12ff34aa,
                 },
@@ -538,12 +538,12 @@ mod tests {
                             tx_hash: Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
                             index: 4,
                         },
-                        raw_script: vec![4; 4],
+                        script: Script::from(vec![4; 4]),
                         sequence: 3,
                     }],
                     outputs: vec![TxOutput {
                         value: 43,
-                        raw_script: vec![10; 22],
+                        script: Script::from(vec![10; 22]),
                     }],
                     lock_time: 0x44550011,
                 },
@@ -703,12 +703,12 @@ mod tests {
                     tx_hash: Hash::from("0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f"),
                     index: 3,
                 },
-                raw_script: vec![7u8; 7],
+                script: Script::from(vec![7u8; 7]),
                 sequence: 2,
             }],
             outputs: vec![TxOutput {
                 value: 42,
-                raw_script: vec![8u8; 8],
+                script: Script::from(vec![8u8; 8]),
             }],
             lock_time: 0x12ff34aa,
         };
