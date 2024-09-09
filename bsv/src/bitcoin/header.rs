@@ -1,7 +1,7 @@
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::Encodable;
+use crate::bitcoin::AsyncEncodable;
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::params::BlockchainId;
 
@@ -50,29 +50,29 @@ impl BlockHeader {
 }
 
 #[async_trait]
-impl Encodable for BlockHeader {
-    async fn from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+impl AsyncEncodable for BlockHeader {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         Ok(BlockHeader {
             version: reader.read_u32_le().await?,
-            prev_hash: Hash::from_binary(reader).await?,
-            merkle_root: Hash::from_binary(reader).await?,
+            prev_hash: Hash::async_from_binary(reader).await?,
+            merkle_root: Hash::async_from_binary(reader).await?,
             timestamp: reader.read_u32_le().await?,
             bits: reader.read_u32_le().await?,
             nonce: reader.read_u32_le().await?,
         })
     }
 
-    async fn to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u32_le(self.version).await?;
-        self.prev_hash.to_binary(writer).await?;
-        self.merkle_root.to_binary(writer).await?;
+        self.prev_hash.async_to_binary(writer).await?;
+        self.merkle_root.async_to_binary(writer).await?;
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u32_le(self.bits).await?;
         writer.write_u32_le(self.nonce).await?;
         Ok(())
     }
 
-    fn size(&self) -> usize {
+    fn async_size(&self) -> usize {
         BlockHeader::SIZE
     }
 }
