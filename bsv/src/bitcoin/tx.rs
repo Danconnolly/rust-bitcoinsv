@@ -179,22 +179,19 @@ impl AsyncEncodable for Outpoint {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TxInput {
     pub outpoint: Outpoint,
-    pub raw_script: Vec<u8>,
+    pub script: Script,
     pub sequence: u32,
 }
 
 impl TxInput {
     /// Create a new TxInput.
-    pub fn new(tx_hash: &TxHash, index: u32, script: &Script, sequence: Option<u32>) -> TxInput {
-        let s = sequence.unwrap_or(u32::MAX);
-        let t = tx_hash.clone();
-        let sc = script.raw.clone();
+    pub fn new(tx_hash: TxHash, index: u32, script: Script, sequence: Option<u32>) -> TxInput {
+        let sequence = sequence.unwrap_or(u32::MAX);
         TxInput {
             outpoint: Outpoint {
-                tx_hash: t, index
+                tx_hash, index
             },
-            raw_script: sc,
-            sequence: s,
+            script, sequence,
         }
     }
 }
@@ -203,28 +200,24 @@ impl TxInput {
 impl AsyncEncodable for TxInput {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let outpoint = Outpoint::async_from_binary(reader).await?;
-        let script_size = varint_decode(reader).await?;
-        // todo: check size before allocation
-        let mut script = vec![0u8; script_size as usize];
-        reader.read_exact(&mut script).await?;
+        let script = Script::async_from_binary(reader).await?;
         let sequence = reader.read_u32_le().await?;
         Ok(TxInput {
             outpoint,
-            raw_script: script,
+            script,
             sequence,
         })
     }
 
     async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         self.outpoint.async_to_binary(writer).await?;
-        varint_encode(writer, self.raw_script.len() as u64).await?;
-        writer.write_all(&self.raw_script).await?;
+        self.script.async_to_binary(writer).await?;
         writer.write_u32_le(self.sequence).await?;
         Ok(())
     }
 
     fn async_size(&self) -> usize {
-        self.outpoint.async_size() + varint_size(self.raw_script.len() as u64) + self.raw_script.len() + 4
+        self.outpoint.async_size() + self.script.async_size() + 4
     }
 }
 
@@ -233,16 +226,14 @@ impl AsyncEncodable for TxInput {
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
 pub struct TxOutput {
     pub value: u64,
-    pub raw_script: Vec<u8>,
+    pub script: Script,
 }
 
 impl TxOutput {
     /// Simple new function.
-    pub fn new(value: u64, script: &Script) -> TxOutput {
-        let r = script.raw.clone();
+    pub fn new(value: u64, script: Script) -> TxOutput {
         TxOutput {
-            value,
-            raw_script: r,
+            value, script,
         }
     }
 }
@@ -251,25 +242,21 @@ impl TxOutput {
 impl AsyncEncodable for TxOutput {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
         let value = reader.read_u64_le().await?;
-        let script_size = varint_decode(reader).await?;
-        // todo: check size before allocation?
-        let mut script = vec![0u8; script_size as usize];
-        reader.read_exact(&mut script).await?;
+        let script = Script::async_from_binary(reader).await?;
         Ok(TxOutput {
             value,
-            raw_script: script,
+            script,
         })
     }
 
     async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
         writer.write_u64_le(self.value).await?;
-        varint_encode(writer, self.raw_script.len() as u64).await?;
-        writer.write_all(&self.raw_script).await?;
+        self.script.async_to_binary(writer).await?;
         Ok(())
     }
 
     fn async_size(&self) -> usize {
-        8 + varint_size(self.raw_script.len() as u64) + self.raw_script.len()
+        8 + self.script.async_size()
     }
 }
 
@@ -333,8 +320,9 @@ mod tests {
     /// test encoding of a tx input
     #[test]
     fn txi_new() {
-        let txi = TxInput::new(&TxHash::from_hex("388504ec982deb66c398056586ef7f47e173a49293ef0507f2d7d591109d7b9b").unwrap(),
-                               0, &Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap(),
+        // this is input 0 from tx 60dcda63c57420077d67e3ae6684a1654cf9f9cc1b8edd569a847f2b5109b739
+        let txi = TxInput::new(TxHash::from_hex("388504ec982deb66c398056586ef7f47e173a49293ef0507f2d7d591109d7b9b").unwrap(),
+                               0, Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap(),
                                None);
         let b = txi.to_binary_buf().unwrap();
         assert_eq!(hex::encode(b), "9b7b9d1091d5d7f20705ef9392a473e1477fef86650598c366eb2d98ec048538000000006a47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841ffffffff");
