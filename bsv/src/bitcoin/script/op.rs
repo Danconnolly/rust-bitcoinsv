@@ -334,6 +334,34 @@ impl Operation {
             _ => None
         }
     }
+
+    // /// Returns the number pushed to stack for pushdata operations, NONE for operations that do not
+    // /// directly push a value to stack.
+    // pub fn num_pushed(&self) -> Option<i64> {
+    //     use Operation::*;
+    //     match self {
+    //         OP_0 | OP_FALSE => Some(0),
+    //         OP_1 | OP_TRUE => Some(1),
+    //         OP_2 => Some(2),
+    //         OP_3 => Some(3),
+    //         OP_4 => Some(4),
+    //         OP_5 => Some(5),
+    //         OP_6 => Some(6),
+    //         OP_7 => Some(7),
+    //         OP_8 => Some(8),
+    //         OP_9 => Some(9),
+    //         OP_10 => Some(10),
+    //         OP_11 => Some(11),
+    //         OP_12 => Some(12),
+    //         OP_13 => Some(13),
+    //         OP_14 => Some(14),
+    //         OP_15 => Some(15),
+    //         OP_16 => Some(16),
+    //         OP_1NEGATE => Some(-1),
+    //         OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => Some(data.clone()),
+    //         _ => None
+    //     }
+    // }
 }
 
 impl Encodable for Operation {
