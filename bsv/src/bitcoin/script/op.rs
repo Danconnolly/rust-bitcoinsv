@@ -630,4 +630,11 @@ mod tests {
             }
         }
     }
+
+    /// OP_0 and OP_FALSE are the same thing, same for OP_1 and OP_TRUE
+    #[test]
+    fn test_equality() {
+        assert_eq!(Operation::OP_FALSE, Operation::OP_0);
+        assert_eq!(Operation::OP_TRUE, Operation::OP_1);
+    }
 }
