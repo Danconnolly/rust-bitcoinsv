@@ -1,4 +1,3 @@
-use std::clone;
 use bytes::{Buf, Bytes};
 use num::{BigInt, ToPrimitive};
 use crate::{BsvError, BsvResult};
