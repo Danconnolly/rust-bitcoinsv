@@ -18,7 +18,7 @@ pub struct Script {
 
 impl Script {
     /// Decode the script, producing a vector of operations and possibly a byte sequence of trailing data.
-    pub fn decode(&self) -> BsvResult<(Vec<Operation>,Option<ByteSequence>)> {
+    pub fn decode(&self) -> BsvResult<(Vec<Operation>, Option<ByteSequence>)> {
         use Operation::*;
 
         let mut result = Vec::new();
@@ -28,7 +28,7 @@ impl Script {
         while buf.has_remaining() {
             let o = Operation::from_binary(&mut buf)?;
             match o {
-                OP_IF => {
+                OP_IF | OP_NOTIF => {
                     if_depth += 1;
                 },
                 OP_ENDIF => {
