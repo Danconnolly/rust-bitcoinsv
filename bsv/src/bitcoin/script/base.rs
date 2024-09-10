@@ -3,6 +3,7 @@ use bytes::{Bytes, Buf};
 use hex::FromHex;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
+use crate::bitcoin::script::byte_seq::ByteSequence;
 use crate::bitcoin::script::Operation;
 use crate::BsvResult;
 
@@ -16,14 +17,33 @@ pub struct Script {
 }
 
 impl Script {
-    pub fn decode(&self) -> BsvResult<Vec<Operation>> {
+    /// Decode the script, producing a vector of operations and possibly a byte sequence of trailing data.
+    pub fn decode(&self) -> BsvResult<(Vec<Operation>,Option<ByteSequence>)> {
+        use Operation::*;
+
         let mut result = Vec::new();
         let mut buf = self.raw.clone();
+        let mut trailing = None;
+        let mut if_depth = 0;
         while buf.has_remaining() {
             let o = Operation::from_binary(&mut buf)?;
+            match o {
+                OP_IF => {
+                    if_depth += 1;
+                },
+                OP_ENDIF => {
+                    if if_depth > 0 { if_depth -= 1; }
+                },
+                OP_RETURN => {
+                    if if_depth == 0 {
+                        trailing = Some(ByteSequence::new(buf.copy_to_bytes(buf.remaining())));
+                    }
+                }
+                _ => {}
+            }
             result.push(o);
         }
-        Ok(result)
+        Ok((result, trailing))
     }
 }
 
@@ -107,7 +127,19 @@ mod tests {
     fn test_decode() {
         // this script comes from input 0 from tx 60dcda63c57420077d67e3ae6684a1654cf9f9cc1b8edd569a847f2b5109b739
         let s = Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap();
-        let ops = s.decode().unwrap();
+        let (ops, trailing) = s.decode().unwrap();
         assert_eq!(2, ops.len());
+        assert!(trailing.is_none());
+    }
+
+    /// Test with an op_return
+    #[test]
+    fn test_opreturn_decode() {
+        // this script comes from output 0 from tx 6920f4ec65cea88052c94b1f114c4b038a52af42b1b5c3cb4acba3b4e9bec743
+        let s = Script::from_hex("006a20d9d22fff84fbf87e2bb5d3fe2d537e68436a8bec83df40a2e3ff705c0b8e0d1b10a67f8a1e943f47c69ad57c6750768c43").unwrap();
+        let (ops, trailing) = s.decode().unwrap();
+        assert_eq!(2, ops.len());
+        assert!(trailing.is_some());
+        assert_eq!(trailing.unwrap().len(), 50);
     }
 }

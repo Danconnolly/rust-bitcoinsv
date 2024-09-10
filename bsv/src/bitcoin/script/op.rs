@@ -1,4 +1,5 @@
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use log::trace;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use crate::{BsvError, BsvResult};
 use crate::bitcoin::encoding::Encodable;
@@ -260,6 +261,7 @@ impl Operation {
     // helper function to get pushdata of a particular size from the buffer
     fn get_pushdata(size: usize, buffer: &mut dyn Buf) -> BsvResult<Bytes> where Self: Sized {
         if size > buffer.remaining() {
+            trace!("get_pushdata() - expected {} bytes but only have {} remaining", size, buffer.remaining());
             Err(BsvError::DataTooSmall)
         } else {
             Ok(buffer.copy_to_bytes(size))
@@ -271,15 +273,15 @@ impl Operation {
     /// We need this because OP_0 and OP_FALSE are equal, as is OP_1 and OP_TRUE.
     pub fn eq_alias(&self, other: &Self) -> bool {
         match self {
-            Operation::OP_0 | Operation::OP_FALSE => {
+            OP_0 | OP_FALSE => {
                 match other {
-                    Operation::OP_0 | Operation::OP_FALSE=> true,
+                    OP_0 | OP_FALSE=> true,
                     _ => false,
                 }
             },
-            Operation::OP_1 | Operation::OP_TRUE=> {
+            OP_1 | OP_TRUE=> {
                 match other {
-                    Operation::OP_1 | Operation::OP_TRUE => true,
+                    OP_1 | OP_TRUE => true,
                     _ => false,
                 }
             },
