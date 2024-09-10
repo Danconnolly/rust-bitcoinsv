@@ -25,8 +25,10 @@ pub enum BsvError {
     InvalidBlockchainSpecifier,
     /// Unrecognized Opcode
     UnrecognizedOpCode,
-    /// A particular number of bytes was expected but not enough are available.
+    /// The data provided is too small to perform the operation.
     DataTooSmall,
+    /// The data provided is too large to perform the operation.
+    DataTooLarge,
     /// Internal error
     Internal(String),
     /// Hex string could not be decoded
@@ -51,6 +53,7 @@ impl std::fmt::Display for BsvError {
             BsvError::InvalidBlockchainSpecifier => f.write_str(&"Unknown blockchain".to_string()),
             BsvError::UnrecognizedOpCode => f.write_str(&"unrecognized opcode".to_string()),
             BsvError::DataTooSmall => f.write_str(&"data too small".to_string()),
+            BsvError::DataTooLarge => f.write_str(&"data too large".to_string()),
             BsvError::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
             BsvError::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
             BsvError::FromBase58Error(e) => f.write_str(&format!("Base58 decoding error: {:?}", e)),
@@ -71,6 +74,7 @@ impl std::error::Error for BsvError {
             BsvError::InvalidBlockchainSpecifier => "Unknown blockchain",
             BsvError::UnrecognizedOpCode => "Unrecognized opcode",
             BsvError::DataTooSmall => "Data too small",
+            BsvError::DataTooLarge => "Data too large",
             BsvError::Internal(_) => "Internal error",
             BsvError::FromHexError(_) => "Hex decoding error",
             BsvError::FromBase58Error(_) => "Base58 decoding error",

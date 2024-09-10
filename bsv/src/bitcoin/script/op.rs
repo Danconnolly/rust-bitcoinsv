@@ -3,6 +3,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use crate::{BsvError, BsvResult};
 use crate::bitcoin::encoding::Encodable;
 use crate::bitcoin::Operation::{OP_0, OP_1, OP_10, OP_11, OP_12, OP_13, OP_14, OP_15, OP_16, OP_1NEGATE, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_8, OP_9, OP_FALSE, OP_TRUE};
+use crate::bitcoin::script::byte_seq::ByteSequence;
 
 /// An Operation is an opcode plus relevant data.
 ///
@@ -16,13 +17,13 @@ pub enum Operation {
     /// Pushes 0 onto the stack, alias for OP_0.
     OP_FALSE,
     /// Pushes data onto the stack where the data must be 1-75 bytes long.
-    OP_PUSH(Bytes),
+    OP_PUSH(ByteSequence),
     /// The next byte sets the number of bytes to push onto the stack
-    OP_PUSHDATA1(Bytes),
+    OP_PUSHDATA1(ByteSequence),
     /// The next two bytes sets the number of bytes to push onto the stack
-    OP_PUSHDATA2(Bytes),
+    OP_PUSHDATA2(ByteSequence),
     /// The next four bytes sets the number of bytes to push onto the stack
-    OP_PUSHDATA4(Bytes),
+    OP_PUSHDATA4(ByteSequence),
     /// Pushes -1 onto the stack
     OP_1NEGATE,
     /// Pushes 1 onto the stack
@@ -239,20 +240,12 @@ pub enum Operation {
     OP_CHECKMULTISIGVERIFY,
     
     // --------------------------------------------------------------------------------------------
-    // Locktime
-    // --------------------------------------------------------------------------------------------
-    
-    /// Marks transaction as invalid if the top stack item is greater than the transaction's lock_time
-    /// todo: check
-    OP_CHECKLOCKTIMEVERIFY,
-    /// Marks transaction as invalid if the top stack item is less than the transaction's sequence used for relative lock time
-    /// todo: check
-    OP_CHECKSEQUENCEVERIFY,
-    
-    // --------------------------------------------------------------------------------------------
     // Reserved words
     // --------------------------------------------------------------------------------------------
-    
+
+    /// Upgradeable NOP. Acts as a NOP but its usage is not recommended as the codes may be redefined in
+    /// the future. Policy usually rejects transactions that use this code.
+    OP_UPNOP,
     /// Transaction is invalid unless occuring in an unexecuted OP_IF branch
     OP_RESERVED,
     /// Transaction is invalid unless occuring in an unexecuted OP_IF branch
@@ -330,38 +323,49 @@ impl Operation {
             OP_15 => Some(Bytes::from(&[15u8][..])),
             OP_16 => Some(Bytes::from(&[16u8][..])),
             OP_1NEGATE => Some(Bytes::from(&[255u8][..])),
-            OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => Some(data.clone()),
+            OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => Some(data.get_bytes()),
             _ => None
         }
     }
 
-    // /// Returns the number pushed to stack for pushdata operations, NONE for operations that do not
-    // /// directly push a value to stack.
-    // pub fn num_pushed(&self) -> Option<i64> {
-    //     use Operation::*;
-    //     match self {
-    //         OP_0 | OP_FALSE => Some(0),
-    //         OP_1 | OP_TRUE => Some(1),
-    //         OP_2 => Some(2),
-    //         OP_3 => Some(3),
-    //         OP_4 => Some(4),
-    //         OP_5 => Some(5),
-    //         OP_6 => Some(6),
-    //         OP_7 => Some(7),
-    //         OP_8 => Some(8),
-    //         OP_9 => Some(9),
-    //         OP_10 => Some(10),
-    //         OP_11 => Some(11),
-    //         OP_12 => Some(12),
-    //         OP_13 => Some(13),
-    //         OP_14 => Some(14),
-    //         OP_15 => Some(15),
-    //         OP_16 => Some(16),
-    //         OP_1NEGATE => Some(-1),
-    //         OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => Some(data.clone()),
-    //         _ => None
-    //     }
-    // }
+    /// Returns the number pushed to stack for pushdata operations as an i64.
+    ///
+    /// If the operation does not push a value to the stack or the value  is too large to be represented
+    /// by an i64 then NONE is returned.
+    ///
+    /// In comparison to the size of numbers supported by the Bitcoin rules, an i64 is small.
+    /// See [rules::MAX_NUMERIC_LEN].
+    pub fn small_num_pushed(&self) -> Option<i64> {
+        use Operation::*;
+        match self {
+            OP_0 | OP_FALSE => Some(0),
+            OP_1 | OP_TRUE => Some(1),
+            OP_2 => Some(2),
+            OP_3 => Some(3),
+            OP_4 => Some(4),
+            OP_5 => Some(5),
+            OP_6 => Some(6),
+            OP_7 => Some(7),
+            OP_8 => Some(8),
+            OP_9 => Some(9),
+            OP_10 => Some(10),
+            OP_11 => Some(11),
+            OP_12 => Some(12),
+            OP_13 => Some(13),
+            OP_14 => Some(14),
+            OP_15 => Some(15),
+            OP_16 => Some(16),
+            OP_1NEGATE => Some(-1),
+            OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => {
+                if data.len() > 8 {
+                    None
+                } else {
+                    Some(data.to_small_number().unwrap())
+                }
+            },
+            _ => None
+        }
+    }
 }
 
 impl Encodable for Operation {
@@ -374,7 +378,7 @@ impl Encodable for Operation {
                 76 => {
                     if buffer.has_remaining() {
                         let size = buffer.get_u8() as usize;
-                        Ok(OP_PUSHDATA1(Self::get_pushdata(size, buffer)?))
+                        Ok(OP_PUSHDATA1(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
                     } else {
                         Err(BsvError::DataTooSmall)
                     }
@@ -382,7 +386,7 @@ impl Encodable for Operation {
                 77 => {
                     if buffer.remaining() >= 2 {
                         let size = buffer.get_u16_le() as usize;
-                        Ok(OP_PUSHDATA2(Self::get_pushdata(size, buffer)?))
+                        Ok(OP_PUSHDATA2(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
                     } else {
                         Err(BsvError::DataTooSmall)
                     }
@@ -390,7 +394,7 @@ impl Encodable for Operation {
                 78 => {
                     if buffer.remaining() >= 4 {
                         let size = buffer.get_u32_le() as usize;
-                        Ok(OP_PUSHDATA4(Self::get_pushdata(size, buffer)?))
+                        Ok(OP_PUSHDATA4(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
                     } else {
                         Err(BsvError::DataTooSmall)
                     }
@@ -493,8 +497,8 @@ impl Encodable for Operation {
                 174 => Ok(OP_CHECKMULTISIG),
                 175 => Ok(OP_CHECKMULTISIGVERIFY),
                 176 => Ok(OP_NOP),
-                177 => Ok(OP_CHECKLOCKTIMEVERIFY),
-                178 => Ok(OP_CHECKSEQUENCEVERIFY),
+                177 => Ok(OP_UPNOP),
+                178 => Ok(OP_UPNOP),
                 179 => Ok(OP_NOP),
                 180 => Ok(OP_NOP),
                 181 => Ok(OP_NOP),
@@ -504,7 +508,7 @@ impl Encodable for Operation {
                 185 => Ok(OP_NOP),
                 other => {
                     if other > 0 && other < 76 {
-                        Ok(OP_PUSH(Self::get_pushdata(other as usize, buffer)?))
+                        Ok(OP_PUSH(ByteSequence::new(Self::get_pushdata(other as usize, buffer)?)))
                     } else {
                         Err(BsvError::UnrecognizedOpCode)
                     }
@@ -525,7 +529,7 @@ impl Encodable for Operation {
                         Err(BsvError::DataTooSmall)
                     } else {
                         buffer.put_u8(data.len() as u8);
-                        Ok(buffer.put_slice(data))
+                        Ok(buffer.put_slice(&*data.get_bytes()))
                     }
                 },
                 OP_PUSHDATA1(data) => {
@@ -534,7 +538,7 @@ impl Encodable for Operation {
                     } else {
                         buffer.put_u8(76);
                         buffer.put_u8(data.len() as u8);
-                        Ok(buffer.put_slice(data))
+                        Ok(buffer.put_slice(&*data.get_bytes()))
                     }
                 },
                 OP_PUSHDATA2(data) => {
@@ -543,7 +547,7 @@ impl Encodable for Operation {
                     } else {
                         buffer.put_u8(77);
                         buffer.put_u16_le(data.len() as u16);
-                        Ok(buffer.put_slice(data))
+                        Ok(buffer.put_slice(&*data.get_bytes()))
                     }
                 },
                 OP_PUSHDATA4(data) => {
@@ -552,7 +556,7 @@ impl Encodable for Operation {
                     } else {
                         buffer.put_u8(78);
                         buffer.put_u32_le(data.len() as u32);
-                        Ok(buffer.put_slice(data))
+                        Ok(buffer.put_slice(&*data.get_bytes()))
                     }
                 },
                 OP_1NEGATE => Ok(buffer.put_u8(79)),
@@ -651,8 +655,7 @@ impl Encodable for Operation {
                 OP_CHECKSIGVERIFY => Ok(buffer.put_u8(173)),
                 OP_CHECKMULTISIG => Ok(buffer.put_u8(174)),
                 OP_CHECKMULTISIGVERIFY => Ok(buffer.put_u8(175)),
-                OP_CHECKLOCKTIMEVERIFY => Ok(buffer.put_u8(177)),
-                OP_CHECKSEQUENCEVERIFY => Ok(buffer.put_u8(178)),
+                OP_UPNOP => Ok(buffer.put_u8(177)),
             }
         }
     }
@@ -709,7 +712,7 @@ mod tests {
             let o = Operation::from_binary(&mut i);
             if o.is_ok() {
                 let o = o.unwrap();
-                if o != Operation::OP_RESERVED && o!= Operation::OP_NOP {
+                if o != Operation::OP_RESERVED && o != Operation::OP_NOP && o != Operation::OP_UPNOP {
                     let mut b = BytesMut::with_capacity(10);
                     o.to_binary(&mut b).unwrap();
                     assert_eq!(b[0], j);

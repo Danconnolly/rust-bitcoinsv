@@ -12,6 +12,7 @@ mod params;
 mod script;
 mod tx;
 mod var_int;
+mod rules;
 
 pub use self::address::Address;
 pub use self::block::FullBlockStream;
