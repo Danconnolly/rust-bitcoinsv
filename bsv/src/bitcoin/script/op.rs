@@ -357,10 +357,9 @@ impl Operation {
             OP_16 => Some(16),
             OP_1NEGATE => Some(-1),
             OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => {
-                if data.len() > 8 {
-                    None
-                } else {
-                    Some(data.to_small_number().unwrap())
+                match data.to_small_number() {
+                    Err(_) => None,
+                    Ok(val) => Some(val),
                 }
             },
             _ => None
