@@ -1,5 +1,4 @@
 use core::fmt;
-use std::error::Error;
 use std::iter::Sum;
 use std::ops::{Add, Sub};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};

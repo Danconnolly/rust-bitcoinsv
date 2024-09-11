@@ -1,4 +1,4 @@
-use bytes::{Buf, Bytes};
+use bytes::Bytes;
 use num::{BigInt, ToPrimitive};
 use crate::{BsvError, BsvResult};
 

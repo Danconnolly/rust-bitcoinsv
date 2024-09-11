@@ -5,6 +5,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
 use crate::bitcoin::script::byte_seq::ByteSequence;
 use crate::bitcoin::script::Operation;
+use crate::BsvError::DataTooSmall;
 use crate::BsvResult;
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
@@ -81,9 +82,13 @@ impl AsyncEncodable for Script {
         // todo: check size is not too big
         let mut buffer = vec![0u8; size as usize];
         let i = reader.read_exact(&mut buffer).await?;
-        Ok(Self {
-          raw: Bytes::from(buffer),
-        })
+        if i != (size as usize) {
+            Err(DataTooSmall)
+        } else {
+            Ok(Self {
+                raw: Bytes::from(buffer),
+            })
+        }
     }
 
     /// Encode a Script from to an async writer.
@@ -104,10 +109,6 @@ impl AsyncEncodable for Script {
     }
 }
 
-/// A ScriptBuilder can be used to build a [Script].
-pub struct ScriptBuilder {
-    // todo: implement
-}
 
 #[cfg(test)]
 mod tests {

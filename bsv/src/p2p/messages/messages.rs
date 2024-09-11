@@ -3,8 +3,7 @@ use std::fmt;
 use std::sync::Arc;
 use log::{trace, warn};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{AsyncEncodable, Tx};
-use crate::bitcoin::hash::Hash;
+use crate::bitcoin::{AsyncEncodable, Hash, Tx};
 pub use self::commands::PROTOCONF;
 use crate::p2p::messages::messages::commands::{ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK, NOTFOUND,
                                                PING, PONG, REJECT, SENDHEADERS, SENDCMPCT, TX, VERACK, VERSION};
@@ -477,7 +476,7 @@ mod tests {
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv6Addr};
     use hex::FromHex;
-    use crate::bitcoin::{BlockHeader, Outpoint, Script, Tx, TxInput, TxOutput};
+    use crate::bitcoin::{BlockHeader, Hash, Outpoint, Script, Tx, TxInput, TxOutput};
     use crate::p2p::messages::inv::{InvItem, InvType};
     use crate::p2p::messages::NodeAddr;
     use crate::p2p::messages::reject::REJECT_INVALID;

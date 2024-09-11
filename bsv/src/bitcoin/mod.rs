@@ -5,7 +5,7 @@ mod base58ck;
 mod block;
 mod crypto;
 mod encoding;
-pub mod hash;
+mod hash;
 mod hash160;
 mod header;
 mod params;

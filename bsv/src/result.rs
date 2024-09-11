@@ -1,4 +1,3 @@
-use std::fmt::format;
 use std::io;
 use std::string::FromUtf8Error;
 use base58::FromBase58Error;

@@ -17,7 +17,7 @@ pub struct Address {
 
 impl Address {
     /// Get the address from a [PrivateKey] for a particular [BlockchainId].
-    fn from_pv_chain(pv: &PrivateKey, blockchain: BlockchainId) -> Address {
+    pub fn from_pv_chain(pv: &PrivateKey, blockchain: BlockchainId) -> Address {
         Address {
             hash160: Hash160::from(PublicKey::from(pv)),
             kind: KeyAddressKind::from(blockchain),
@@ -25,7 +25,7 @@ impl Address {
     }
 
     /// Get the address from a [PrivateKey] and [KeyAddressKind].
-    fn from_pv(pv: &PrivateKey, kind: KeyAddressKind) -> Address {
+    pub fn from_pv(pv: &PrivateKey, kind: KeyAddressKind) -> Address {
         Address {
             hash160: Hash160::from(PublicKey::from(pv)),
             kind,

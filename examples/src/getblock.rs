@@ -1,9 +1,6 @@
-use std::thread::sleep;
 use clap::Parser;
-use env_logger::Env;
 use bitcoinsv::bitcoin::BlockchainId::Main;
-use bitcoinsv::bitcoin::FromHex;
-use bitcoinsv::bitcoin::hash::Hash;
+use bitcoinsv::bitcoin::{FromHex, Hash};
 use bitcoinsv::p2p::{P2PManager, P2PManagerConfig};
 
 /// Retrieves a block from the network.

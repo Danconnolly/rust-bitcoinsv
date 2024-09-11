@@ -1,8 +1,7 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
-use crate::bitcoin::hash::Hash;
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size, Hash};
 
 
 /// Inventory payload describing objects a node knows about

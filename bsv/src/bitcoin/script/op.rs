@@ -1,9 +1,7 @@
-use bytes::{Buf, BufMut, Bytes, BytesMut};
+use bytes::{Buf, BufMut, Bytes};
 use log::trace;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite};
 use crate::{BsvError, BsvResult};
 use crate::bitcoin::encoding::Encodable;
-use crate::bitcoin::Operation::{OP_0, OP_1, OP_10, OP_11, OP_12, OP_13, OP_14, OP_15, OP_16, OP_1NEGATE, OP_2, OP_3, OP_4, OP_5, OP_6, OP_7, OP_8, OP_9, OP_FALSE, OP_TRUE};
 use crate::bitcoin::script::byte_seq::ByteSequence;
 
 /// An Operation is an opcode plus relevant data.
@@ -272,6 +270,7 @@ impl Operation {
     ///
     /// We need this because OP_0 and OP_FALSE are equal, as is OP_1 and OP_TRUE.
     pub fn eq_alias(&self, other: &Self) -> bool {
+        use Operation::*;
         match self {
             OP_0 | OP_FALSE => {
                 match other {

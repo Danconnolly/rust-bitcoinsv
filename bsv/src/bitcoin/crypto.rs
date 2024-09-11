@@ -1,5 +1,3 @@
-use std::fmt::Display;
-use std::hash::Hash;
 use secp256k1::Secp256k1;
 use crate::bitcoin::{base58ck, BlockchainId};
 use crate::{BsvError, BsvResult};
@@ -56,10 +54,10 @@ impl PrivateKey {
     pub fn from_wif(wif: &String) -> BsvResult<(PrivateKey, BlockchainId)> {
         let data = base58ck::decode_with_checksum(wif)?;
 
-        let compressed = match data.len() {
+        let _compressed = match data.len() {
             33 => false,
             34 => true,
-            length => {
+            _other => {
                 return Err(BsvError::WifTooLong);
             }
         };

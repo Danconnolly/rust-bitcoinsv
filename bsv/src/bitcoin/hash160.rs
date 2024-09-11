@@ -7,7 +7,7 @@ use ripemd::{Digest, Ripemd160};
 use ripemd::digest::Update;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{AsyncEncodable, Hash};
+use crate::bitcoin::AsyncEncodable;
 use crate::bitcoin::crypto::PublicKey;
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.

@@ -1,7 +1,6 @@
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size};
-use crate::bitcoin::hash::Hash;
+use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size, Hash};
 
 
 /// A block header and partial merkle tree for SPV nodes to validate transactions

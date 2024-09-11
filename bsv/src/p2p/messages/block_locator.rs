@@ -1,8 +1,8 @@
 use std::fmt;
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
-use crate::bitcoin::hash::Hash;
+use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size, Hash};
+
 
 /// Block locator message. This message is used to find a known block in the blockchain.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
