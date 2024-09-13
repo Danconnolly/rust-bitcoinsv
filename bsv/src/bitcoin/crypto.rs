@@ -1,3 +1,4 @@
+use std::str::FromStr;
 use secp256k1::Secp256k1;
 use crate::bitcoin::{base58ck, BlockchainId};
 use crate::{BsvError, BsvResult};
@@ -91,7 +92,10 @@ pub struct PublicKey {
 }
 
 impl PublicKey {
-    /// Constructs compressed ECDSA public key from the provided generic Secp256k1 public key.
+    /// Constructs compressed ECDSA public key from anything that can be converted into a Secp256k1
+    /// public key.
+    ///
+    /// For example, to create from a hex string, `PublicKey::new("6f67988ec4b7bf498c9164d76b52dffdc805ff8c");`
     pub fn new(key: impl Into<secp256k1::PublicKey>) -> PublicKey {
         PublicKey { inner: key.into() }
     }
@@ -121,4 +125,30 @@ impl From<&PrivateKey> for PublicKey {
     }
 }
 
+impl FromStr for PublicKey {
+    type Err = BsvError;
+
+    /// Decode a public key from the hex representation as included in a script and used by
+    /// OP_CHECKSIG (e.g. from a P2PKH output script).
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(PublicKey {
+            inner: secp256k1::PublicKey::from_str(s)?
+        })
+    }
+}
+
+
 // todo: add more tests
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Test decoding a public key from the hex representation within a script.
+    #[test]
+    fn decode_pubkeyfrom_hex() {
+        // from tx d2bb697e3555cb0e4a82f0d4990d1c826eee9f648a5efc598f648bdb524093ff, input 0
+        let hex = "031adba39196c65be0e61c6ddf57b397aa246729f5b639bd5bc9b5c55cf14af107";
+        let r = PublicKey::from_str(hex);
+        assert!(r.is_ok());
+    }
+}

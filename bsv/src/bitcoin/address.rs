@@ -31,6 +31,14 @@ impl Address {
             kind,
         }
     }
+
+    /// Get the address from a [PublicKey] and [KeyAddressKind].
+    pub fn from_pubkey(pubkey: &PublicKey, kind: KeyAddressKind) -> Address {
+        Address {
+            hash160: pubkey.pubkey_hash(),
+            kind,
+        }
+    }
 }
 
 impl Display for Address {
@@ -44,6 +52,7 @@ impl Display for Address {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
     use crate::bitcoin::crypto::{PrivateKey};
     use crate::bitcoin::params::KeyAddressKind;
     use super::*;
@@ -55,5 +64,15 @@ mod tests {
         let addr = Address::from_pv_chain(&pv, n);
         assert_eq!(addr.kind, KeyAddressKind::Main);
         assert_eq!(addr.to_string(), "1C4UbrvcfKKTugSYRD5MKtvqTkrKMwgEHb".to_string());
+    }
+
+    /// Create a public key from a hex literal extracted from a confirmed mainnet tx, then
+    /// check the address representation of the key.
+    #[test]
+    fn create_pubkey_from_hex() {
+        // from tx d2bb697e3555cb0e4a82f0d4990d1c826eee9f648a5efc598f648bdb524093ff input 0
+        let key = PublicKey::from_str("031adba39196c65be0e61c6ddf57b397aa246729f5b639bd5bc9b5c55cf14af107").unwrap();
+        let addr = Address::from_pubkey(&key, KeyAddressKind::Main);
+        assert_eq!(addr.to_string(), "1BA47GLhQZrTtPt21CJ73cY9YSSsCXX7gF".to_string());
     }
 }
