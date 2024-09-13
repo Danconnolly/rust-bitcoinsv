@@ -44,7 +44,7 @@ pub struct P2PManagerConfig {
 }
 
 impl P2PManagerConfig {
-    /// Get default configuration for a particular blockchain.
+    /// Get default [P2PManager] configuration for a particular blockchain.
     pub fn default(chain: BlockchainId) -> Self {
         P2PManagerConfig {
             blockchain: chain,
@@ -61,19 +61,9 @@ impl P2PManagerConfig {
 }
 
 impl Default for P2PManagerConfig {
-    // Default configuration, connects to mainnet, targets 8 peers.
+    /// Default [P2PManager] configuration, connects to mainnet, targets 8 peers.
     fn default() -> Self {
         P2PManagerConfig::default(BlockchainId::Main)
-    }
-}
-
-impl From<&P2PManagerConfig> for ConnectionConfig {
-    fn from(value: &P2PManagerConfig) -> Self {
-        ConnectionConfig {
-            blockchain: value.blockchain,
-            send_control_messages: value.send_control_msgs,
-            ..Default::default()
-        }
     }
 }
 

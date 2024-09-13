@@ -125,6 +125,7 @@ dependencies = [
  "hex",
  "hex-literal",
  "log",
+ "minactor",
  "num",
  "rand",
  "ring",
@@ -464,6 +465,17 @@ name = "memchr"
 version = "2.7.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78ca9ab1a0babb1e7d5695e3530886289c18cf2f87ec19a575a0abdce112e3a3"
+
+[[package]]
+name = "minactor"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d61070407c9e87b36486bc1adfa123bb07c7e2af0fba6c7081bee2eb23077b42"
+dependencies = [
+ "log",
+ "tokio",
+ "trait-variant",
+]
 
 [[package]]
 name = "miniz_oxide"
@@ -892,6 +904,17 @@ dependencies = [
  "futures-core",
  "pin-project-lite",
  "tokio",
+]
+
+[[package]]
+name = "trait-variant"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70977707304198400eb4835a78f6a9f928bf41bba420deb8fdb175cd965d77a7"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

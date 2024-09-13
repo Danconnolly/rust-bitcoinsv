@@ -1,4 +1,4 @@
-/// The bsv.bitcoin module contains the bitcoin types and configuration for Bitcoin SV.
+//! The bsv.bitcoin module contains the bitcoin types and configuration for Bitcoin SV.
 
 mod address;
 mod base58ck;

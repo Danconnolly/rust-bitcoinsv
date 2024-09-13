@@ -7,7 +7,7 @@ use uuid::Uuid;
 use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Main;
 use crate::p2p::peer::PeerAddress;
-use crate::p2p::ACTOR_CHANNEL_SIZE;
+use crate::p2p::{P2PManagerConfig, ACTOR_CHANNEL_SIZE};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::stream::{PeerStream, StreamConfig};
 use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
@@ -50,8 +50,20 @@ impl ConnectionConfig {
 }
 
 impl Default for ConnectionConfig {
+    /// Defaults for the ConnectionConfig.
     fn default() -> Self {
         ConnectionConfig::default_for(Main)
+    }
+}
+
+impl From<&P2PManagerConfig> for ConnectionConfig {
+    /// Enable the ConnectionConfig to be derived from a [P2PManagerConfig].
+    fn from(value: &P2PManagerConfig) -> Self {
+        ConnectionConfig {
+            blockchain: value.blockchain,
+            send_control_messages: value.send_control_msgs,
+            ..Default::default()
+        }
     }
 }
 
