@@ -40,6 +40,8 @@ pub enum BsvError {
     IOError(io::Error),
     /// String conversion error
     Utf8Error(FromUtf8Error),
+    /// Error from minactor
+    MinActorError(minactor::Error),
 }
 
 impl std::fmt::Display for BsvError {
@@ -59,6 +61,7 @@ impl std::fmt::Display for BsvError {
             BsvError::Secp256k1Error(e) => f.write_str(&format!("secpk256k1 error: {:?}", e)),
             BsvError::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             BsvError::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
+            BsvError::MinActorError(e) => f.write_str(&format!("Minactor error: {:?}", e)),     // todo: revert to display when implemented
         }
     }
 }
@@ -80,6 +83,7 @@ impl std::error::Error for BsvError {
             BsvError::Secp256k1Error(_) => "Secp256k1 error",
             BsvError::IOError(_) => "IO error",
             BsvError::Utf8Error(_) => "UTF8 error",
+            BsvError::MinActorError(_) => "Minactor error",
         }
     }
 
@@ -118,4 +122,8 @@ impl From<FromUtf8Error> for BsvError {
 
 impl From<secp256k1::Error> for BsvError {
     fn from(e: secp256k1::Error) -> Self { BsvError::Secp256k1Error(e) }
+}
+
+impl From<minactor::Error> for BsvError {
+    fn from(e: minactor::Error) -> Self { BsvError::MinActorError(e) }
 }
