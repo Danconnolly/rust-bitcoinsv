@@ -18,9 +18,9 @@ async fn main() {
     let args: Args = Args::parse();
     let block_hash = Hash::from_hex(args.hash).unwrap();
     let p2p_mgr_config = P2PManagerConfig::default(Main);
-    let (p2p_manager, mgr_handle) = P2PManager::new(p2p_mgr_config);
+    let (p2p_manager, mgr_handle) = P2PManager::new(p2p_mgr_config).await;
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     p2p_manager.stop().await.expect("couldn't stop p2pmanager");
-    mgr_handle.await.expect("p2pmanager didnt stop");
+    mgr_handle.await.expect("p2pmanager didnt stop").expect("there was an error");
 }
