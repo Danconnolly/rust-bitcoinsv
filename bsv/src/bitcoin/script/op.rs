@@ -16,6 +16,9 @@ pub enum Operation {
     /// Pushes 0 onto the stack, alias for OP_0.
     OP_FALSE,
     /// Pushes data onto the stack where the data must be 1-75 bytes long.
+    ///
+    /// todo: Make this a meta operation for building scripts. When encoded it will put the most
+    /// efficient encoding from all the PUSH ops.
     OP_PUSH(ByteSequence),
     /// The next byte sets the number of bytes to push onto the stack
     OP_PUSHDATA1(ByteSequence),
