@@ -98,7 +98,7 @@ impl Default for P2PManagerConfig {
 /// purposes.
 pub struct P2PManager {
     /// The P2PManager struct is actually a handle to an actor implemented in P2PManagerActor.
-    actor: ActorRef<P2PMgrSendMessage, P2PMgrCallMessage, InternalError>,
+    actor: ActorRef<P2PManagerActor>,
     /// The data channel
     data_channel: P2PMessageChannelSender,
 }
