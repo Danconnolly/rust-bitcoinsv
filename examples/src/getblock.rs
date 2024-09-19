@@ -22,5 +22,5 @@ async fn main() {
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
     p2p_manager.stop().await.expect("couldn't stop p2pmanager");
-    mgr_handle.await.expect("p2pmanager didnt stop").expect("there was an error");
+    mgr_handle.await.expect("p2pmanager didnt stop");
 }
