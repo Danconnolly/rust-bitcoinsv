@@ -3,16 +3,16 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::net::IpAddr;
 use std::sync::Arc;
-use minactor::{create_actor, Actor, ActorRef};
+use minactor::{create_actor, Actor, ActorRef, Control};
 use tokio::task::JoinHandle;
 use crate::{BsvError, BsvResult};
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, ConnectionConfig};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::manager::P2PManagerState::{Paused, Running};
-use crate::p2p::manager::P2PMgrControlMessage::ReplyState;
+use crate::p2p::manager::P2PMgrCallMessage::ReplyState;
 use crate::p2p::peer::PeerAddress;
-
+use crate::result::InternalError;
 
 /// Configuration for the P2PManager.
 #[derive(Debug, Clone)]
@@ -99,7 +99,7 @@ impl Default for P2PManagerConfig {
 /// purposes.
 pub struct P2PManager {
     /// The P2PManager struct is actually a handle to an actor implemented in P2PManagerActor.
-    actor: ActorRef<P2PMgrControlMessage, BsvError>,
+    actor: ActorRef<P2PMgrSendMessage, P2PMgrCallMessage, InternalError>,
     /// The data channel
     data_channel: P2PMessageChannelSender,
 }
@@ -111,7 +111,7 @@ impl P2PManager {
     ///
     /// The join handle should be awaited at termination to ensure that the P2PManager is stopped in a normal fashion.
     pub async fn new(config: P2PManagerConfig)
-                -> (P2PManager, JoinHandle<Result<(), BsvError>>) {
+                -> (P2PManager, JoinHandle<()>) {
         let (data_tx, _data_rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
         let d_tx2 = data_tx.clone();
         let actor = P2PManagerActor::new(config, d_tx2);
@@ -137,20 +137,20 @@ impl P2PManager {
     /// Existing connections continue to be maintained but will not re-connect if disconnected.
     /// Incoming connections will be rejected.
     pub async fn pause(&self) -> BsvResult<()> {
-        self.actor.send(P2PMgrControlMessage::Pause).await?;
+        self.actor.send(P2PMgrSendMessage::Pause).await?;
         Ok(())
     }
 
     /// Resume the paused P2PManager.
     pub async fn resume(&self) -> BsvResult<()> {
-        self.actor.send(P2PMgrControlMessage::Resume).await?;
+        self.actor.send(P2PMgrSendMessage::Resume).await?;
         Ok(())
     }
 
     /// Get the current state of the P2PManager.
     pub async fn get_state(&self) -> BsvResult<P2PManagerState> {
-        let r = self.actor.call(P2PMgrControlMessage::GetState).await?;
-        if let P2PMgrControlMessage::ReplyState(s) = r? {
+        let r = self.actor.call(P2PMgrCallMessage::GetState).await?;
+        if let ReplyState(s) = r? {
             Ok(s)
         } else {
             panic!("should never get here");
@@ -169,11 +169,15 @@ pub enum P2PManagerState {
 
 /// Internal messages that control the P2PManager.
 #[derive(Debug, Clone, PartialEq)]
-enum P2PMgrControlMessage {
+enum P2PMgrSendMessage {
     /// Pause the P2PManager.
     Pause,
     /// Resume the P2PManager after it has been paused.
     Resume,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum P2PMgrCallMessage {
     /// Get the state of the P2PManager.
     GetState,
     /// Reply to GetState call.
@@ -238,10 +242,11 @@ impl P2PManagerActor {
 
 /// The P2PManagerActor is an Actor from minactor.
 impl Actor for P2PManagerActor {
-    type MessageType = P2PMgrControlMessage;
-    type ErrorType = BsvError;
+    type SendMessage = P2PMgrSendMessage;
+    type CallMessage = P2PMgrCallMessage;
+    type ErrorType = InternalError;
 
-    fn on_initialization(&mut self) -> impl Future<Output=Result<(), Self::ErrorType>> + Send { async move {
+    async fn on_initialization(&mut self) -> Control {
         // todo: if config.add_peers then start process to find dns peers
         if self.config.start_paused {
             self.state = Paused;
@@ -252,40 +257,39 @@ impl Actor for P2PManagerActor {
                 self.connect(p).await;
             }
         }
-        Ok(())
-    }}
+        Control::Ok
+    }
 
-    fn handle_sends(&mut self, msg: Self::MessageType) -> impl Future<Output=Result<(), Self::ErrorType>> + Send { async move {
+    async fn handle_sends(&mut self, msg: Self::SendMessage) -> Control {
         match msg {
-            P2PMgrControlMessage::Pause => {
+            P2PMgrSendMessage::Pause => {
                 self.state = Paused;
             },
-            P2PMgrControlMessage::Resume => {
+            P2PMgrSendMessage::Resume => {
                 self.state = Running;
             },
-            _ => { panic!("should never get here"); }
         }
-        Ok(())
-    }}
+        Control::Ok
+    }
 
-    fn handle_calls(&mut self, msg: Self::MessageType) -> impl Future<Output=Result<Self::MessageType, Self::ErrorType>> + Send { async move {
+    async fn handle_calls(&mut self, msg: Self::CallMessage) -> (Control, Result<Self::CallMessage, InternalError>) {
         match msg {
-            P2PMgrControlMessage::GetState => {
-                Ok(ReplyState(self.state.clone()))
+            P2PMgrCallMessage::GetState => {
+                (Control::Ok, Ok(ReplyState(self.state.clone())))
             },
             _ => { panic!("should never get here"); }
         }
-    }}
+    }
 
-    fn on_shutdown(&mut self) -> impl Future<Output=Result<(), Self::ErrorType>> + Send { async {
+    async fn on_shutdown(&mut self) -> Control {
         for (_, (c, j)) in self.connections.drain() {
             c.close().await;
             // todo: remove expect
             j.await.expect("Connection failed");
         }
         self.state = P2PManagerState::Stopped;
-        Ok(())
-    }}
+        Control::Ok
+    }
 }
 
 
@@ -301,6 +305,6 @@ mod tests {
         assert!(s.is_ok());
         assert_eq!(s.unwrap(), Running);
         let _ = h.stop().await;
-        j.await.expect("P2PManager failed").expect("P2P Manager failed again");
+        j.await.expect("P2PManager failed");
     }
 }

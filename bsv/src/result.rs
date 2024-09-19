@@ -1,9 +1,8 @@
+use std::fmt::{Formatter, Pointer};
 use std::io;
 use std::string::FromUtf8Error;
 use base58::FromBase58Error;
 use hex::FromHexError;
-
-// Standard error & result types.
 
 
 /// Standard Result used in the library
@@ -30,6 +29,8 @@ pub enum BsvError {
     DataTooLarge,
     /// Internal error
     Internal(String),
+    /// Internal errors
+    InternalError(InternalError),
     /// Hex string could not be decoded
     FromHexError(FromHexError),
     /// Base58 string could not be decoded
@@ -56,6 +57,7 @@ impl std::fmt::Display for BsvError {
             BsvError::DataTooSmall => f.write_str(&"data too small".to_string()),
             BsvError::DataTooLarge => f.write_str(&"data too large".to_string()),
             BsvError::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
+            BsvError::InternalError(e) => e.fmt(f),
             BsvError::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
             BsvError::FromBase58Error(e) => f.write_str(&format!("Base58 decoding error: {:?}", e)),
             BsvError::Secp256k1Error(e) => f.write_str(&format!("secpk256k1 error: {:?}", e)),
@@ -66,33 +68,9 @@ impl std::fmt::Display for BsvError {
     }
 }
 
-impl std::error::Error for BsvError {
-    fn description(&self) -> &str {
-        match self {
-            BsvError::BadArgument(_) => "Bad argument",
-            BsvError::BadData(_) => "Bad data",
-            BsvError::ChecksumMismatch => "Checksum mismatch",
-            BsvError::WifTooLong => "WIF too long",
-            BsvError::InvalidBlockchainSpecifier => "Unknown blockchain",
-            BsvError::UnrecognizedOpCode => "Unrecognized opcode",
-            BsvError::DataTooSmall => "Data too small",
-            BsvError::DataTooLarge => "Data too large",
-            BsvError::Internal(_) => "Internal error",
-            BsvError::FromHexError(_) => "Hex decoding error",
-            BsvError::FromBase58Error(_) => "Base58 decoding error",
-            BsvError::Secp256k1Error(_) => "Secp256k1 error",
-            BsvError::IOError(_) => "IO error",
-            BsvError::Utf8Error(_) => "UTF8 error",
-            BsvError::MinActorError(_) => "Minactor error",
-        }
-    }
-
-    fn cause(&self) -> Option<&dyn std::error::Error> {
-        match self {
-            BsvError::FromHexError(e) => Some(e),
-            BsvError::IOError(e) => Some(e),
-            _ => None,
-        }
+impl From<InternalError> for BsvError {
+    fn from(value: InternalError) -> Self {
+        BsvError::InternalError(value)
     }
 }
 
@@ -126,4 +104,23 @@ impl From<secp256k1::Error> for BsvError {
 
 impl From<minactor::Error> for BsvError {
     fn from(e: minactor::Error) -> Self { BsvError::MinActorError(e) }
+}
+
+
+/// These are errors that are used internally within the library.
+///
+/// This is needed to enable Clone for minactor.
+#[derive(Debug, Clone)]
+pub(crate) enum InternalError {
+    Dummy,
+}
+
+
+impl std::fmt::Display for InternalError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        use InternalError::*;
+        match self {
+            Dummy => f.write_str(&"Dummy".to_string()),
+        }
+    }
 }
