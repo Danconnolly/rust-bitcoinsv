@@ -1,6 +1,6 @@
 use std::cmp::max;
-use bytes::{Buf, Bytes, BufMut};
-use crate::bitcoin::{ByteSequence, Encodable, Operation, Script};
+use bytes::Bytes;
+use crate::bitcoin::{Encodable, Operation, Script};
 use crate::BsvResult;
 
 /// ScriptBuilder can be used to build [Script]s.

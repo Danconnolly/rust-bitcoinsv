@@ -1,11 +1,10 @@
 use crate::bitcoin::BlockchainId;
 use std::collections::HashMap;
-use std::future::Future;
 use std::net::IpAddr;
 use std::sync::Arc;
 use minactor::{create_actor, Actor, ActorRef, Control};
 use tokio::task::JoinHandle;
-use crate::{BsvError, BsvResult};
+use crate::BsvResult;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, ConnectionConfig};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
