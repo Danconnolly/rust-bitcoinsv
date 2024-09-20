@@ -1,4 +1,3 @@
-use std::future::Future;
 use std::sync::Arc;
 use futures::SinkExt;
 use log::{info, trace, warn};
@@ -9,12 +8,12 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
 use crate::BsvResult;
-use crate::p2p::{ACTOR_CHANNEL_SIZE, PeerAddress};
 use crate::p2p::connection::ConnectionConfig;
 use crate::p2p::envelope::{P2PEnvelope, P2PMessageChannelSender};
 use crate::p2p::messages::{P2PMessage, Ping, Version, P2PMessageType};
 use crate::p2p::messages::Protoconf;
 use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, NetworkParams, PROTOCOL_VERSION};
+use crate::p2p::PeerAddress;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
@@ -120,7 +119,7 @@ pub enum ChannelState {
     Handshaking,
     /// connection fully established
     Connected,
-    /// waiting for a retry
+    /// connection is closed, waiting for a retry   // todo
     WaitForRetry,
     /// Connection has been closed
     Closed,
@@ -136,16 +135,10 @@ struct PeerChannelActor {
     config: Arc<RwLock<ChannelConfig>>,
     /// P2P Data messages are sent to this tokio channel
     data_channel: P2PMessageChannelSender,
-    /// Writer task receiver of messages to send.
-    writer_rx: Option<Receiver<P2PMessage>>,
     /// Sender to writer task of messages to send.
-    writer_tx: Sender<P2PMessage>,
+    writer_tx: Option<Sender<P2PMessage>>,
     /// Handle to writer task.
     writer_handle: Option<JoinHandle<()>>,
-    /// Receiver of P2P messages from reader task.
-    reader_rx: Receiver<Arc<P2PEnvelope>>,
-    /// Reader task sender of P2P messages read.
-    reader_tx: Sender<Arc<P2PEnvelope>>,
     /// Handle to reader task.
     reader_handle: Option<JoinHandle<()>>,
     /// true if we have received a version message
@@ -161,13 +154,10 @@ struct PeerChannelActor {
 impl PeerChannelActor {
     /// Initialize a new [PeerChannelActor] struct, ready to be created as an actor.
     fn new(peer_address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> Self {
-        // prepare the tokio channels, we will need these later
-        let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
-        let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         PeerChannelActor {
             peer: peer_address, stream_state: ChannelState::Starting, config,
-            data_channel, writer_rx: Some(writer_rx), writer_tx, writer_handle: None,
-            reader_rx, reader_tx, reader_handle: None,
+            data_channel, writer_tx: None, writer_handle: None,
+            reader_handle: None,
             version_received: false,
             verack_received: false,
             send_headers: false,
@@ -246,8 +236,11 @@ impl PeerChannelActor {
 
     /// Send a message to the peer.
     async fn send_msg(&mut self, msg: P2PMessage) {
-        // todo: handle errors
-        let _ = self.writer_tx.send(msg).await;
+        if let Some(writer_tx) = &mut self.writer_tx {
+            if writer_tx.send(msg).await.is_err() {
+                // todo: Handle send error
+            }
+        }
     }
 
     /// Send initial configuration messages after the handshake.
@@ -335,15 +328,15 @@ impl Actor for PeerChannelActor {
         let r_handle = {
             // start the reader task
             let cfg = self.config.clone();
-            let r_tx = self.reader_tx.clone();
             tokio::spawn(async move { PeerChannelActor::reader(self_ref, reader, cfg).await })
         };
         self.reader_handle = Some(r_handle);
+        let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
+        self.writer_tx = Some(writer_tx);
         let w_handle = {
             // start the writer task
             let cfg = self.config.clone();
-            let w_rx = self.writer_rx.take().unwrap();
-            tokio::spawn(async move { PeerChannelActor::writer(w_rx, writer, cfg).await })
+            tokio::spawn(async move { PeerChannelActor::writer(writer_rx, writer, cfg).await })
         };
         self.writer_handle = Some(w_handle);
         self.stream_state = ChannelState::Handshaking;
