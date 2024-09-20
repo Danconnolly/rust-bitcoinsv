@@ -26,7 +26,7 @@ impl P2PEnvelope {
             message,
             peer_id: config.peer_id.clone(),
             connection_id: config.connection_id.clone(),
-            stream_id: config.stream_id,
+            stream_id: config.channel_id,
             received_time: epoch_millis(),
         }
     }

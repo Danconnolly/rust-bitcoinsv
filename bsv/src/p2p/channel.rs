@@ -20,28 +20,28 @@ pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
 // todo: implement support for protoconf, including inv limits
 
-/// StreamConfig is the context for the communication across a single stream.
+/// ChannelConfig is the context for the communication across a single channel.
 ///
-/// These parameters are used throughout the P2P protocol to determine message
-/// limits and other communication patterns.
+/// These parameters are used throughout the P2P protocol to determine message limits and other
+/// communication patterns.
 ///
-/// It can be derived from the ConnectionConfig but is specific to a single stream. Most of the parameters
-/// are static and do not change during the lifetime of the stream, but there are a couple that are determined
-/// during the extended handshake and will need to be updated.
+/// It can be derived from the [ConnectionConfig] but is specific to a single stream. Most of the
+/// parameters are static and do not change during the lifetime of the stream, but there are a couple
+/// that are determined during the extended handshake and will need to be updated.
 ///
-/// It is expected that this struct will be a single instance that is potentially shared by several threads (for
-/// example a reader and writer thread).
+/// It is expected that this struct will be a single instance that is potentially shared by several
+/// threads (for example a reader and writer thread).
 ///
-/// At the moment this is used by obtaining a clone using a read lock before every read and write but this is
-/// inefficient and should be changed to a more efficient method.
+/// At the moment this is used by obtaining a clone using a read lock before every read and write but
+/// this is inefficient and should be changed to a more efficient method. todo
 #[derive(Debug, Clone)]
 pub struct ChannelConfig {
     /// The identifier of the peer being connected to.
     pub peer_id: Uuid,
     /// The identifier of the connection.
     pub connection_id: Uuid,
-    /// The identifier of the stream.
-    pub stream_id: u16,
+    /// The identifier of the channel.
+    pub channel_id: u16,
     /// Send control messages to data channel?
     pub send_control_messages: bool,
     /// The magic bytes used in the message header.
@@ -60,7 +60,7 @@ impl ChannelConfig {
     pub fn new(config: &ConnectionConfig, peer_id: &Uuid, connection_id: &Uuid) -> ChannelConfig {
         let np = NetworkParams::from(config.blockchain);
         ChannelConfig {
-            peer_id: peer_id.clone(), connection_id: connection_id.clone(), stream_id: 0,
+            peer_id: peer_id.clone(), connection_id: connection_id.clone(), channel_id: 0,
             send_control_messages: config.send_control_messages, magic: np.magic.clone(),
             max_recv_payload_size: config.max_recv_payload_size,
             max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
@@ -77,19 +77,19 @@ impl Default for ChannelConfig {
     }
 }
 
-/// A PeerStream is a single TCP connection to a peer.
+/// A PeerChannel is a single TCP connection to a peer.
 ///
-/// The PeerStream only handles sending and receiving messages. The higher level Connection
+/// The PeerChannel only handles sending and receiving messages. The higher level [Connection]
 /// handles either dealing with the messages or handing the message off.
 ///
-/// A peer stream is complete in the sense that it can send and receive any type of message. The
-/// higher-level Connection is responsible for prioritizing messages between different peer streams.
+/// A PeerChannel is complete in the sense that it can send and receive any type of message. The
+/// higher-level [Connection] is responsible for prioritizing messages between different channels.
 pub struct PeerChannel {
     actor_ref: ActorRef<PeerChannelActor>,
 }
 
 impl PeerChannel {
-    /// Create a new stream to a peer.
+    /// Create a new channel to a peer.
     pub async fn new(address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> BsvResult<(Self, JoinHandle<()>)> {
         let actor = PeerChannelActor::new(address, config, data_channel);
         let (a_ref, j) = create_actor(actor).await?;
@@ -102,15 +102,17 @@ impl PeerChannel {
 }
 
 #[derive(Debug, Clone)]
+/// Messages for communicating with the [PeerChannelActor].
 pub enum ChannelControlMessage {
-    /// The message has been received from the peer.
+    /// A message has been received from the peer. This is used internally and is sent from
+    /// a reader task to the PeerChannelActor.
     PeerMsgReceived(Arc<P2PEnvelope>),
 }
 
-/// The state of the stream.
+/// The state of the channel.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum ChannelState {
-    /// the stream is starting up
+    /// the channel is starting up
     Starting,
     /// establishing TCP connection
     Connecting,
@@ -124,26 +126,27 @@ pub enum ChannelState {
     Closed,
 }
 
-/// The stream actor.
+/// The channel actor. This does the work of establishing the TCP connection and translation
+/// to and from internal structures to the P2P binary protocol.
 struct PeerChannelActor {
-    /// current state of the stream
+    /// current state of the channel
     stream_state: ChannelState,
     peer: PeerAddress,
-    /// the active configuration for the stream
+    /// the active configuration for the channel
     config: Arc<RwLock<ChannelConfig>>,
-    /// P2P Data messages are sent on this channel
+    /// P2P Data messages are sent to this tokio channel
     data_channel: P2PMessageChannelSender,
-    /// Writer task receiver of messages to send
+    /// Writer task receiver of messages to send.
     writer_rx: Option<Receiver<P2PMessage>>,
-    /// Sender to writer task of messages to send
+    /// Sender to writer task of messages to send.
     writer_tx: Sender<P2PMessage>,
-    /// Handle to writer task
+    /// Handle to writer task.
     writer_handle: Option<JoinHandle<()>>,
-    /// Receiver of P2P messages from reader task
+    /// Receiver of P2P messages from reader task.
     reader_rx: Receiver<Arc<P2PEnvelope>>,
-    /// Reader task sender of P2P messages read
+    /// Reader task sender of P2P messages read.
     reader_tx: Sender<Arc<P2PEnvelope>>,
-    /// Handle to reader task
+    /// Handle to reader task.
     reader_handle: Option<JoinHandle<()>>,
     /// true if we have received a version message
     version_received: bool,
@@ -156,9 +159,9 @@ struct PeerChannelActor {
 }
 
 impl PeerChannelActor {
-    /// Initialize a new PeerStreamActor struct, ready to be created as an actor.
+    /// Initialize a new [PeerChannelActor] struct, ready to be created as an actor.
     fn new(peer_address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> Self {
-        // prepare the channels, we will need these later
+        // prepare the tokio channels, we will need these later
         let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         PeerChannelActor {
@@ -172,7 +175,7 @@ impl PeerChannelActor {
         }
     }
 
-    /// Handle the received P2P Envelope
+    /// Handle the received P2P Envelope.
     async fn handle_received(&mut self, envelope: Arc<P2PEnvelope>) {
         let msg = &envelope.message;
         match self.stream_state {
