@@ -245,7 +245,7 @@ impl Actor for P2PManagerActor {
     type CallMessage = P2PMgrCallMessage;
     type ErrorType = InternalError;
 
-    async fn on_initialization(&mut self) -> Control {
+    async fn on_initialization(&mut self, _self_ref: ActorRef<Self>) -> Control {
         // todo: if config.add_peers then start process to find dns peers
         if self.config.start_paused {
             self.state = Paused;

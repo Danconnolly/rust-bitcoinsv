@@ -1,4 +1,4 @@
-use std::fmt::{Formatter, Pointer};
+use std::fmt::Formatter;
 use std::io;
 use std::string::FromUtf8Error;
 use base58::FromBase58Error;

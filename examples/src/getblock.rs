@@ -1,26 +1,38 @@
+use std::sync::Arc;
 use clap::Parser;
+use env_logger::Env;
 use bitcoinsv::bitcoin::BlockchainId::Main;
-use bitcoinsv::bitcoin::{FromHex, Hash};
-use bitcoinsv::p2p::{P2PManager, P2PManagerConfig};
+use bitcoinsv::bitcoin::{BlockchainId, FromHex, Hash};
+use bitcoinsv::p2p::{Connection, ConnectionConfig, P2PManager, P2PManagerConfig, PeerAddress};
 
 /// Retrieves a block from the network.
+///
+/// THIS DOES NOT WORK YET
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// The hash of the block to retrieve.
+    /// The ip address of the peer to connect to.
     #[clap(index=1)]
+    ip: String,
+    /// The port of the peer to connect to.
+    #[clap(long, default_value = "8333")]
+    port: u16,
+    /// The hash of the block to retrieve.
+    #[clap(index=2)]
     hash: String,
 }
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
+    env_logger::Builder::from_env(Env::default().default_filter_or("info")).init();
     let args: Args = Args::parse();
+    let peer = PeerAddress::new(format!("{}:{}", args.ip, args.port).parse().unwrap());
     let block_hash = Hash::from_hex(args.hash).unwrap();
-    let p2p_mgr_config = P2PManagerConfig::default(Main);
-    let (p2p_manager, mgr_handle) = P2PManager::new(p2p_mgr_config).await;
+    let config = Arc::new(ConnectionConfig::default_for(BlockchainId::Main));
+    let (c, handle) = Connection::new(peer, config, None);
 
     tokio::time::sleep(std::time::Duration::from_secs(5)).await;
-    p2p_manager.stop().await.expect("couldn't stop p2pmanager");
-    mgr_handle.await.expect("p2pmanager didnt stop");
+
+    c.close().await;
+    handle.await.unwrap();
 }

@@ -170,7 +170,7 @@ impl ConnectionActor {
                  config: Arc<ConnectionConfig>, data_channel: P2PMessageChannelSender) {
         // make the first stream
         let stream_config = Arc::new(RwLock::new(StreamConfig::new(&config, &peer_address.peer_id, &connection_id)));
-        let (stream, join_handle) = PeerStream::new(peer_address.clone(), stream_config.clone(), data_channel.clone());
+        let (stream, join_handle) = PeerStream::new(peer_address.clone(), stream_config.clone(), data_channel.clone()).await.unwrap();  // todo: remove unwrap
         // make the actor
         let mut actor = ConnectionActor {
             inbox, connection_id, config, data_channel, attempts: 0, primary_stream: stream, primary_join: Some(join_handle),

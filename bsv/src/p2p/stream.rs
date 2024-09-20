@@ -1,10 +1,14 @@
+use std::future::Future;
 use std::sync::Arc;
+use futures::SinkExt;
 use log::{info, trace, warn};
+use minactor::{create_actor, Actor, ActorRef, Control};
 use tokio::net::TcpStream;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use uuid::Uuid;
+use crate::BsvResult;
 use crate::p2p::{ACTOR_CHANNEL_SIZE, PeerAddress};
 use crate::p2p::connection::ConnectionConfig;
 use crate::p2p::envelope::{P2PEnvelope, P2PMessageChannelSender};
@@ -81,111 +85,94 @@ impl Default for StreamConfig {
 /// A peer stream is complete in the sense that it can send and receive any type of message. The
 /// higher-level Connection is responsible for prioritizing messages between different peer streams.
 pub struct PeerStream {
-    sender: Sender<StreamControlMessage>,
+    actor_ref: ActorRef<PeerStreamActor>,
 }
 
 impl PeerStream {
-    pub fn new(address: PeerAddress, config: Arc<RwLock<StreamConfig>>, data_channel: P2PMessageChannelSender) -> (Self, JoinHandle<()>) {
-        let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
-        let j = tokio::spawn(async move { PeerStreamActor::new(rx, address, config, data_channel).await });
-        (PeerStream { sender: tx }, j)
+    /// Create a new stream to a peer.
+    pub async fn new(address: PeerAddress, config: Arc<RwLock<StreamConfig>>, data_channel: P2PMessageChannelSender) -> BsvResult<(Self, JoinHandle<()>)> {
+        let actor = PeerStreamActor::new(address, config, data_channel);
+        let (a_ref, j) = create_actor(actor).await?;
+        Ok((PeerStream { actor_ref: a_ref }, j))
     }
 
     pub async fn close(&self) {
-        self.sender.send(StreamControlMessage::Close).await.unwrap();
+        // todo: remove?
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum StreamControlMessage {
-    Close,
+    /// The message has been received from the peer.
+    PeerMsgReceived(Arc<P2PEnvelope>),
 }
 
 /// The state of the stream.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum StreamState {
-    Starting,           // the stream is starting up
-    Connecting,         // establishing TCP connection
-    Handshaking,        // performing Bitcoin handshake
-    Connected,          // connection fully established
-    WaitForRetry,       // waiting for a retry
+    /// the stream is starting up
+    Starting,
+    /// establishing TCP connection
+    Connecting,
+    /// performing Bitcoin handshake
+    Handshaking,
+    /// connection fully established
+    Connected,
+    /// waiting for a retry
+    WaitForRetry,
+    /// Connection has been closed
+    Closed,
 }
 
 /// The stream actor.
 struct PeerStreamActor {
-    inbox: Receiver<StreamControlMessage>,             // control of the stream
-    stream_state: StreamState,                        // current state of the stream
+    /// current state of the stream
+    stream_state: StreamState,
     peer: PeerAddress,
-    config: Arc<RwLock<StreamConfig>>,                   // the active configuration for the stream
-    data_channel: P2PMessageChannelSender,              // P2P Data messages are sent on this channel
+    /// the active configuration for the stream
+    config: Arc<RwLock<StreamConfig>>,
+    /// P2P Data messages are sent on this channel
+    data_channel: P2PMessageChannelSender,
+    /// Writer task receiver of messages to send
     writer_rx: Option<Receiver<P2PMessage>>,
+    /// Sender to writer task of messages to send
     writer_tx: Sender<P2PMessage>,
+    /// Handle to writer task
+    writer_handle: Option<JoinHandle<()>>,
+    /// Receiver of P2P messages from reader task
     reader_rx: Receiver<Arc<P2PEnvelope>>,
+    /// Reader task sender of P2P messages read
     reader_tx: Sender<Arc<P2PEnvelope>>,
-    version_received: bool,                             // true if we have received a version message
-    verack_received: bool,                              // true if we have received a verack message in response to our version
-    send_headers: bool,                                 // has peer requested we send headers
-    relay_tx: bool,                                     // has peer requested we relay transactions
+    /// Handle to reader task
+    reader_handle: Option<JoinHandle<()>>,
+    /// true if we have received a version message
+    version_received: bool,
+    /// true if we have received a verack message in response to our version
+    verack_received: bool,
+    /// has peer requested we send headers?
+    send_headers: bool,
+    /// has peer requested we relay transactions?
+    relay_tx: bool,
 }
 
 impl PeerStreamActor {
-    async fn new(receiver: Receiver<StreamControlMessage>, peer_address: PeerAddress, config: Arc<RwLock<StreamConfig>>,
-                 data_channel: P2PMessageChannelSender) {
+    /// Initialize a new PeerStreamActor struct, ready to be created as an actor.
+    fn new(peer_address: PeerAddress, config: Arc<RwLock<StreamConfig>>, data_channel: P2PMessageChannelSender) -> Self {
         // prepare the channels, we will need these later
         let (reader_tx, reader_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
         let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
-        let mut p = PeerStreamActor {
-            inbox: receiver, peer: peer_address, stream_state: StreamState::Starting, config,
-            data_channel, writer_rx: Some(writer_rx), writer_tx, reader_rx, reader_tx,
+        PeerStreamActor {
+            peer: peer_address, stream_state: StreamState::Starting, config,
+            data_channel, writer_rx: Some(writer_rx), writer_tx, writer_handle: None,
+            reader_rx, reader_tx, reader_handle: None,
             version_received: false,
             verack_received: false,
             send_headers: false,
             relay_tx: true,         // default is true, the peer can request not to relay tx
-        };
-        p.main().await;
-    }
-
-    async fn main(&mut self) {
-        trace!("PeerStreamActor started.");
-        self.stream_state = StreamState::Connecting;
-        // todo: failure & retry logic
-        let stream = TcpStream::connect(self.peer.address).await.unwrap();
-        trace!("PeerChannelActor connected to {:?}", self.peer);
-        let (reader, writer) = stream.into_split();
-        let _r_handle = {
-            // start the reader task
-            let cfg = self.config.clone();
-            let r_tx = self.reader_tx.clone();
-            tokio::spawn(async move { PeerStreamActor::reader(r_tx, reader, cfg).await })
-        };
-        let _w_handle = {
-            // start the writer task
-            let cfg = self.config.clone();
-            let w_rx = self.writer_rx.take().unwrap();
-            tokio::spawn(async move { PeerStreamActor::writer(w_rx, writer, cfg).await })
-        };
-        self.stream_state = StreamState::Handshaking;
-        // we send our version straightaway
-        let v = Version::default();
-        let v_msg = P2PMessage::Version(v);
-        self.send_msg(v_msg).await;
-        // the main loop
-        loop {
-            tokio::select! {
-                Some(msg) = self.reader_rx.recv() => {
-                    self.handle_received(msg.clone()).await;
-                },
-                Some(msg) = self.inbox.recv() => {
-                    match msg {
-                        StreamControlMessage::Close => {
-                            break;
-                        },
-                    }
-                }
-            }
         }
     }
 
-    /// Handle the received P2P Message
+    /// Handle the received P2P Envelope
     async fn handle_received(&mut self, envelope: Arc<P2PEnvelope>) {
         let msg = &envelope.message;
         match self.stream_state {
@@ -252,14 +239,16 @@ impl PeerStreamActor {
         }
     }
 
-    // Send a message to the peer
+    /// Send a message to the peer
     async fn send_msg(&mut self, msg: P2PMessage) {
+        // todo: handle errors
         let _ = self.writer_tx.send(msg).await;
     }
 
-    // The writer task. It continually reads from the channel and writes to the socket.
-    // It has not state, it just reads and writes what it is given. In particular, it does not check the message
-    // size.
+    /// The writer task. It reads [P2PMessage]s from the channel and writes them the socket.
+    /// It has no state, it just reads and writes what it is given. In particular, it does not check
+    /// the message size.
+    /// This task is spawned by on_initialization().
     async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf, shared_config: Arc<RwLock<StreamConfig>>) {
         trace!("writer task started.");
         loop {
@@ -280,24 +269,31 @@ impl PeerStreamActor {
         }
     }
 
-    // The reader task. It continually reads from the socket and writes to the channel.
-    // It has no state or intelligence, it just reads and writes.
-    async fn reader(tx: Sender<Arc<P2PEnvelope>>, mut reader: tokio::net::tcp::OwnedReadHalf, shared_config: Arc<RwLock<StreamConfig>>) {
+    /// The reader task.
+    ///
+    /// It has no state or intelligence, it just reads messages from the socket and sends them
+    /// to the actor as a [StreamControlMessage::PeerMsgReceived].
+    ///
+    /// This task is spawned by on_initialization().
+    async fn reader(actor: ActorRef<PeerStreamActor>, mut reader: tokio::net::tcp::OwnedReadHalf,
+                    config: Arc<RwLock<StreamConfig>>) {
         trace!("reader task started.");
         loop {
-            let config = shared_config.read().await.clone();
+            // todo: do we really need to clone it? doesnt that defeat the point?
+            let config = config.read().await.clone();
             match P2PMessage::read(&mut reader, &config).await {
                 Ok(msg) => {
                     let envelope = P2PEnvelope::new(msg, &config);
-                    match tx.send(Arc::new(envelope)).await {
+                    match actor.send(StreamControlMessage::PeerMsgReceived(Arc::new(envelope))).await {
                         Ok(_) => {}
                         Err(e) => {
-                            warn!("channel reader: error sending message to tokio channel, error: {}", e);
+                            warn!("stream reader: error sending message to actor, error: {:?}", e);
+                            break;
                         }
                     }
                 }
                 Err(e) => {
-                    warn!("channel reader: error reading message from peer, error: {}", e);
+                    warn!("stream reader: error reading message from peer, error: {}", e);
                     break;
                 }
             }
@@ -305,6 +301,7 @@ impl PeerStreamActor {
     }
 
     // Send initial configuration messages after the handshake
+    // todo: remove?
     async fn send_config(&mut self) {
         // maybe send the protoconf message
         let max_recv_payload_size = self.config.read().await.max_recv_payload_size;
@@ -315,8 +312,59 @@ impl PeerStreamActor {
         }
         self.send_msg(P2PMessage::SendHeaders).await;
     }
-
 }
+
+impl Actor for PeerStreamActor {
+    type SendMessage = StreamControlMessage;
+    type CallMessage = ();
+    type ErrorType = ();
+
+    /// Called to initialize the actor.
+    async fn on_initialization(&mut self, self_ref: ActorRef<Self>) -> Control {
+        trace!("PeerStreamActor started.");
+        self.stream_state = StreamState::Connecting;
+        // todo: failure & retry logic
+        let stream = TcpStream::connect(self.peer.address).await.unwrap();
+        trace!("PeerChannelActor connected to {:?}", self.peer);
+        let (reader, writer) = stream.into_split();
+        let r_handle = {
+            // start the reader task
+            let cfg = self.config.clone();
+            let r_tx = self.reader_tx.clone();
+            tokio::spawn(async move { PeerStreamActor::reader(self_ref, reader, cfg).await })
+        };
+        self.reader_handle = Some(r_handle);
+        let w_handle = {
+            // start the writer task
+            let cfg = self.config.clone();
+            let w_rx = self.writer_rx.take().unwrap();
+            tokio::spawn(async move { PeerStreamActor::writer(w_rx, writer, cfg).await })
+        };
+        self.writer_handle = Some(w_handle);
+        self.stream_state = StreamState::Handshaking;
+        // we send our version straightaway
+        let v = Version::default();
+        let v_msg = P2PMessage::Version(v);
+        self.send_msg(v_msg).await;
+        Control::Ok
+    }
+
+    async fn handle_sends(&mut self, msg: Self::SendMessage) -> Control {
+        use StreamControlMessage::*;
+        match msg {
+            PeerMsgReceived(envelope) => {
+                self.handle_received(envelope).await;
+                Control::Ok
+            }
+        }
+    }
+
+    async fn on_shutdown(&mut self) -> Control {
+        // todo: add cancellation token for reader and writer and shut them down properly
+        Control::Ok
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
