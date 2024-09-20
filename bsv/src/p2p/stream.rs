@@ -198,6 +198,7 @@ impl PeerStreamActor {
                 if self.version_received && self.verack_received {
                     info!("connected to peer: {}", self.peer.peer_id);
                     self.stream_state = StreamState::Connected;
+                    // todo: some sort of notification to owner?
                     self.send_config().await;
                 }
             },
@@ -205,8 +206,9 @@ impl PeerStreamActor {
                 trace!("connected state msg received: {:?}", msg);
                 match P2PMessageType::from(msg) {
                     P2PMessageType::Data => {
+                        // todo: errors?
                         let _ = self.data_channel.send(envelope);
-                    }
+                    },
                     P2PMessageType::ConnectionControl => {
                         match msg {
                             P2PMessage::Protoconf(p) => {
@@ -239,10 +241,23 @@ impl PeerStreamActor {
         }
     }
 
-    /// Send a message to the peer
+    /// Send a message to the peer.
     async fn send_msg(&mut self, msg: P2PMessage) {
         // todo: handle errors
         let _ = self.writer_tx.send(msg).await;
+    }
+
+    /// Send initial configuration messages after the handshake.
+    async fn send_config(&mut self) {
+        // send the protoconf message if necessary
+        let max_recv_payload_size = self.config.read().await.max_recv_payload_size;
+        if max_recv_payload_size > DEFAULT_MAX_PAYLOAD_SIZE && max_recv_payload_size <= u32::MAX as u64 {
+            let protoconf = Protoconf::new(max_recv_payload_size as u32);
+            let protoconf_msg = P2PMessage::Protoconf(protoconf);
+            self.send_msg(protoconf_msg).await;
+        }
+        // always send SendHeaders
+        self.send_msg(P2PMessage::SendHeaders).await;
     }
 
     /// The writer task. It reads [P2PMessage]s from the channel and writes them the socket.
@@ -298,19 +313,6 @@ impl PeerStreamActor {
                 }
             }
         }
-    }
-
-    // Send initial configuration messages after the handshake
-    // todo: remove?
-    async fn send_config(&mut self) {
-        // maybe send the protoconf message
-        let max_recv_payload_size = self.config.read().await.max_recv_payload_size;
-        if max_recv_payload_size > DEFAULT_MAX_PAYLOAD_SIZE && max_recv_payload_size <= u32::MAX as u64 {
-            let protoconf = Protoconf::new(max_recv_payload_size as u32);
-            let protoconf_msg = P2PMessage::Protoconf(protoconf);
-            self.send_msg(protoconf_msg).await;
-        }
-        self.send_msg(P2PMessage::SendHeaders).await;
     }
 }
 
