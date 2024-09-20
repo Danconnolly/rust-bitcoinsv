@@ -9,7 +9,7 @@ use crate::bitcoin::BlockchainId::Main;
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::{P2PManagerConfig, ACTOR_CHANNEL_SIZE};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
-use crate::p2p::stream::{PeerStream, StreamConfig};
+use crate::p2p::channel::{PeerChannel, ChannelConfig};
 use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
 
 
@@ -154,11 +154,11 @@ struct ConnectionActor {
     // number of attempts to connect
     attempts: u8,
     // the primary communication stream
-    primary_stream: PeerStream,
+    primary_stream: PeerChannel,
     // the join handle for the primary channel
     primary_join: Option<JoinHandle<()>>,
     // the configuration of the primary stream
-    primary_config: Arc<RwLock<StreamConfig>>,
+    primary_config: Arc<RwLock<ChannelConfig>>,
     // the peer
     peer_address: PeerAddress,
     // whether the connection is paused, default false
@@ -169,8 +169,8 @@ impl ConnectionActor {
     async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, connection_id: Uuid,
                  config: Arc<ConnectionConfig>, data_channel: P2PMessageChannelSender) {
         // make the first stream
-        let stream_config = Arc::new(RwLock::new(StreamConfig::new(&config, &peer_address.peer_id, &connection_id)));
-        let (stream, join_handle) = PeerStream::new(peer_address.clone(), stream_config.clone(), data_channel.clone()).await.unwrap();  // todo: remove unwrap
+        let stream_config = Arc::new(RwLock::new(ChannelConfig::new(&config, &peer_address.peer_id, &connection_id)));
+        let (stream, join_handle) = PeerChannel::new(peer_address.clone(), stream_config.clone(), data_channel.clone()).await.unwrap();  // todo: remove unwrap
         // make the actor
         let mut actor = ConnectionActor {
             inbox, connection_id, config, data_channel, attempts: 0, primary_stream: stream, primary_join: Some(join_handle),

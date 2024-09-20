@@ -9,7 +9,7 @@ mod manager;
 mod messages;
 mod params;
 mod peer;
-mod stream;
+mod channel;
 
 
 pub use self::connection::{Connection, ConnectionConfig, ConnectionControlMessage};

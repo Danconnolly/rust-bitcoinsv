@@ -19,7 +19,7 @@ use crate::p2p::messages::inv::Inv;
 use crate::p2p::messages::merkle_block::MerkleBlock;
 use crate::p2p::messages::reject::Reject;
 use crate::p2p::messages::send_cmpct::SendCmpct;
-use crate::p2p::stream::StreamConfig;
+use crate::p2p::channel::ChannelConfig;
 
 // based on code imported from rust-sv but substantially modified
 
@@ -174,7 +174,7 @@ pub enum P2PMessage {
 
 impl P2PMessage {
     /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &StreamConfig) -> BsvResult<Self> {
+    pub async fn read<R: AsyncRead + Unpin + Send>(reader: &mut R, comms_config: &ChannelConfig) -> BsvResult<Self> {
         let header = P2PMessageHeader::async_from_binary(reader).await?;
         trace!("P2PMessage::read() - header: {:?}", header);
         header.validate(&comms_config)?;
@@ -224,7 +224,7 @@ impl P2PMessage {
     }
 
     /// Writes a Bitcoin P2P message with its payload to bytes
-    pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &StreamConfig) -> BsvResult<()> {
+    pub async fn write<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, config: &ChannelConfig) -> BsvResult<()> {
         match self {
             P2PMessage::Addr(p) => self.write_with_payload(writer, ADDR, config, p).await,
             P2PMessage::Block(p) => self.write_with_payload(writer, BLOCK, config, p).await,
@@ -281,7 +281,7 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that does not have a payload
-    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, command: [u8; 12], config: &StreamConfig) -> BsvResult<()> {
+    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W, command: [u8; 12], config: &ChannelConfig) -> BsvResult<()> {
         let header = P2PMessageHeader {
             magic: config.magic,
             command,
@@ -294,7 +294,7 @@ impl P2PMessage {
     }
 
     /// Write a P2P message that has a payload
-    async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], config: &StreamConfig, payload: &X) -> BsvResult<()>
+    async fn write_with_payload<W, X>(&self, writer: &mut W, command: [u8; 12], config: &ChannelConfig, payload: &X) -> BsvResult<()>
         where W: AsyncWrite + Unpin + Send,
             X: AsyncEncodable,
     {
@@ -486,7 +486,7 @@ mod tests {
     #[tokio::test]
     async fn write_read() {
         let magic = [7, 8, 9, 0];
-        let mut config = StreamConfig::default();
+        let mut config = ChannelConfig::default();
         config.magic = magic.clone();
 
         // Addr
