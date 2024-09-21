@@ -274,10 +274,17 @@ impl PeerChannelActor {
                     match msg {
                         Some(msg) => {
                             let config = shared_config.read().await.clone();
-                            match msg.write(&mut writer, &config).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    warn!("error writing message to peer, error: {}", e);
+                            // respect the cancel token that arrives in middle of write
+                            // writes could be long, either naturally or due to malicious actors
+                            select! {
+                                _ = cancel_token.cancelled() => { break; }
+                                r = msg.write(&mut writer, &config) => {
+                                    match r {
+                                        Ok(_) => {}
+                                        Err(e) => {
+                                            warn!("error writing message to peer, error: {}", e);
+                                        }
+                                    }
                                 }
                             }
                         }
