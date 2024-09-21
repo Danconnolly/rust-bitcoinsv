@@ -19,7 +19,7 @@ bytes = "1.7.1"
 futures = "0.3.30"
 hex = "0.4.3"
 log = "0.4.20"
-minactor = { git = "https://github.com/Danconnolly/minactor" }
+minactor = "0.3.0"
 num = "0.4.3"
 rand = "0.8.5"
 ring = "0.17.7"
