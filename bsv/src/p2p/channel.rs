@@ -269,6 +269,7 @@ impl PeerChannelActor {
         trace!("writer task started.");
         loop {
             select! {
+                _ = cancel_token.cancelled() => { break; }
                 msg = rx.recv() => {
                     match msg {
                         Some(msg) => {
@@ -285,7 +286,6 @@ impl PeerChannelActor {
                         }
                     }
                 }
-                _ = cancel_token.cancelled() => { break; }
             }
         }
     }
@@ -303,6 +303,7 @@ impl PeerChannelActor {
             // todo: do we really need to clone it? doesnt that defeat the point?
             let config = config.read().await.clone();
             select! {
+                _ = cancel_token.cancelled() => { break; }
                 r = P2PMessage::read(&mut reader, &config) => {
                     match r {
                         Ok(msg) => {
@@ -321,7 +322,6 @@ impl PeerChannelActor {
                         }
                     }
                 }
-                _ = cancel_token.cancelled() => { break; }
             }
         }
     }
