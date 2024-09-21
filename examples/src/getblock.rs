@@ -20,6 +20,9 @@ struct Args {
     /// The hash of the block to retrieve.
     #[clap(index=2)]
     hash: String,
+    /// The path to the file to store the block.
+    #[clap(index=3)]
+    output_path: String,
 }
 
 #[tokio::main]
