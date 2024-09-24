@@ -1,6 +1,11 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## version 0.2.7 - 2024-09-24
+* cargo update
+* started integration of minactor into p2p code
+* added Script functionality to bitcoin
+
 ## version 0.2.6 - 2024-07-21
 * Add functions to retrieve genesis block headers
 * cargo update
