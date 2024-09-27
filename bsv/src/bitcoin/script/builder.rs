@@ -1,7 +1,7 @@
 use std::cmp::max;
 use bytes::Bytes;
 use crate::bitcoin::{Encodable, Operation, Script};
-use crate::BsvResult;
+use crate::Result;
 
 /// ScriptBuilder can be used to build [Script]s.
 ///
@@ -23,7 +23,7 @@ impl ScriptBuilder {
     }
 
     /// Build the script.
-    pub fn build(&self) -> BsvResult<Script> {
+    pub fn build(&self) -> Result<Script> {
         // 1000 bytes should hold most scripts
         let cap = match self.trailing.clone() {
             None => 1_000,

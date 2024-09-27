@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use secp256k1::Secp256k1;
 use crate::bitcoin::{base58ck, BlockchainId};
-use crate::{BsvError, BsvResult};
+use crate::{Error, Result};
 use crate::bitcoin::hash160::Hash160;
 use crate::bitcoin::params::KeyAddressKind;
 
@@ -31,9 +31,11 @@ impl PrivateKey {
     pub fn to_bytes(self) -> Vec<u8> { self.inner[..].to_vec() }
 
     /// Deserializes a private key from a slice.
+    ///
+    /// todo: why is this returning a std::result::Result?
     pub fn from_slice(
         data: &[u8],
-    ) -> Result<PrivateKey, secp256k1::Error> {
+    ) -> std::result::Result<PrivateKey, secp256k1::Error> {
         Ok(PrivateKey::new(secp256k1::SecretKey::from_slice(data)?))
     }
 
@@ -52,14 +54,14 @@ impl PrivateKey {
     /// key is intended. Note that the function can not distinguish between the
     /// non-production blockchains so it will only return either BlockchainId::Main
     /// or BlockchainId::Test.
-    pub fn from_wif(wif: &String) -> BsvResult<(PrivateKey, BlockchainId)> {
+    pub fn from_wif(wif: &String) -> Result<(PrivateKey, BlockchainId)> {
         let data = base58ck::decode_with_checksum(wif)?;
 
         let _compressed = match data.len() {
             33 => false,
             34 => true,
             _other => {
-                return Err(BsvError::WifTooLong);
+                return Err(Error::WifTooLong);
             }
         };
 
@@ -67,7 +69,7 @@ impl PrivateKey {
             0x80=> BlockchainId::Main,
             0xef => BlockchainId::Test,
             _ => {
-                return Err(BsvError::InvalidBlockchainSpecifier);
+                return Err(Error::InvalidBlockchainSpecifier);
             }
         };
 
@@ -126,11 +128,11 @@ impl From<&PrivateKey> for PublicKey {
 }
 
 impl FromStr for PublicKey {
-    type Err = BsvError;
+    type Err = Error;
 
     /// Decode a public key from the hex representation as included in a script and used by
     /// OP_CHECKSIG (e.g. from a P2PKH output script).
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
+    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(PublicKey {
             inner: secp256k1::PublicKey::from_str(s)?
         })

@@ -4,7 +4,7 @@ use tokio::io::{AsyncRead};
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
 use crate::bitcoin::{BlockHeader, AsyncEncodable, Tx, varint_decode};
-use crate::BsvResult;
+use crate::Result;
 
 
 /// Deserialize the bytes in a block and produce a stream of the transactions.
@@ -48,7 +48,7 @@ pub struct FullBlockStream {
     /// The number of transactions in this block.
     pub num_tx: u64,
     // the channel receiver for transactions
-    receiver: mpsc::Receiver<BsvResult<Tx>>,
+    receiver: mpsc::Receiver<Result<Tx>>,
 }
 
 // The size of the transaction buffer, this buffer is filled by a background task.
@@ -58,18 +58,18 @@ impl FullBlockStream {
     /// Create a new FullBlockStream, decoding the block from the reader. The block header and the
     /// number of transactions in the block will be immediately ready when this function has finished.
     /// The buffer size is set to 1_000.
-    pub async fn new(reader: Box<dyn AsyncRead + Unpin + Send>) -> BsvResult<FullBlockStream> {
+    pub async fn new(reader: Box<dyn AsyncRead + Unpin + Send>) -> Result<FullBlockStream> {
         FullBlockStream::new_bufsize(reader, BUFFER_SIZE).await
     }
 
     /// Create a new FullBlockStream, decoding the block from the reader, with the buffer size
     /// specified. The block header and the number of transactions in the block will be immediately
     /// ready when this function has finished.
-    pub async fn new_bufsize(mut reader: Box<dyn AsyncRead + Unpin + Send>, buf_size: usize) -> BsvResult<FullBlockStream> {
+    pub async fn new_bufsize(mut reader: Box<dyn AsyncRead + Unpin + Send>, buf_size: usize) -> Result<FullBlockStream> {
         // read block header and number of transactions
         let block_header = BlockHeader::async_from_binary(&mut reader).await?;
         let num_tx = varint_decode(&mut reader).await?;
-        let (sender, rx) = mpsc::channel::<BsvResult<Tx>>(buf_size);
+        let (sender, rx) = mpsc::channel::<Result<Tx>>(buf_size);
         // spawn a task to continuously read transactions from the reader and send them to the channel
         let mut tx_reader = FullBlockTxReader::new(num_tx, reader, sender);
         let _h = tokio::spawn(async move {tx_reader.read_tx().await});
@@ -80,7 +80,7 @@ impl FullBlockStream {
 }
 
 impl Stream for FullBlockStream {
-    type Item = BsvResult<Tx>;
+    type Item = Result<Tx>;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         // return the next item from the channel
@@ -93,11 +93,11 @@ impl Stream for FullBlockStream {
 struct FullBlockTxReader {
     num_tx: u64,
     reader: Box<dyn AsyncRead + Unpin + Send>,
-    sender: mpsc::Sender<BsvResult<Tx>>,
+    sender: mpsc::Sender<Result<Tx>>,
 }
 
 impl FullBlockTxReader {
-    pub fn new(num_tx: u64, reader: Box<dyn AsyncRead + Unpin + Send>, sender: mpsc::Sender<BsvResult<Tx>>) -> Self {
+    pub fn new(num_tx: u64, reader: Box<dyn AsyncRead + Unpin + Send>, sender: mpsc::Sender<Result<Tx>>) -> Self {
         FullBlockTxReader {
             num_tx, reader, sender,
         }

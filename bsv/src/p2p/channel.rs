@@ -1,5 +1,4 @@
 use std::sync::Arc;
-use futures::SinkExt;
 use log::{info, trace, warn};
 use minactor::{create_actor, Actor, ActorRef, Control};
 use tokio::net::TcpStream;
@@ -9,7 +8,7 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-use crate::BsvResult;
+use crate::Result;
 use crate::p2p::connection::ConnectionConfig;
 use crate::p2p::envelope::{P2PEnvelope, P2PMessageChannelSender};
 use crate::p2p::messages::{P2PMessage, Ping, Version, P2PMessageType};
@@ -91,7 +90,7 @@ pub struct PeerChannel {
 
 impl PeerChannel {
     /// Create a new channel to a peer.
-    pub async fn new(address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> BsvResult<(Self, JoinHandle<()>)> {
+    pub async fn new(address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> Result<(Self, JoinHandle<()>)> {
         let actor = PeerChannelActor::new(address, config, data_channel);
         let (a_ref, j) = create_actor(actor).await?;
         Ok((PeerChannel { actor_ref: a_ref }, j))

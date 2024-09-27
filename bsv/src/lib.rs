@@ -25,4 +25,4 @@ pub mod p2p;
 pub mod util;
 
 mod result;
-pub use result::{BsvError, BsvResult};
+pub use result::{Error, Result};

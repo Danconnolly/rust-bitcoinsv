@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use bytes::{Buf, BufMut};
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
-use crate::BsvResult;
+use crate::Result;
 
 /// Read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
 ///
@@ -27,11 +27,11 @@ use crate::BsvResult;
 /// trait is [AsyncEncodable]. If you don't need the async capabilities, use this one.
 pub trait Encodable {
     /// Read the data structure from a buffer.
-    fn from_binary(buffer: &mut dyn Buf) -> BsvResult<Self>
+    fn from_binary(buffer: &mut dyn Buf) -> Result<Self>
         where Self: Sized;
 
     /// Write the data structure to a buffer.
-    fn to_binary(&self, buffer: &mut dyn BufMut) -> BsvResult<()>;
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()>;
 
     /// Return the size of the serialized form.
     // It is vital that implementations of this function use a method that does not just serialize the object
@@ -50,12 +50,12 @@ pub trait Encodable {
 #[async_trait]
 pub trait AsyncEncodable {
     /// Read the data structure from an async reader.
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self>
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self>
     where
         Self: Sized;
 
     /// Write the data structure to an async writer.
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()>;
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()>;
 
     /// Return the size of the serialized form.
     // It is vital that implementations of this function use a method that does not just serialize the object
@@ -66,7 +66,7 @@ pub trait AsyncEncodable {
     /// Read the data structure from a buffer.
     ///
     /// This is a convenience function that wraps the `from_binary` function.
-    fn from_binary_buf(buf: &[u8]) -> BsvResult<Self>
+    fn from_binary_buf(buf: &[u8]) -> Result<Self>
     where
         Self: Sized,
     {
@@ -77,7 +77,7 @@ pub trait AsyncEncodable {
     /// Write the data structure to a new buffer.
     ///
     /// This is a convenience function that wraps the `to_binary` function.
-    fn to_binary_buf(&self) -> BsvResult<Vec<u8>> {
+    fn to_binary_buf(&self) -> Result<Vec<u8>> {
         let mut v = Vec::with_capacity(self.async_size());
         block_on(self.async_to_binary(&mut v))?;
         Ok(v)

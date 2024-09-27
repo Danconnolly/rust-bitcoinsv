@@ -14,7 +14,7 @@ pub struct Block {
 
 #[async_trait]
 impl AsyncEncodable for Block {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let header = BlockHeader::async_from_binary(reader).await?;
         let txn_count = varint_decode(reader).await? as usize;
         // todo: check for too many transactions
@@ -25,7 +25,7 @@ impl AsyncEncodable for Block {
         Ok(Block { header, transactions })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         self.header.async_to_binary(writer).await?;
         varint_encode(writer, self.transactions.len() as u64).await?;
         for txn in self.transactions.iter() {

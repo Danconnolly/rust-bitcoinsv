@@ -18,7 +18,7 @@ pub struct MerkleBlock {
 
 #[async_trait]
 impl AsyncEncodable for MerkleBlock {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let header = BlockHeader::async_from_binary(reader).await?;
         let total_transactions = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;
@@ -39,7 +39,7 @@ impl AsyncEncodable for MerkleBlock {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         self.header.async_to_binary(writer).await?;
         writer.write_u32_le(self.total_transactions).await?;
         varint_encode(writer, self.hashes.len() as u64).await?;

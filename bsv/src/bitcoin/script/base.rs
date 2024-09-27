@@ -5,8 +5,8 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
 use crate::bitcoin::script::byte_seq::ByteSequence;
 use crate::bitcoin::script::Operation;
-use crate::BsvError::DataTooSmall;
-use crate::BsvResult;
+use crate::Error::DataTooSmall;
+use crate::Result;
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
 ///
@@ -19,7 +19,7 @@ pub struct Script {
 
 impl Script {
     /// Decode the script, producing a vector of operations and possibly a byte sequence of trailing data.
-    pub fn decode(&self) -> BsvResult<(Vec<Operation>, Option<ByteSequence>)> {
+    pub fn decode(&self) -> Result<(Vec<Operation>, Option<ByteSequence>)> {
         use Operation::*;
 
         let mut result = Vec::new();
@@ -57,10 +57,10 @@ impl From<Vec<u8>> for Script {
 }
 
 impl FromHex for Script {
-    type Error = crate::BsvError;
+    type Error = crate::Error;
 
     /// Hex encoding is not prefixed by the length.
-    fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> std::result::Result<Self, Self::Error> {
         let raw= hex::decode(hex)?;
         Ok(Self {
             raw: Bytes::from(raw)
@@ -74,7 +74,7 @@ impl AsyncEncodable for Script {
     /// Decode a Script from an async reader.
     ///
     /// A script is always encoded with its size.
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> BsvResult<Self>
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self>
     where
         Self: Sized
     {
@@ -94,7 +94,7 @@ impl AsyncEncodable for Script {
     /// Encode a Script from to an async writer.
     ///
     /// A script is always encoded with its size.
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
         varint_encode(writer, self.raw.len() as u64).await?;
         writer.write_all(&self.raw).await?;
         Ok(())

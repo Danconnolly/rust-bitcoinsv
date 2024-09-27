@@ -1,6 +1,6 @@
 use bytes::{Buf, BufMut, Bytes};
 use log::trace;
-use crate::{BsvError, BsvResult};
+use crate::{Error, Result};
 use crate::bitcoin::encoding::Encodable;
 use crate::bitcoin::script::byte_seq::ByteSequence;
 
@@ -260,10 +260,10 @@ pub enum Operation {
 
 impl Operation {
     // helper function to get pushdata of a particular size from the buffer
-    fn get_pushdata(size: usize, buffer: &mut dyn Buf) -> BsvResult<Bytes> where Self: Sized {
+    fn get_pushdata(size: usize, buffer: &mut dyn Buf) -> Result<Bytes> where Self: Sized {
         if size > buffer.remaining() {
             trace!("get_pushdata() - expected {} bytes but only have {} remaining", size, buffer.remaining());
-            Err(BsvError::DataTooSmall)
+            Err(Error::DataTooSmall)
         } else {
             Ok(buffer.copy_to_bytes(size))
         }
@@ -372,10 +372,10 @@ impl Operation {
 }
 
 impl Encodable for Operation {
-    fn from_binary(buffer: &mut dyn Buf) -> BsvResult<Self> where Self: Sized {
+    fn from_binary(buffer: &mut dyn Buf) -> Result<Self> where Self: Sized {
         use Operation::*;
         match buffer.has_remaining() {
-            false => Err(BsvError::DataTooSmall),
+            false => Err(Error::DataTooSmall),
             true => match buffer.get_u8() {
                 0 => Ok(OP_0),
                 76 => {
@@ -383,7 +383,7 @@ impl Encodable for Operation {
                         let size = buffer.get_u8() as usize;
                         Ok(OP_PUSHDATA1(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
                     } else {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     }
                 },
                 77 => {
@@ -391,7 +391,7 @@ impl Encodable for Operation {
                         let size = buffer.get_u16_le() as usize;
                         Ok(OP_PUSHDATA2(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
                     } else {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     }
                 },
                 78 => {
@@ -399,7 +399,7 @@ impl Encodable for Operation {
                         let size = buffer.get_u32_le() as usize;
                         Ok(OP_PUSHDATA4(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
                     } else {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     }
                 },
                 79 => Ok(OP_1NEGATE),
@@ -513,23 +513,23 @@ impl Encodable for Operation {
                     if other > 0 && other < 76 {
                         Ok(OP_PUSH(ByteSequence::new(Self::get_pushdata(other as usize, buffer)?)))
                     } else {
-                        Err(BsvError::UnrecognizedOpCode)
+                        Err(Error::UnrecognizedOpCode)
                     }
                 }
             }
         }
     }
 
-    fn to_binary(&self, buffer: &mut dyn BufMut) -> BsvResult<()> {
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()> {
         use Operation::*;
         match buffer.has_remaining_mut() {
-            false => Err(BsvError::DataTooSmall),
+            false => Err(Error::DataTooSmall),
             true => match self {
                 OP_0 => Ok(buffer.put_u8(0)),
                 OP_FALSE => Ok(buffer.put_u8(0)),
                 OP_PUSH(data) => {
                     if buffer.remaining_mut() < data.len() + 1 {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     } else {
                         buffer.put_u8(data.len() as u8);
                         Ok(buffer.put_slice(&*data.get_bytes()))
@@ -537,7 +537,7 @@ impl Encodable for Operation {
                 },
                 OP_PUSHDATA1(data) => {
                     if buffer.remaining_mut() < data.len() + 2 {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     } else {
                         buffer.put_u8(76);
                         buffer.put_u8(data.len() as u8);
@@ -546,7 +546,7 @@ impl Encodable for Operation {
                 },
                 OP_PUSHDATA2(data) => {
                     if buffer.remaining_mut() < data.len() + 3 {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     } else {
                         buffer.put_u8(77);
                         buffer.put_u16_le(data.len() as u16);
@@ -555,7 +555,7 @@ impl Encodable for Operation {
                 },
                 OP_PUSHDATA4(data) => {
                     if buffer.remaining_mut() < data.len() + 5 {
-                        Err(BsvError::DataTooSmall)
+                        Err(Error::DataTooSmall)
                     } else {
                         buffer.put_u8(78);
                         buffer.put_u32_le(data.len() as u32);

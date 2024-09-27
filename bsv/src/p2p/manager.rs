@@ -4,7 +4,7 @@ use std::net::IpAddr;
 use std::sync::Arc;
 use minactor::{create_actor, Actor, ActorRef, Control};
 use tokio::task::JoinHandle;
-use crate::BsvResult;
+use crate::Result;
 use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, ConnectionConfig};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
@@ -126,7 +126,7 @@ impl P2PManager {
     /// Stop the P2PManager, shutting down all connections and terminating all processes.
     ///
     /// The P2PManager can not be re-started after this command.
-    pub async fn stop(&self) -> BsvResult<()> {
+    pub async fn stop(&self) -> Result<()> {
         self.actor.shutdown().await?;
         Ok(())
     }
@@ -135,19 +135,19 @@ impl P2PManager {
     ///
     /// Existing connections continue to be maintained but will not re-connect if disconnected.
     /// Incoming connections will be rejected.
-    pub async fn pause(&self) -> BsvResult<()> {
+    pub async fn pause(&self) -> Result<()> {
         self.actor.send(P2PMgrSendMessage::Pause).await?;
         Ok(())
     }
 
     /// Resume the paused P2PManager.
-    pub async fn resume(&self) -> BsvResult<()> {
+    pub async fn resume(&self) -> Result<()> {
         self.actor.send(P2PMgrSendMessage::Resume).await?;
         Ok(())
     }
 
     /// Get the current state of the P2PManager.
-    pub async fn get_state(&self) -> BsvResult<P2PManagerState> {
+    pub async fn get_state(&self) -> Result<P2PManagerState> {
         let r = self.actor.call(P2PMgrCallMessage::GetState).await?;
         if let ReplyState(s) = r? {
             Ok(s)
@@ -271,7 +271,7 @@ impl Actor for P2PManagerActor {
         Control::Ok
     }
 
-    async fn handle_calls(&mut self, msg: Self::CallMessage) -> (Control, Result<Self::CallMessage, InternalError>) {
+    async fn handle_calls(&mut self, msg: Self::CallMessage) -> (Control, std::result::Result<Self::CallMessage, InternalError>) {
         match msg {
             P2PMgrCallMessage::GetState => {
                 (Control::Ok, Ok(ReplyState(self.state.clone())))

@@ -29,7 +29,7 @@ pub struct Reject {
 
 #[async_trait]
 impl AsyncEncodable for Reject {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let str_size = varint_decode(reader).await? as usize;
         let mut str_bytes = vec![0; str_size];
         reader.read_exact(&mut str_bytes).await?;
@@ -52,7 +52,7 @@ impl AsyncEncodable for Reject {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         varint_encode(writer, self.message.len() as u64).await?;
         writer.write_all(self.message.as_bytes()).await?;
         writer.write_u8(self.code).await?;

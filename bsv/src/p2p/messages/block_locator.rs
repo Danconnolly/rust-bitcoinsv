@@ -21,7 +21,7 @@ impl BlockLocator {
 
 #[async_trait]
 impl AsyncEncodable for BlockLocator {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;
         let mut block_locator_hashes = Vec::with_capacity(num_hashes);
@@ -35,7 +35,7 @@ impl AsyncEncodable for BlockLocator {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
         varint_encode(writer, self.block_locator_hashes.len() as u64).await?;
         for hash in self.block_locator_hashes.iter() {

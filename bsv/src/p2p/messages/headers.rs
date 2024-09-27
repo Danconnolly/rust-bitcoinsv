@@ -13,7 +13,7 @@ pub struct Headers {
 
 #[async_trait]
 impl AsyncEncodable for Headers {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::BsvResult<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let num_headers = varint_decode(reader).await? as usize;
         let mut headers = Vec::with_capacity(num_headers);
         for _ in 0..num_headers {
@@ -22,7 +22,7 @@ impl AsyncEncodable for Headers {
         Ok(Headers { headers })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::BsvResult<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         varint_encode(writer, self.headers.len() as u64).await?;
         for header in self.headers.iter() {
             header.async_to_binary(writer).await?;

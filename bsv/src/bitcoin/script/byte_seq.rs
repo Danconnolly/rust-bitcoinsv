@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use num::{BigInt, ToPrimitive};
-use crate::{BsvError, BsvResult};
+use crate::{Error, Result};
 
 /// A data value that is used in Bitcoin Script.
 ///
@@ -35,16 +35,16 @@ impl ByteSequence {
     }
 
     /// Return the value as a small number (i64).
-    pub fn to_small_number(&self) -> BsvResult<i64> {
+    pub fn to_small_number(&self) -> Result<i64> {
         if self.raw.len() > 8 {
-            Err(BsvError::DataTooLarge)
+            Err(Error::DataTooLarge)
         } else if self.raw.len() == 0 {
             Ok(0)
         } else {
             // Using bigint's so we can handle numerics with strange sizes such as 3 bytes
             let i = BigInt::from_signed_bytes_le(&self.raw[..]);
             match i.to_i64() {
-                None => Err(BsvError::DataTooLarge),
+                None => Err(Error::DataTooLarge),
                 Some(val) => Ok(val),
             }
         }
