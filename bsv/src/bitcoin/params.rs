@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 /// In BitcoinSV we don't call these networks but blockchains. The P2P network is just a mechanism
 /// for the applications to communicate, it does not define the blockchain. Its the other way around,
 /// the blockchain defines the parameters used by the P2P network to communicate.
+///
+/// todo: update docs to demonstrate deserialization from a string
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
