@@ -1,6 +1,10 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## version 0.2.8 - 2025-01-01
+* cargo update
+* fix bug in non-main address display
+
 ## version 0.2.7 - 2024-09-24
 * cargo update
 * started integration of minactor into p2p code
