@@ -42,9 +42,9 @@ impl PrivateKey {
     /// Gets the WIF encoding of this private key.
     pub fn to_wif(self, kind: KeyAddressKind) -> String {
         let mut ret = Vec::with_capacity(34);
-        ret[0] = kind.get_private_key_prefix();
-        ret[1..33].copy_from_slice(&self.inner[..]);
-        ret[33] = 1;    // always use compressed public keys
+        ret.push(kind.get_private_key_prefix());
+        ret.extend_from_slice(&self.inner[..]);
+        ret.push(1);    // always use compressed public keys
         base58ck::encode_with_checksum(&ret)
     }
 
@@ -143,6 +143,7 @@ impl FromStr for PublicKey {
 // todo: add more tests
 #[cfg(test)]
 mod tests {
+    use hex_literal::len;
     use super::*;
 
     /// Test decoding a public key from the hex representation within a script.
@@ -152,5 +153,16 @@ mod tests {
         let hex = "031adba39196c65be0e61c6ddf57b397aa246729f5b639bd5bc9b5c55cf14af107";
         let r = PublicKey::from_str(hex);
         assert!(r.is_ok());
+    }
+
+    /// Test generating a random private key and printing the WIF
+    #[test]
+    fn test_wif() {
+        let privkey = PrivateKey::generate();
+        let wif = privkey.to_wif(KeyAddressKind::Main);
+        assert!(wif.len() > 0);
+        let (p_key2, blk_chain) = PrivateKey::from_wif(&wif).unwrap();
+        assert_eq!(privkey, p_key2);
+        assert_eq!(blk_chain, BlockchainId::Main);
     }
 }
