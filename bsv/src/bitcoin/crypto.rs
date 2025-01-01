@@ -1,12 +1,14 @@
 use std::str::FromStr;
 use secp256k1::Secp256k1;
-use crate::bitcoin::{base58ck, BlockchainId};
+use crate::bitcoin::base58ck;
 use crate::{Error, Result};
 use crate::bitcoin::hash160::Hash160;
 use crate::bitcoin::params::KeyAddressKind;
 
 
 /// A Bitcoin private key.
+///
+/// This is a wrapper around [secp256k1::SecretKey], providing some Bitcoin specific functionality.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub struct PrivateKey {
     /// The actual ECDSA key.
@@ -14,7 +16,6 @@ pub struct PrivateKey {
 }
 
 impl PrivateKey {
-
     /// Constructs new compressed ECDSA private key using the secp256k1 algorithm and
     /// a secure random number generator.
     pub fn generate() -> PrivateKey {
@@ -31,11 +32,9 @@ impl PrivateKey {
     pub fn to_bytes(self) -> Vec<u8> { self.inner[..].to_vec() }
 
     /// Deserializes a private key from a slice.
-    ///
-    /// todo: why is this returning a std::result::Result?
     pub fn from_slice(
         data: &[u8],
-    ) -> std::result::Result<PrivateKey, secp256k1::Error> {
+    ) -> Result<PrivateKey> {
         Ok(PrivateKey::new(secp256k1::SecretKey::from_slice(data)?))
     }
 
@@ -52,9 +51,8 @@ impl PrivateKey {
     ///
     /// Returns a tuple of the private key and the blockchain for which the private
     /// key is intended. Note that the function can not distinguish between the
-    /// non-production blockchains so it will only return either BlockchainId::Main
-    /// or BlockchainId::Test.
-    pub fn from_wif(wif: &String) -> Result<(PrivateKey, BlockchainId)> {
+    /// non-production blockchains so it must return [KeyAddressKind].
+    pub fn from_wif(wif: &String) -> Result<(PrivateKey, KeyAddressKind)> {
         let data = base58ck::decode_with_checksum(wif)?;
 
         let _compressed = match data.len() {
@@ -66,8 +64,8 @@ impl PrivateKey {
         };
 
         let blockchain = match data[0] {
-            0x80=> BlockchainId::Main,
-            0xef => BlockchainId::Test,
+            0x80=> KeyAddressKind::Main,
+            0xef => KeyAddressKind::NotMain,
             _ => {
                 return Err(Error::InvalidBlockchainSpecifier);
             }
@@ -140,10 +138,9 @@ impl FromStr for PublicKey {
 }
 
 
-// todo: add more tests
 #[cfg(test)]
 mod tests {
-    use hex_literal::len;
+    use crate::bitcoin::Address;
     use super::*;
 
     /// Test decoding a public key from the hex representation within a script.
@@ -163,6 +160,17 @@ mod tests {
         assert!(wif.len() > 0);
         let (p_key2, blk_chain) = PrivateKey::from_wif(&wif).unwrap();
         assert_eq!(privkey, p_key2);
-        assert_eq!(blk_chain, BlockchainId::Main);
+        assert_eq!(blk_chain, KeyAddressKind::Main);
+    }
+
+    /// Test some known addresses
+    #[test]
+    fn test_known_addresses() {
+        let stn_addr = "n2ziCHyDm8wr7owJwF3smicSBAcP17L8HS";
+        let stn_wif = String::from("cU5N3pE6QnRd3rZFgv1KMvUkDwMY4Vnya3bLE5JtZG3Hb549pzDN");
+        let (privkey, bchain) = PrivateKey::from_wif(&stn_wif).unwrap();
+        assert_eq!(bchain, KeyAddressKind::NotMain);     // stn is indistinguishable from testnet
+        let addr = Address::from_pv(&privkey, bchain);
+        assert_eq!(addr.to_string(), stn_addr);
     }
 }

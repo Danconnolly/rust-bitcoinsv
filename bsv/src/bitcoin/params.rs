@@ -1,5 +1,4 @@
-/// There are four blockchains: mainnet, testnet, stn, and regtest.
-
+/// There are four blockchains, the main, test, stn, and regtest blockchains.
 use serde::{Deserialize, Serialize};
 
 /// Bitcoin has multiple blockchains: "main", "test", "regtest", and "stn" chains.
@@ -8,7 +7,7 @@ use serde::{Deserialize, Serialize};
 /// for the applications to communicate, it does not define the blockchain. Its the other way around,
 /// the blockchain defines the parameters used by the P2P network to communicate.
 ///
-/// todo: update docs to demonstrate deserialization from a string
+/// Use the From<&str> trait to translate string values, e.g. `let chain_id = BlockchainId::from("test");`
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[derive(Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -21,39 +20,25 @@ pub enum BlockchainId {
     Regtest = 3,
 }
 
-// I've moved the private_key_prefix into the KeyAddressKind struct so we dont need the
-// BlockchainParams any more, although I'm sure we'll need it later.
-//
-// /// Each blockchain has some different parameters.
-// pub struct BlockchainParams {
-//     /// A byte that is prefixed to a private key when it is exported.
-//     pub private_key_prefix: u8,
-// }
-//
-// impl BlockchainParams {
-//     /// Get the BlockchainParams for a specific blockchain.
-//     pub fn get_params(blockchain: BlockchainId) -> Self {
-//         match blockchain {
-//             BlockchainId::Main => BlockchainParams {
-//                 private_key_prefix: 0x80,
-//             },
-//             BlockchainId::Test => BlockchainParams {
-//                 private_key_prefix: 0xef,
-//             },
-//             BlockchainId::Regtest => BlockchainParams {
-//                 private_key_prefix: 0xef,
-//             },
-//             BlockchainId::Stn => BlockchainParams {
-//                 private_key_prefix: 0xef,
-//             },
-//         }
-//     }
-// }
+impl From<&str> for BlockchainId {
+    fn from(value: &str) -> Self {
+        match value {
+            "main" => BlockchainId::Main,
+            "mainnet" => BlockchainId::Main,
+            "test" => BlockchainId::Test,
+            "testnet" => BlockchainId::Test,
+            "stn" => BlockchainId::Stn,
+            "regtest" => BlockchainId::Regtest,
+            _ => panic!("Unknown blockchain id: {}", value),
+        }
+    }
+}
+
 
 /// KeyAddressKind enables us to differentiate whether a Key or Address is for the
 /// production blockchain (mainnet) or whether it is for a test blockchain.
 ///
-/// Unfortunately, the standard does not differentiate between different test blockchains.
+/// Unfortunately, the existing standard does not differentiate between different test blockchains.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum KeyAddressKind {
     Main = 0,
@@ -64,15 +49,18 @@ impl KeyAddressKind {
     /// The address prefix is used when encoding an Address.
     ///
     /// The prefix is prepended to the 160-byte hash of a public key before base-58 (with checksum)
-    /// encoding the value to produce the Address.
+    /// encoding the value to produce the Address. This is `base58Prefixes[PUBKEY_ADDRESS]`
+    /// from the C reference code.
     pub fn get_address_prefix(&self) -> u8 {
         match self {
             KeyAddressKind::Main => 0x00,
-            KeyAddressKind::NotMain => 0x80,
+            KeyAddressKind::NotMain => 0x6f,
         }
     }
 
     /// The private key prefix is used for the WIF encoding of a private key.
+    ///
+    /// This is `base58Prefixes[SECRET_KEY]` from the C reference code.
     pub fn get_private_key_prefix(&self) -> u8 {
         match self {
             KeyAddressKind::Main => 0x80,
@@ -116,6 +104,8 @@ mod tests {
         let json = "\"main\"";
         let chain: BlockchainId = serde_json::from_str(json).unwrap();
         assert_eq!(chain, BlockchainId::Main);
+        let chain = BlockchainId::from("test");
+        assert_eq!(chain, BlockchainId::Test);
     }
 
     #[test]
