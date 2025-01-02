@@ -1,5 +1,6 @@
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::{AsyncEncodable, Script, varint_decode, varint_encode, varint_size};
@@ -9,7 +10,7 @@ use crate::bitcoin::{AsyncEncodable, Script, varint_decode, varint_encode, varin
 pub type TxHash = Hash;
 
 /// A Bitcoin transaction.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Tx {
     /// transaction version number
     pub version: u32,
@@ -144,7 +145,7 @@ impl TxBuilder {
 
 
 /// An Outpoint is a reference to a specific output of a specific transaction.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Outpoint {
     pub tx_hash: Hash,
     pub index: u32,
@@ -176,7 +177,7 @@ impl AsyncEncodable for Outpoint {
 }
 
 /// A TxInput is an input to a transaction.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct TxInput {
     pub outpoint: Outpoint,
     pub script: Script,
@@ -223,7 +224,7 @@ impl AsyncEncodable for TxInput {
 
 
 /// A TxOutput is an output from a transaction.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct TxOutput {
     pub value: u64,
     pub script: Script,
@@ -326,6 +327,17 @@ mod tests {
                                None);
         let b = txi.to_binary_buf().unwrap();
         assert_eq!(hex::encode(b), "9b7b9d1091d5d7f20705ef9392a473e1477fef86650598c366eb2d98ec048538000000006a47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841ffffffff");
+    }
+
+    /// Test Rust standard serde of transaction and sub-structs.
+    #[test]
+    fn test_bincode() {
+        let (tx_bin, tx_hash) = get_tx1();
+        let tx = Tx::from_binary_buf(tx_bin.as_slice()).unwrap();
+        let e = bincode::serialize(&tx).unwrap();
+        let tx2: Tx = bincode::deserialize(&e).unwrap();
+        assert_eq!(tx.hash(), tx_hash);
+        assert_eq!(tx2.hash(), tx_hash);
     }
 
     fn get_tx1() -> (Vec<u8>, Hash) {

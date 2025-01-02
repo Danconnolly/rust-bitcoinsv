@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use bytes::{Bytes, Buf};
 use hex::FromHex;
+use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
 use crate::bitcoin::script::byte_seq::ByteSequence;
@@ -12,7 +13,7 @@ use crate::Result;
 ///
 /// This struct is a Script in its encoded form and is read-only. Use [decode()]
 /// to examine a script or [ScriptBuilder] to build a script.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
+#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Script {
     pub raw: Bytes
 }
