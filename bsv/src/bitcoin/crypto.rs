@@ -1,5 +1,6 @@
 use std::str::FromStr;
 use secp256k1::Secp256k1;
+use serde::{Deserialize, Serialize};
 use crate::bitcoin::base58ck;
 use crate::{Error, Result};
 use crate::bitcoin::hash160::Hash160;
@@ -9,7 +10,7 @@ use crate::bitcoin::params::KeyAddressKind;
 /// A Bitcoin private key.
 ///
 /// This is a wrapper around [secp256k1::SecretKey], providing some Bitcoin specific functionality.
-#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrivateKey {
     /// The actual ECDSA key.
     pub inner: secp256k1::SecretKey,
@@ -77,6 +78,7 @@ impl PrivateKey {
     }
 }
 
+/// Convert a WIF in a string to a PrivateKey.
 impl From<String> for PrivateKey {
     fn from(value: String) -> Self {
         PrivateKey::from_wif(&value).unwrap().0
@@ -85,7 +87,7 @@ impl From<String> for PrivateKey {
 
 
 /// A Bitcoin ECDSA public key.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct PublicKey {
     /// The actual ECDSA key.
     pub inner: secp256k1::PublicKey,
@@ -172,5 +174,19 @@ mod tests {
         assert_eq!(bchain, KeyAddressKind::NotMain);     // stn is indistinguishable from testnet
         let addr = Address::from_pv(&privkey, bchain);
         assert_eq!(addr.to_string(), stn_addr);
+    }
+
+    /// Test bincode serialization and deserialization
+    #[test]
+    fn test_bincode() {
+        let privkey = PrivateKey::generate();
+        let e = bincode::serialize(&privkey).unwrap();
+        let d = bincode::deserialize(&e[..]).unwrap();
+        assert_eq!(privkey, d);
+
+        let pubkey = PublicKey::from(&privkey);
+        let e = bincode::serialize(&pubkey).unwrap();
+        let d = bincode::deserialize(&e[..]).unwrap();
+        assert_eq!(pubkey, d);
     }
 }
