@@ -1,9 +1,11 @@
 use std::fmt::{Display, Formatter};
-use crate::bitcoin::base58ck::encode_with_checksum;
+use std::str::FromStr;
+use crate::bitcoin::base58ck::{encode_with_checksum, decode_with_checksum};
 use crate::bitcoin::BlockchainId;
 use crate::bitcoin::crypto::{PrivateKey, PublicKey};
 use crate::bitcoin::hash160::Hash160;
 use crate::bitcoin::params::KeyAddressKind;
+use crate::Error;
 
 /// A Bitcoin Address is a destination for a Bitcoin payment, using the P2PKH script template.
 ///
@@ -49,6 +51,24 @@ impl Display for Address {
     }
 }
 
+impl FromStr for Address {
+    type Err = Error;
+
+    /// Translate an address string (e.g. mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc) into an Address.
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let s = String::from(s);
+        let b = decode_with_checksum(&s)?;
+        let kind = match KeyAddressKind::from_address_prefix(b[0]) {
+            Some(k) => k,
+            None => return Err(Error::BadArgument(format!("Invalid address prefix: {}", b[0]))),
+        };
+        Ok(Self {
+            kind,
+            hash160: Hash160::from(&b[1..]),
+        })
+    }
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -58,7 +78,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_mainnet() {
+    fn test_mainnet_pv() {
         let (pv, n) = PrivateKey::from_wif(&"KwTeZVihYnMmcKP5MEfMeN1V726HNKFF84dWzEcqjyc7afgfyn5x".to_string()).unwrap();
         assert_eq!(n, KeyAddressKind::Main);
         let addr = Address::from_pv(&pv, n);
@@ -85,5 +105,14 @@ mod tests {
         let key = PublicKey::from_str("0319a115644e45738b06b7274b45c36c7c1cbecef32d667b9246eba684939ca1bc").unwrap();
         let addr = Address::from_pubkey(&key, KeyAddressKind::NotMain);
         assert_eq!(addr.to_string(), "mvkjTSVMgGnSmjxkrDmYL6qKv9f5Hzefog".to_string());
+    }
+
+    /// Test interpreting address strings
+    #[test]
+    fn test_address_from_str() {
+        let addr = Address::from_str("mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc").unwrap();
+        assert_eq!(addr.kind, KeyAddressKind::NotMain);
+        assert_eq!(addr.to_string(), "mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc".to_string());
+        assert_eq!(addr.hash160, Hash160::from("2a717dea82e3040b606daf6afc4f94a54a2b37b7"));
     }
 }
