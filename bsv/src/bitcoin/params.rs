@@ -58,6 +58,15 @@ impl KeyAddressKind {
         }
     }
 
+    /// Determine the kind of address from the prefix of an Address
+    pub fn from_address_prefix(prefix: u8) -> Option<KeyAddressKind> {
+        match prefix {
+            0x00 => Some(KeyAddressKind::Main),
+            0x6f => Some(KeyAddressKind::NotMain),
+            _ => None,
+        }
+    }
+
     /// The private key prefix is used for the WIF encoding of a private key.
     ///
     /// This is `base58Prefixes[SECRET_KEY]` from the C reference code.
