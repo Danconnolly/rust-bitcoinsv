@@ -12,7 +12,10 @@ use crate::bitcoin::crypto::PublicKey;
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.
 ///
-/// This is the hash type that is generally used for Bitcoin addresses.
+/// This is the hash type that is generally used for Bitcoin addresses, for example in P2PKH. The
+/// hash itself is not used by end-users, they will generally use an [Address].
+///
+/// Since this hash type is not used by end-users, it is never reversed when displayed.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash160{
     pub hash: [u8; Self::SIZE],
@@ -24,6 +27,8 @@ impl Hash160 {
     pub const ZERO: Hash160 = Hash160 { hash: [0; Self::SIZE] };
 
     /// Generate the hash from the given data.
+    ///
+    /// This performs an SHA256 hash on the data first, then a RIPEMD160 hash of the SHA256 hash.
     pub fn generate(data: &[u8]) -> Hash160 {
         let sha256 = digest(&SHA256, data);
         let mut r_hasher = Ripemd160::new();
@@ -34,15 +39,13 @@ impl Hash160 {
         Hash160 {hash}
     }
 
-    // helper for ToHex trait implementation
+    /// Helper for ToHex trait implementation
     fn generic_encode_hex<T, F>(&self, mut encode_fn: F) -> T
     where
         T: FromIterator<char>,
         F: FnMut(&[u8]) -> String,
     {
-        let mut reversed_bytes = self.hash;
-        reversed_bytes.reverse();
-        encode_fn(&reversed_bytes).chars().collect()
+        encode_fn(&self.hash).chars().collect()
     }
 }
 
@@ -69,8 +72,9 @@ impl AsyncEncodable for Hash160 {
 impl FromHex for Hash160 {
     type Error = crate::Error;
 
-    /// Converts a string of 40 hex characters into a hash160. The bytes of the hex encoded form are reversed in
-    /// accordance with Bitcoin standards.
+    /// Converts a string of 40 hex characters into a hash160.
+    ///
+    /// The hex string must not be reversed.
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let hex = hex.as_ref();
         if hex.len() != Self::HEX_SIZE {
@@ -78,9 +82,7 @@ impl FromHex for Hash160 {
             return Err(crate::Error::BadArgument(msg));
         }
         match hex::decode(hex) {
-            Ok(mut hash_bytes) => {
-                // Reverse bytes in place to match Bitcoin standard representation.
-                hash_bytes.reverse();
+            Ok(hash_bytes) => {
                 let mut hash_array = [0u8; Self::SIZE];
                 hash_array.copy_from_slice(&hash_bytes);
                 Ok(Self { hash: hash_array })
@@ -91,12 +93,16 @@ impl FromHex for Hash160 {
 }
 
 impl ToHex for Hash160 {
-    /// Converts the hash into a hex string. The bytes are reversed in the hex string in accordance with
-    /// Bitcoin standard representation.
+    /// Converts the hash into a hex string.
+    ///
+    /// The bytes are not reversed.
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         self.generic_encode_hex(|bytes| hex::encode(bytes))
     }
 
+    /// Converts the has into an upper-case hex string.
+    ///
+    /// The bytes are not reversed.
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         self.generic_encode_hex(|bytes| hex::encode_upper(bytes))
     }
@@ -134,7 +140,7 @@ impl From<PublicKey> for Hash160 {
 
 impl Ord for Hash160 {
     fn cmp(&self, other: &Self) -> Ordering {
-        for i in (0..Self::SIZE).rev() {
+        for i in 0..Self::SIZE {
             if self.hash[i] < other.hash[i] {
                 return Ordering::Less;
             } else if self.hash[i] > other.hash[i] {
@@ -243,12 +249,12 @@ mod tests {
             0x97, 0xcc, 0xfa, 0x0c, 0x4b, 0x0c, 0x0c, 0x40,
             0xa6, 0xe5, 0xae, 0x6b];
         let h = Hash160::from_binary_buf(&b[..]).unwrap();
-        assert_eq!(h.encode_hex::<String>(), "6baee5a6400c0c4b0cfacc975cb7f73c087bc7be");
+        assert_eq!(h.encode_hex::<String>(), "bec77b083cf7b75c97ccfa0c4b0c0c40a6e5ae6b");
     }
 
     #[test]
     fn hash_write() {
-        let s = "684b2f7e73dec228a7bf9a73495eeb6a28f2cda6";
+        let s = "a6cdf2286aeb5e49739abfa728c2de737e2f4b68";
         let h = Hash160::from_hex(s).unwrap();
         let b = h.to_binary_buf().unwrap();
         let c = vec![
@@ -274,5 +280,16 @@ mod tests {
         let deserialized: Hash160 = serde_json::from_str(&serialized).expect("Failed to deserialize");
         // Ensure the deserialized hash matches the original
         assert_eq!(deserialized, original_hash);
+    }
+
+    /// does ToHex::encode_hex() work properly and not mutate the address
+    #[test]
+    fn check_to_hex_mut() {
+        let original_hash = Hash160::generate(b"hello world");
+        let hex = original_hash.encode_hex::<String>();
+        assert_eq!(hex, "d7d5ee7824ff93f94c3055af9382c86c68b5ca92");
+        let again = Hash160::generate(b"hello world");
+        assert_eq!(original_hash.hash, again.hash);
+        assert_eq!(original_hash.encode_hex_upper::<String>(), "D7D5EE7824FF93F94C3055AF9382C86C68B5CA92");
     }
 }
