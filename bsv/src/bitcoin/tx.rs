@@ -1,9 +1,10 @@
-use crate::bitcoin::hash::Hash;
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Script};
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::bitcoin::hash::Hash;
+use crate::bitcoin::{AsyncEncodable, Script, varint_decode, varint_encode, varint_size};
+
 
 /// The TxHash is used to identify transactions.
 pub type TxHash = Hash;
@@ -13,8 +14,8 @@ pub type TxHash = Hash;
 pub struct Tx {
     /// transaction version number
     pub version: u32,
-    pub inputs: Vec<TxInput>,   // inputs
-    pub outputs: Vec<TxOutput>, // outputs
+    pub inputs: Vec<TxInput>,       // inputs
+    pub outputs: Vec<TxOutput>,     // outputs
     /// lock time
     pub lock_time: u32,
 }
@@ -31,7 +32,7 @@ impl FromHex for Tx {
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = hex::decode(hex)?;
-        let tx = Tx::from_binary_buf(bytes.as_slice())?;
+        let tx = Tx::from_binary_buf(&mut bytes.as_slice())?;
         Ok(tx)
     }
 }
@@ -48,18 +49,16 @@ impl ToHex for Tx {
     }
 }
 
+
 #[async_trait]
 impl AsyncEncodable for Tx {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let version = reader.read_u32_le().await?;
         let num_inputs = varint_decode(reader).await?;
         // todo: check size before allocation
         let mut inputs = Vec::with_capacity(num_inputs as usize);
         for _i in 0..num_inputs {
-            let input = TxInput::async_from_binary(reader).await?;
+            let input= TxInput::async_from_binary(reader).await?;
             inputs.push(input);
         }
         let num_outputs = varint_decode(reader).await?;
@@ -74,14 +73,11 @@ impl AsyncEncodable for Tx {
             version,
             inputs,
             outputs,
-            lock_time,
+            lock_time
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
         varint_encode(writer, self.inputs.len() as u64).await?;
         for input in self.inputs.iter() {
@@ -108,51 +104,6 @@ impl AsyncEncodable for Tx {
     }
 }
 
-/// A builder for transactions.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct TxBuilder {
-    version: u32,
-    inputs: Vec<TxInput>,
-    outputs: Vec<TxOutput>,
-    lock_time: u32,
-}
-
-impl Default for TxBuilder {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl TxBuilder {
-    pub fn new() -> TxBuilder {
-        TxBuilder {
-            version: 1,
-            inputs: vec![],
-            outputs: vec![],
-            lock_time: 0,
-        }
-    }
-
-    pub fn add_input(&mut self, input: &TxInput) -> &mut TxBuilder {
-        self.inputs.push(input.clone());
-        self
-    }
-
-    pub fn add_output(&mut self, output: &TxOutput) -> &mut TxBuilder {
-        self.outputs.push(output.clone());
-        self
-    }
-
-    pub fn build(&self) -> Tx {
-        Tx {
-            version: self.version,
-            inputs: self.inputs.clone(),
-            outputs: self.outputs.clone(),
-            lock_time: self.lock_time,
-        }
-    }
-}
-
 /// An Outpoint is a reference to a specific output of a specific transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Outpoint {
@@ -166,19 +117,15 @@ impl Outpoint {
 
 #[async_trait]
 impl AsyncEncodable for Outpoint {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let tx_hash = Hash::async_from_binary(reader).await?;
         let index = reader.read_u32_le().await?;
-        Ok(Outpoint { tx_hash, index })
+        Ok(Outpoint {
+            tx_hash, index,
+        })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         self.tx_hash.async_to_binary(writer).await?;
         writer.write_u32_le(self.index).await?;
         Ok(())
@@ -202,19 +149,17 @@ impl TxInput {
     pub fn new(tx_hash: TxHash, index: u32, script: Script, sequence: Option<u32>) -> TxInput {
         let sequence = sequence.unwrap_or(u32::MAX);
         TxInput {
-            outpoint: Outpoint { tx_hash, index },
-            script,
-            sequence,
+            outpoint: Outpoint {
+                tx_hash, index
+            },
+            script, sequence,
         }
     }
 }
 
 #[async_trait]
 impl AsyncEncodable for TxInput {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let outpoint = Outpoint::async_from_binary(reader).await?;
         let script = Script::async_from_binary(reader).await?;
         let sequence = reader.read_u32_le().await?;
@@ -225,10 +170,7 @@ impl AsyncEncodable for TxInput {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         self.outpoint.async_to_binary(writer).await?;
         self.script.async_to_binary(writer).await?;
         writer.write_u32_le(self.sequence).await?;
@@ -240,6 +182,7 @@ impl AsyncEncodable for TxInput {
     }
 }
 
+
 /// A TxOutput is an output from a transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct TxOutput {
@@ -250,25 +193,24 @@ pub struct TxOutput {
 impl TxOutput {
     /// Simple new function.
     pub fn new(value: u64, script: Script) -> TxOutput {
-        TxOutput { value, script }
+        TxOutput {
+            value, script,
+        }
     }
 }
 
 #[async_trait]
 impl AsyncEncodable for TxOutput {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
         let value = reader.read_u64_le().await?;
         let script = Script::async_from_binary(reader).await?;
-        Ok(TxOutput { value, script })
+        Ok(TxOutput {
+            value,
+            script,
+        })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
         writer.write_u64_le(self.value).await?;
         self.script.async_to_binary(writer).await?;
         Ok(())
@@ -281,9 +223,10 @@ impl AsyncEncodable for TxOutput {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::bitcoin::hash::Hash;
     use crate::bitcoin::FromHex;
+    use crate::bitcoin::hash::Hash;
+    use super::*;
+
 
     /// Read a transaction from a byte array and check it
     #[test]
@@ -329,11 +272,8 @@ mod tests {
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);
-        let i = tx.inputs.first().unwrap();
-        assert_eq!(
-            i.outpoint.tx_hash,
-            Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a")
-        );
+        let i = tx.inputs.get(0).unwrap();
+        assert_eq!(i.outpoint.tx_hash, Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a"));
         assert_eq!(i.outpoint.index, 1);
         assert_eq!(tx.outputs.len(), 2);
     }
