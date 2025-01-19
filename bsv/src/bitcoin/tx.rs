@@ -104,46 +104,6 @@ impl AsyncEncodable for Tx {
     }
 }
 
-/// A builder for transactions.
-#[derive(PartialEq, Eq, Hash, Clone, Debug)]
-pub struct TxBuilder {
-    version: u32,
-    inputs: Vec<TxInput>,
-    outputs: Vec<TxOutput>,
-    lock_time: u32,
-}
-
-impl TxBuilder {
-    pub fn new() -> TxBuilder {
-        TxBuilder {
-            version: 1,
-            inputs: vec![],
-            outputs: vec![],
-            lock_time: 0,
-        }
-    }
-
-    pub fn add_input(&mut self, input: &TxInput) -> &mut TxBuilder {
-        self.inputs.push(input.clone());
-        self
-    }
-
-    pub fn add_output(&mut self, output: &TxOutput) -> &mut TxBuilder {
-        self.outputs.push(output.clone());
-        self
-    }
-
-    pub fn build(&self) -> Tx {
-        Tx {
-            version: self.version,
-            inputs: self.inputs.clone(),
-            outputs: self.outputs.clone(),
-            lock_time: self.lock_time,
-        }
-    }
-}
-
-
 /// An Outpoint is a reference to a specific output of a specific transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Outpoint {
