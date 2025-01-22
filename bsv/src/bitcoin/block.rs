@@ -1,11 +1,10 @@
+use crate::bitcoin::{varint_decode, AsyncEncodable, BlockHeader, Tx};
+use crate::Result;
 use std::pin::Pin;
 use std::task::{Context, Poll};
-use tokio::io::{AsyncRead};
+use tokio::io::AsyncRead;
 use tokio::sync::mpsc;
 use tokio_stream::Stream;
-use crate::bitcoin::{BlockHeader, AsyncEncodable, Tx, varint_decode};
-use crate::Result;
-
 
 /// Deserialize the bytes in a block and produce a stream of the transactions.
 ///
@@ -65,16 +64,21 @@ impl FullBlockStream {
     /// Create a new FullBlockStream, decoding the block from the reader, with the buffer size
     /// specified. The block header and the number of transactions in the block will be immediately
     /// ready when this function has finished.
-    pub async fn new_bufsize(mut reader: Box<dyn AsyncRead + Unpin + Send>, buf_size: usize) -> Result<FullBlockStream> {
+    pub async fn new_bufsize(
+        mut reader: Box<dyn AsyncRead + Unpin + Send>,
+        buf_size: usize,
+    ) -> Result<FullBlockStream> {
         // read block header and number of transactions
         let block_header = BlockHeader::async_from_binary(&mut reader).await?;
         let num_tx = varint_decode(&mut reader).await?;
         let (sender, rx) = mpsc::channel::<Result<Tx>>(buf_size);
         // spawn a task to continuously read transactions from the reader and send them to the channel
         let mut tx_reader = FullBlockTxReader::new(num_tx, reader, sender);
-        let _h = tokio::spawn(async move {tx_reader.read_tx().await});
+        let _h = tokio::spawn(async move { tx_reader.read_tx().await });
         Ok(FullBlockStream {
-            block_header, num_tx, receiver: rx,
+            block_header,
+            num_tx,
+            receiver: rx,
         })
     }
 }
@@ -97,9 +101,15 @@ struct FullBlockTxReader {
 }
 
 impl FullBlockTxReader {
-    pub fn new(num_tx: u64, reader: Box<dyn AsyncRead + Unpin + Send>, sender: mpsc::Sender<Result<Tx>>) -> Self {
+    pub fn new(
+        num_tx: u64,
+        reader: Box<dyn AsyncRead + Unpin + Send>,
+        sender: mpsc::Sender<Result<Tx>>,
+    ) -> Self {
         FullBlockTxReader {
-            num_tx, reader, sender,
+            num_tx,
+            reader,
+            sender,
         }
     }
 
@@ -123,13 +133,13 @@ impl FullBlockTxReader {
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-    use hex::FromHex;
-    use tokio::fs::File;
     use super::*;
+    use crate::bitcoin::hash::Hash;
+    use hex::FromHex;
+    use std::io::Cursor;
+    use tokio::fs::File;
     use tokio::io::AsyncReadExt;
     use tokio_stream::StreamExt;
-    use crate::bitcoin::hash::Hash;
 
     // Stream a block and check that we can read the transactions from it.
     // Use a small buffer size and pause for a short time before the first transaction read.
@@ -140,7 +150,11 @@ mod tests {
         let block_bin = get_small_block_bin().await;
         let cursor = Box::new(Cursor::new(block_bin));
         let mut s = FullBlockStream::new_bufsize(cursor, 1).await.unwrap();
-        assert_eq!(s.block_header.hash(), Hash::from_hex("0000000000000000000988036522057056727ae85ad7cea92b2198418c9bb8f7").unwrap());
+        assert_eq!(
+            s.block_header.hash(),
+            Hash::from_hex("0000000000000000000988036522057056727ae85ad7cea92b2198418c9bb8f7")
+                .unwrap()
+        );
         assert_eq!(s.num_tx, 222);
         // pause for a short time before reading the first transaction
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -154,9 +168,15 @@ mod tests {
 
     // read block from a file for test purposes
     async fn get_small_block_bin() -> Vec<u8> {
-        let mut file = File::open("../testdata/0000000000000000000988036522057056727ae85ad7cea92b2198418c9bb8f7.bin").await.expect("Could not open file");
+        let mut file = File::open(
+            "../testdata/0000000000000000000988036522057056727ae85ad7cea92b2198418c9bb8f7.bin",
+        )
+        .await
+        .expect("Could not open file");
         let mut buffer = Vec::new();
-        file.read_to_end(&mut buffer).await.expect("Could not read file");
+        file.read_to_end(&mut buffer)
+            .await
+            .expect("Could not read file");
         buffer
     }
 }

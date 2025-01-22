@@ -1,13 +1,13 @@
+use crate::bitcoin::script::byte_seq::ByteSequence;
+use crate::bitcoin::script::Operation;
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
+use crate::Error::DataTooSmall;
+use crate::Result;
 use async_trait::async_trait;
-use bytes::{Bytes, Buf};
+use bytes::{Buf, Bytes};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
-use crate::bitcoin::script::byte_seq::ByteSequence;
-use crate::bitcoin::script::Operation;
-use crate::Error::DataTooSmall;
-use crate::Result;
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
 ///
@@ -15,7 +15,7 @@ use crate::Result;
 /// to examine a script or [ScriptBuilder] to build a script.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Script {
-    pub raw: Bytes
+    pub raw: Bytes,
 }
 
 impl Script {
@@ -32,10 +32,12 @@ impl Script {
             match o {
                 OP_IF | OP_NOTIF => {
                     if_depth += 1;
-                },
+                }
                 OP_ENDIF => {
-                    if if_depth > 0 { if_depth -= 1; }
-                },
+                    if if_depth > 0 {
+                        if_depth -= 1;
+                    }
+                }
                 OP_RETURN => {
                     if if_depth == 0 {
                         trailing = Some(ByteSequence::new(buf.copy_to_bytes(buf.remaining())));
@@ -52,7 +54,7 @@ impl Script {
 impl From<Vec<u8>> for Script {
     fn from(value: Vec<u8>) -> Self {
         Self {
-            raw: Bytes::from(value)
+            raw: Bytes::from(value),
         }
     }
 }
@@ -62,13 +64,12 @@ impl FromHex for Script {
 
     /// Hex encoding is not prefixed by the length.
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> std::result::Result<Self, Self::Error> {
-        let raw= hex::decode(hex)?;
+        let raw = hex::decode(hex)?;
         Ok(Self {
-            raw: Bytes::from(raw)
+            raw: Bytes::from(raw),
         })
     }
 }
-
 
 #[async_trait]
 impl AsyncEncodable for Script {
@@ -77,7 +78,7 @@ impl AsyncEncodable for Script {
     /// A script is always encoded with its size.
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         let size = varint_decode(reader).await?;
         // todo: check size is not too big
@@ -110,18 +111,17 @@ impl AsyncEncodable for Script {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use hex::FromHex;
     use crate::bitcoin::{AsyncEncodable, Script};
+    use hex::FromHex;
 
     /// Test reading a script from hex.
     #[test]
     fn script_read_hex() {
         // this script comes from input 0 from tx 60dcda63c57420077d67e3ae6684a1654cf9f9cc1b8edd569a847f2b5109b739
         let s = Script::from_hex("47304402207df65c96172de240e6232daeeeccccf8655cb4aba38d968f784e34c6cc047cd30220078216eefaddb915ce55170348c3363d013693c543517ad59188901a0e7f8e50412103be56e90fb443f554140e8d260d7214c3b330cfb7da83b3dd5624f85578497841").unwrap();
-        assert_eq!(107, s.async_size());        // 106 bytes + 1 for size as varint
+        assert_eq!(107, s.async_size()); // 106 bytes + 1 for size as varint
     }
 
     /// Test decoding a script.

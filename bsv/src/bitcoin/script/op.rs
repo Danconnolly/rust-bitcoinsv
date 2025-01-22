@@ -1,14 +1,14 @@
-use bytes::{Buf, BufMut, Bytes};
-use log::trace;
-use crate::{Error, Result};
 use crate::bitcoin::encoding::Encodable;
 use crate::bitcoin::script::byte_seq::ByteSequence;
+use crate::{Error, Result};
+use bytes::{Buf, BufMut, Bytes};
+use log::trace;
 
 /// An Operation is an opcode plus relevant data.
 ///
 /// todo: add Copy trait
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[allow(non_camel_case_types)]      // we want to keep the Bitcoin standard naming convention
+#[allow(non_camel_case_types)] // we want to keep the Bitcoin standard naming convention
 #[repr(u8)]
 pub enum Operation {
     /// Pushes 0 onto the stack.
@@ -66,7 +66,6 @@ pub enum Operation {
     // --------------------------------------------------------------------------------------------
     // Flow Control
     // --------------------------------------------------------------------------------------------
-    
     /// Does nothing
     OP_NOP,
     /// If the top stack is true, statements are executed. Top stack value is removed.
@@ -81,11 +80,10 @@ pub enum Operation {
     OP_VERIFY,
     /// Marks a statements as invalid
     OP_RETURN,
-    
+
     // --------------------------------------------------------------------------------------------
     // Stack
     // --------------------------------------------------------------------------------------------
-    
     /// Moves the top item on the main stack to the alt stack
     OP_TOALTSTACK,
     /// Moves the top item on the alt stack to the main stack
@@ -124,22 +122,20 @@ pub enum Operation {
     OP_2ROT,
     /// Swaps the top two pairs of items
     OP_2SWAP,
-    
+
     // --------------------------------------------------------------------------------------------
     // Splice
     // --------------------------------------------------------------------------------------------
-    
     /// Concatenates two byte sequences
     OP_CAT,
     /// Splits the byte sequence at position n
     OP_SPLIT,
     /// Pushes the byte sequence length of the top stack item without popping it
     OP_SIZE,
-    
+
     // --------------------------------------------------------------------------------------------
     // Bitwise Logic
     // --------------------------------------------------------------------------------------------
-    
     /// Flips all of the bits in the input
     OP_INVERT,
     /// Boolean and between each bit in the inputs
@@ -152,11 +148,10 @@ pub enum Operation {
     OP_EQUAL,
     /// Same as OP_EQUAL, but runs OP_VERIFY afterward
     OP_EQUALVERIFY,
-    
+
     // --------------------------------------------------------------------------------------------
     // Arithmetic
     // --------------------------------------------------------------------------------------------
-    
     /// Adds 1 to the input
     OP_1ADD,
     /// Subtracts 1 from the input
@@ -215,11 +210,10 @@ pub enum Operation {
     OP_NUM2BIN,
     /// Converts byte sequence x into a numeric value
     OP_BIN2NUM,
-    
+
     // --------------------------------------------------------------------------------------------
     // Cryptography
     // --------------------------------------------------------------------------------------------
-    
     /// The input is hashed using RIPEMD-160
     OP_RIPEMD160,
     /// The input is hashed using SHA-1
@@ -240,11 +234,10 @@ pub enum Operation {
     OP_CHECKMULTISIG,
     /// Same as OP_CHECKMULTISIG, but OP_VERIFY is executed afterward
     OP_CHECKMULTISIGVERIFY,
-    
+
     // --------------------------------------------------------------------------------------------
     // Reserved words
     // --------------------------------------------------------------------------------------------
-
     /// Upgradeable NOP. Acts as a NOP but its usage is not recommended as the codes may be redefined in
     /// the future. Policy usually rejects transactions that use this code.
     OP_UPNOP,
@@ -260,9 +253,16 @@ pub enum Operation {
 
 impl Operation {
     // helper function to get pushdata of a particular size from the buffer
-    fn get_pushdata(size: usize, buffer: &mut dyn Buf) -> Result<Bytes> where Self: Sized {
+    fn get_pushdata(size: usize, buffer: &mut dyn Buf) -> Result<Bytes>
+    where
+        Self: Sized,
+    {
         if size > buffer.remaining() {
-            trace!("get_pushdata() - expected {} bytes but only have {} remaining", size, buffer.remaining());
+            trace!(
+                "get_pushdata() - expected {} bytes but only have {} remaining",
+                size,
+                buffer.remaining()
+            );
             Err(Error::DataTooSmall)
         } else {
             Ok(buffer.copy_to_bytes(size))
@@ -275,21 +275,15 @@ impl Operation {
     pub fn eq_alias(&self, other: &Self) -> bool {
         use Operation::*;
         match self {
-            OP_0 | OP_FALSE => {
-                match other {
-                    OP_0 | OP_FALSE=> true,
-                    _ => false,
-                }
+            OP_0 | OP_FALSE => match other {
+                OP_0 | OP_FALSE => true,
+                _ => false,
             },
-            OP_1 | OP_TRUE=> {
-                match other {
-                    OP_1 | OP_TRUE => true,
-                    _ => false,
-                }
+            OP_1 | OP_TRUE => match other {
+                OP_1 | OP_TRUE => true,
+                _ => false,
             },
-            value => {
-                other == value
-            },
+            value => other == value,
         }
     }
 
@@ -297,10 +291,10 @@ impl Operation {
     pub fn is_data_push(&self) -> bool {
         use Operation::*;
         match self {
-            OP_0 | OP_1 | OP_2 | OP_3 | OP_4 | OP_5 | OP_6 | OP_7 | OP_8 | OP_9 | OP_10 |
-            OP_11 | OP_12 | OP_13 | OP_14 | OP_15 | OP_16 | OP_FALSE | OP_TRUE | OP_1NEGATE |
-            OP_PUSH(_) | OP_PUSHDATA1(_) | OP_PUSHDATA2(_) | OP_PUSHDATA4(_) => true,
-            _ => false
+            OP_0 | OP_1 | OP_2 | OP_3 | OP_4 | OP_5 | OP_6 | OP_7 | OP_8 | OP_9 | OP_10 | OP_11
+            | OP_12 | OP_13 | OP_14 | OP_15 | OP_16 | OP_FALSE | OP_TRUE | OP_1NEGATE
+            | OP_PUSH(_) | OP_PUSHDATA1(_) | OP_PUSHDATA2(_) | OP_PUSHDATA4(_) => true,
+            _ => false,
         }
     }
 
@@ -327,8 +321,10 @@ impl Operation {
             OP_15 => Some(Bytes::from(&[15u8][..])),
             OP_16 => Some(Bytes::from(&[16u8][..])),
             OP_1NEGATE => Some(Bytes::from(&[255u8][..])),
-            OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => Some(data.get_bytes()),
-            _ => None
+            OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => {
+                Some(data.get_bytes())
+            }
+            _ => None,
         }
     }
 
@@ -365,14 +361,17 @@ impl Operation {
                     Err(_) => None,
                     Ok(val) => Some(val),
                 }
-            },
-            _ => None
+            }
+            _ => None,
         }
     }
 }
 
 impl Encodable for Operation {
-    fn from_binary(buffer: &mut dyn Buf) -> Result<Self> where Self: Sized {
+    fn from_binary(buffer: &mut dyn Buf) -> Result<Self>
+    where
+        Self: Sized,
+    {
         use Operation::*;
         match buffer.has_remaining() {
             false => Err(Error::DataTooSmall),
@@ -381,27 +380,33 @@ impl Encodable for Operation {
                 76 => {
                     if buffer.has_remaining() {
                         let size = buffer.get_u8() as usize;
-                        Ok(OP_PUSHDATA1(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
+                        Ok(OP_PUSHDATA1(ByteSequence::new(Self::get_pushdata(
+                            size, buffer,
+                        )?)))
                     } else {
                         Err(Error::DataTooSmall)
                     }
-                },
+                }
                 77 => {
                     if buffer.remaining() >= 2 {
                         let size = buffer.get_u16_le() as usize;
-                        Ok(OP_PUSHDATA2(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
+                        Ok(OP_PUSHDATA2(ByteSequence::new(Self::get_pushdata(
+                            size, buffer,
+                        )?)))
                     } else {
                         Err(Error::DataTooSmall)
                     }
-                },
+                }
                 78 => {
                     if buffer.remaining() >= 4 {
                         let size = buffer.get_u32_le() as usize;
-                        Ok(OP_PUSHDATA4(ByteSequence::new(Self::get_pushdata(size, buffer)?)))
+                        Ok(OP_PUSHDATA4(ByteSequence::new(Self::get_pushdata(
+                            size, buffer,
+                        )?)))
                     } else {
                         Err(Error::DataTooSmall)
                     }
-                },
+                }
                 79 => Ok(OP_1NEGATE),
                 80 => Ok(OP_RESERVED),
                 81 => Ok(OP_1),
@@ -511,12 +516,15 @@ impl Encodable for Operation {
                 185 => Ok(OP_NOP),
                 other => {
                     if other > 0 && other < 76 {
-                        Ok(OP_PUSH(ByteSequence::new(Self::get_pushdata(other as usize, buffer)?)))
+                        Ok(OP_PUSH(ByteSequence::new(Self::get_pushdata(
+                            other as usize,
+                            buffer,
+                        )?)))
                     } else {
                         Err(Error::UnrecognizedOpCode)
                     }
                 }
-            }
+            },
         }
     }
 
@@ -534,7 +542,7 @@ impl Encodable for Operation {
                         buffer.put_u8(data.len() as u8);
                         Ok(buffer.put_slice(&*data.get_bytes()))
                     }
-                },
+                }
                 OP_PUSHDATA1(data) => {
                     if buffer.remaining_mut() < data.len() + 2 {
                         Err(Error::DataTooSmall)
@@ -543,7 +551,7 @@ impl Encodable for Operation {
                         buffer.put_u8(data.len() as u8);
                         Ok(buffer.put_slice(&*data.get_bytes()))
                     }
-                },
+                }
                 OP_PUSHDATA2(data) => {
                     if buffer.remaining_mut() < data.len() + 3 {
                         Err(Error::DataTooSmall)
@@ -552,7 +560,7 @@ impl Encodable for Operation {
                         buffer.put_u16_le(data.len() as u16);
                         Ok(buffer.put_slice(&*data.get_bytes()))
                     }
-                },
+                }
                 OP_PUSHDATA4(data) => {
                     if buffer.remaining_mut() < data.len() + 5 {
                         Err(Error::DataTooSmall)
@@ -561,7 +569,7 @@ impl Encodable for Operation {
                         buffer.put_u32_le(data.len() as u32);
                         Ok(buffer.put_slice(&*data.get_bytes()))
                     }
-                },
+                }
                 OP_1NEGATE => Ok(buffer.put_u8(79)),
                 OP_RESERVED => Ok(buffer.put_u8(80)),
                 OP_1 => Ok(buffer.put_u8(81)),
@@ -659,35 +667,27 @@ impl Encodable for Operation {
                 OP_CHECKMULTISIG => Ok(buffer.put_u8(174)),
                 OP_CHECKMULTISIGVERIFY => Ok(buffer.put_u8(175)),
                 OP_UPNOP => Ok(buffer.put_u8(177)),
-            }
+            },
         }
     }
 
     fn size(&self) -> usize {
         use Operation::*;
         match self {
-            OP_PUSH(data) => {
-                data.len() + 1
-            },
-            OP_PUSHDATA1(data) => {
-                data.len() + 2
-            },
-            OP_PUSHDATA2(data) => {
-                data.len() + 3
-            },
-            OP_PUSHDATA4(data) => {
-                data.len() + 5
-            },
-            _ => 1
+            OP_PUSH(data) => data.len() + 1,
+            OP_PUSHDATA1(data) => data.len() + 2,
+            OP_PUSHDATA2(data) => data.len() + 3,
+            OP_PUSHDATA4(data) => data.len() + 5,
+            _ => 1,
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use bytes::BytesMut;
-    use crate::bitcoin::Encodable;
     use crate::bitcoin::script::Operation;
+    use crate::bitcoin::Encodable;
+    use bytes::BytesMut;
 
     /// Do a few simple read tests.
     #[test]
@@ -699,12 +699,12 @@ mod tests {
         // op_push 4 bytes
         let mut op2: &[u8] = &[4u8, 0, 1, 2, 3];
         let r = Operation::from_binary(&mut op2).unwrap();
-        assert!(matches!(r, Operation::OP_PUSH{ .. }));
+        assert!(matches!(r, Operation::OP_PUSH { .. }));
 
         // op_pushdata1
         let mut op3: &[u8] = &[76u8, 4, 1, 2, 3, 4];
         let r = Operation::from_binary(&mut op3).unwrap();
-        assert!(matches!(r, Operation::OP_PUSHDATA1{ .. }));
+        assert!(matches!(r, Operation::OP_PUSHDATA1 { .. }));
     }
 
     /// Check that every opcode encodes and decodes to the same value.
@@ -715,7 +715,8 @@ mod tests {
             let o = Operation::from_binary(&mut i);
             if o.is_ok() {
                 let o = o.unwrap();
-                if o != Operation::OP_RESERVED && o != Operation::OP_NOP && o != Operation::OP_UPNOP {
+                if o != Operation::OP_RESERVED && o != Operation::OP_NOP && o != Operation::OP_UPNOP
+                {
                     let mut b = BytesMut::with_capacity(10);
                     o.to_binary(&mut b).unwrap();
                     assert_eq!(b[0], j);

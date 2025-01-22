@@ -1,17 +1,16 @@
-use std::sync::Arc;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
-use tokio::task::JoinHandle;
-use log::trace;
-use tokio::sync::RwLock;
-use uuid::Uuid;
 use crate::bitcoin::BlockchainId;
 use crate::bitcoin::BlockchainId::Main;
+use crate::p2p::channel::{ChannelConfig, PeerChannel};
+use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
+use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
 use crate::p2p::peer::PeerAddress;
 use crate::p2p::{P2PManagerConfig, ACTOR_CHANNEL_SIZE};
-use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
-use crate::p2p::channel::{PeerChannel, ChannelConfig};
-use crate::p2p::params::{DEFAULT_EXCESSIVE_BLOCK_SIZE, DEFAULT_MAX_RECV_PAYLOAD_SIZE};
-
+use log::trace;
+use std::sync::Arc;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::RwLock;
+use tokio::task::JoinHandle;
+use uuid::Uuid;
 
 /// Configuration shared by all P2P Connections.
 ///
@@ -92,7 +91,7 @@ impl From<&P2PManagerConfig> for ConnectionConfig {
 /// A logical connection to a peer can consist of multiple streams which enables the separation
 /// of messages based on priority and prevents the logical connection from being swamped with
 /// large data messages. (todo: not implemented)
-/// 
+///
 /// The Connection is actually a handle to an actor implemented in ConnectionActor.
 pub struct Connection {
     /// The address to which the Connection is attempting to connect.
@@ -106,7 +105,11 @@ pub struct Connection {
 }
 
 impl Connection {
-    pub fn new(peer: PeerAddress, config: Arc<ConnectionConfig>, data_channel: Option<P2PMessageChannelSender>) -> (Connection, JoinHandle<()>) {
+    pub fn new(
+        peer: PeerAddress,
+        config: Arc<ConnectionConfig>,
+        data_channel: Option<P2PMessageChannelSender>,
+    ) -> (Connection, JoinHandle<()>) {
         // actor channel
         let (tx, rx) = channel(ACTOR_CHANNEL_SIZE);
         // data channel
@@ -120,8 +123,18 @@ impl Connection {
         let p_c = peer.clone();
         let connection_id = Uuid::new_v4();
         let c_id2 = connection_id.clone();
-        let j = tokio::spawn(async move { ConnectionActor::new(rx, p_c, c_id2, config, d_chan2).await });
-        (Connection { peer, connection_id, data_channel: d_channel, sender: tx, }, j)
+        let j = tokio::spawn(
+            async move { ConnectionActor::new(rx, p_c, c_id2, config, d_chan2).await },
+        );
+        (
+            Connection {
+                peer,
+                connection_id,
+                data_channel: d_channel,
+                sender: tx,
+            },
+            j,
+        )
     }
 
     /// Subscribe to the data channel.
@@ -130,13 +143,16 @@ impl Connection {
     }
 
     pub async fn close(&self) {
-        self.sender.send(ConnectionControlMessage::Close).await.unwrap();
+        self.sender
+            .send(ConnectionControlMessage::Close)
+            .await
+            .unwrap();
     }
 }
 
 pub enum ConnectionControlMessage {
-    Close,          // close the connection
-    Pause,          // pause the connection, i.e. dont re-connect if it fails
+    Close, // close the connection
+    Pause, // pause the connection, i.e. dont re-connect if it fails
 }
 
 // The actor for a connection.
@@ -166,20 +182,43 @@ struct ConnectionActor {
 }
 
 impl ConnectionActor {
-    async fn new(inbox: Receiver<ConnectionControlMessage>, peer_address: PeerAddress, connection_id: Uuid,
-                 config: Arc<ConnectionConfig>, data_channel: P2PMessageChannelSender) {
+    async fn new(
+        inbox: Receiver<ConnectionControlMessage>,
+        peer_address: PeerAddress,
+        connection_id: Uuid,
+        config: Arc<ConnectionConfig>,
+        data_channel: P2PMessageChannelSender,
+    ) {
         // make the first stream
-        let stream_config = Arc::new(RwLock::new(ChannelConfig::new(&config, &peer_address.peer_id, &connection_id)));
-        let (stream, join_handle) = PeerChannel::new(peer_address.clone(), stream_config.clone(), data_channel.clone()).await.unwrap();  // todo: remove unwrap
-        // make the actor
+        let stream_config = Arc::new(RwLock::new(ChannelConfig::new(
+            &config,
+            &peer_address.peer_id,
+            &connection_id,
+        )));
+        let (stream, join_handle) = PeerChannel::new(
+            peer_address.clone(),
+            stream_config.clone(),
+            data_channel.clone(),
+        )
+        .await
+        .unwrap(); // todo: remove unwrap
+                   // make the actor
         let mut actor = ConnectionActor {
-            inbox, connection_id, config, data_channel, attempts: 0, primary_stream: stream, primary_join: Some(join_handle),
-            primary_config: stream_config, peer_address, paused: false,
+            inbox,
+            connection_id,
+            config,
+            data_channel,
+            attempts: 0,
+            primary_stream: stream,
+            primary_join: Some(join_handle),
+            primary_config: stream_config,
+            peer_address,
+            paused: false,
         };
         // run the actor
         actor.run().await;
     }
-    
+
     async fn run(&mut self) {
         trace!("ConnectionActor started.");
         loop {
@@ -204,8 +243,6 @@ impl ConnectionActor {
 
 #[cfg(test)]
 mod tests {
-    
-    
 
     // todo: add some tests
 

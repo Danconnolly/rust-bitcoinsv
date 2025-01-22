@@ -1,17 +1,17 @@
-mod node_addr;
-mod version;
-mod messages;
-mod msg_header;
-mod protoconf;
-mod ping;
 mod addr;
-mod inv;
 mod block;
 mod block_locator;
 mod headers;
+mod inv;
 mod merkle_block;
+mod messages;
+mod msg_header;
+mod node_addr;
+mod ping;
+mod protoconf;
 mod reject;
 mod send_cmpct;
+mod version;
 
 // the individual P2P messages
 pub use node_addr::NodeAddr;
@@ -21,4 +21,3 @@ pub use version::Version;
 
 // P2P message
 pub use messages::{P2PMessage, P2PMessageType};
-

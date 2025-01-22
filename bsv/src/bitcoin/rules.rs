@@ -36,7 +36,6 @@ pub fn MAX_BLOCK_SIZE(policy: bool) -> u64 {
     }
 }
 
-
 /// Consensus Rule - maximum size of transactions - 1GB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#maximum-transaction-size)
 static CRULE_MAX_TX_SIZE: AtomicU64 = AtomicU64::new(1_000_000_000);
 
@@ -53,7 +52,6 @@ pub fn MAX_TX_SIZE(policy: bool) -> u64 {
         CRULE_MAX_TX_SIZE.load(Ordering::Relaxed)
     }
 }
-
 
 /// Consensus Rule - max size of byte sequence - UINT32_MAX
 static CRULE_MAX_BYTE_SEQ_LEN: AtomicU64 = AtomicU64::new(u32::MAX as u64);
@@ -72,7 +70,6 @@ pub fn MAX_BYTE_SEQ_LEN(policy: bool) -> u64 {
     }
 }
 
-
 /// Consensus Rule - max number of public keys per multisig - INT32_MAX - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#number-of-public-keys-per-multisig-consensus-rule)
 static CRULE_MAX_MULTISIG_KEYS: AtomicU64 = AtomicU64::new(i32::MAX as u64);
 
@@ -89,7 +86,6 @@ pub fn MAX_MULTISIG_KEYS(policy: bool) -> u64 {
         CRULE_MAX_MULTISIG_KEYS.load(Ordering::Relaxed)
     }
 }
-
 
 /// Configurable Consensus Rule - max memory used by stacks - default = 200MB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#stack-memory-usage-consensus-rule)
 const CRULE_MAX_STACK_MEM: AtomicU64 = AtomicU64::new(200_000_000);
@@ -108,8 +104,6 @@ pub fn MAX_STACK_MEM(policy: bool) -> u64 {
     }
 }
 
-
-
 /// Policy - transaction evaluation timeout - default 1s = 1000 ms - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#transaction-evaluation-timeout)
 const POLICY_TX_EVAL_TIMEOUT_MS: AtomicU64 = AtomicU64::new(1_000);
 
@@ -117,7 +111,6 @@ const POLICY_TX_EVAL_TIMEOUT_MS: AtomicU64 = AtomicU64::new(1_000);
 pub fn TX_EVALE_TIMEOUT_MS() -> u64 {
     POLICY_TX_EVAL_TIMEOUT_MS.load(Ordering::Relaxed)
 }
-
 
 /// Consensus Rule - max size of numeric value - 750_000 bytes - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#numeric-value-size-consensus-rule)
 /// See also [POLICY_MAX_NUMERIC_LEN].
@@ -137,4 +130,3 @@ pub fn MAX_NUMERIC_LEN(policy: bool) -> u64 {
         CRULE_MAX_NUMERIC_LEN.load(Ordering::Relaxed)
     }
 }
-

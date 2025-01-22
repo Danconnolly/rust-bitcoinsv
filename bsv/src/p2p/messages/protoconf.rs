@@ -1,7 +1,7 @@
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
 use async_trait::async_trait;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{varint_size, AsyncEncodable, varint_decode, varint_encode};
 
 /// The maximum size of a protoconf message.
 pub const MAX_PROTOCONF_SIZE: u64 = 1_048_576;
@@ -52,10 +52,15 @@ impl Default for Protoconf {
 
 #[async_trait]
 impl AsyncEncodable for Protoconf {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let num_entries = varint_decode(reader).await?;
         if num_entries < 2 {
-            return Err(crate::Error::BadData("Protoconf must have at least 2 entries".to_string()));
+            return Err(crate::Error::BadData(
+                "Protoconf must have at least 2 entries".to_string(),
+            ));
         } else if num_entries > 2 {
             warn!("Protoconf has more than 2 entries, ignoring extra entries.");
         }
@@ -71,7 +76,10 @@ impl AsyncEncodable for Protoconf {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         varint_encode(writer, 2).await?;
         writer.write_u32_le(self.max_recv_payload_length).await?;
         varint_encode(writer, self.stream_policies.len() as u64).await?;
@@ -79,8 +87,10 @@ impl AsyncEncodable for Protoconf {
         Ok(())
     }
 
-
     fn async_size(&self) -> usize {
-        varint_size(2) + 4 + varint_size(self.stream_policies.len() as u64) + self.stream_policies.len()
+        varint_size(2)
+            + 4
+            + varint_size(self.stream_policies.len() as u64)
+            + self.stream_policies.len()
     }
 }

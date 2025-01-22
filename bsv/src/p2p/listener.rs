@@ -1,7 +1,7 @@
-use tokio::sync::mpsc::{channel, Sender, Receiver};
+use crate::p2p::ACTOR_CHANNEL_SIZE;
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
-use crate::p2p::ACTOR_CHANNEL_SIZE;
 
 // todo: fix and implement
 
@@ -15,7 +15,7 @@ pub struct ListenerConfig {
 impl ListenerConfig {
     pub fn default() -> Self {
         Self {
-            port: 0,        // choose random port
+            port: 0, // choose random port
         }
     }
 }
@@ -40,18 +40,25 @@ impl Listener {
 
     pub async fn get_port(&self) -> u16 {
         let (tx, rx) = oneshot::channel();
-        let _ = self.sender.send(ListenerInternalMessage::GetPort { reply: tx }).await.unwrap();
+        let _ = self
+            .sender
+            .send(ListenerInternalMessage::GetPort { reply: tx })
+            .await
+            .unwrap();
         rx.await.unwrap()
     }
 }
 
 pub enum ListenerMessage {
-    AcceptConnection {socket: tokio::net::TcpStream, address: std::net::SocketAddr},
+    AcceptConnection {
+        socket: tokio::net::TcpStream,
+        address: std::net::SocketAddr,
+    },
 }
 
 enum ListenerInternalMessage {
     Stop,
-    GetPort{ reply: oneshot::Sender<u16> }
+    GetPort { reply: oneshot::Sender<u16> },
 }
 
 struct ListenerActor {
@@ -61,39 +68,47 @@ struct ListenerActor {
 }
 
 impl ListenerActor {
-    fn new(inbox: Receiver<ListenerInternalMessage>, outbox: Sender<ListenerMessage>, config: ListenerConfig) -> Self {
-        ListenerActor { inbox, outbox, config }
+    fn new(
+        inbox: Receiver<ListenerInternalMessage>,
+        outbox: Sender<ListenerMessage>,
+        config: ListenerConfig,
+    ) -> Self {
+        ListenerActor {
+            inbox,
+            outbox,
+            config,
+        }
     }
 
     async fn run(&mut self) {
         // let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, self.config.port)).await.unwrap();
         // loop {
-            // tokio::select! {
-                // message = self.inbox.recv() => {
-                    // match message {
-                    //     Some(ListenerInternalMessage::Stop) => {
-                    //         break;
-                    //     }
-                    //     Some(ListenerInternalMessage::GetPort { reply }) => {
-                    //         reply.send(listener.local_addr().unwrap().port()).unwrap();
-                    //     }
-                    //     None => {
-                    //         println!("ListenerActor: inbox closed, stopping");
-                    //         break;
-                    //     }
-                    // }
-                // }
-                // a = listener.accept() => {
-                    // match a {
-                        // Ok((stream, addr)) => {
-                        //     self.outbox.send(ListenerMessage::AcceptConnection { socket: stream, address: addr }).await;
-                        // }
-                        // Err(e) => {
-                        //     panic!("Error accepting connection: {}", e);        // todo: handle this better
-                        // }
-                    // }
-                // }
-            // }
+        // tokio::select! {
+        // message = self.inbox.recv() => {
+        // match message {
+        //     Some(ListenerInternalMessage::Stop) => {
+        //         break;
+        //     }
+        //     Some(ListenerInternalMessage::GetPort { reply }) => {
+        //         reply.send(listener.local_addr().unwrap().port()).unwrap();
+        //     }
+        //     None => {
+        //         println!("ListenerActor: inbox closed, stopping");
+        //         break;
+        //     }
+        // }
+        // }
+        // a = listener.accept() => {
+        // match a {
+        // Ok((stream, addr)) => {
+        //     self.outbox.send(ListenerMessage::AcceptConnection { socket: stream, address: addr }).await;
+        // }
+        // Err(e) => {
+        //     panic!("Error accepting connection: {}", e);        // todo: handle this better
+        // }
+        // }
+        // }
+        // }
         // }
     }
 }

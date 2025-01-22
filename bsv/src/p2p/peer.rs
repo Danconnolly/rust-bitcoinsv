@@ -1,7 +1,6 @@
 use std::net::{IpAddr, SocketAddr};
 use uuid::Uuid;
 
-
 /// A PeerAddress is a potential agent on the network to which a connection could be established.
 #[derive(Debug, Clone)]
 pub struct PeerAddress {

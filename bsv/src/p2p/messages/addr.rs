@@ -1,8 +1,8 @@
-use std::fmt;
-use async_trait::async_trait;
-use tokio::io::{AsyncRead, AsyncWrite};
-use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
 use crate::p2p::messages::NodeAddr;
+use async_trait::async_trait;
+use std::fmt;
+use tokio::io::{AsyncRead, AsyncWrite};
 
 /// Addr message. This message is sent to advertise known nodes to the network.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -18,7 +18,10 @@ impl Addr {
 
 #[async_trait]
 impl AsyncEncodable for Addr {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let i = varint_decode(reader).await?;
         if i > Addr::MAX_ADDR_COUNT {
             let msg = format!("Too many addrs: {}", i);
@@ -31,7 +34,10 @@ impl AsyncEncodable for Addr {
         Ok(Addr { addrs })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         if self.addrs.len() as u64 > Addr::MAX_ADDR_COUNT {
             let msg = format!("Too many addrs: {}", self.addrs.len());
             return Err(crate::Error::BadData(msg));

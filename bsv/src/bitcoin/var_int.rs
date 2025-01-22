@@ -1,4 +1,4 @@
-use tokio::io::{AsyncRead, AsyncWrite, AsyncReadExt, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The size of the value encoded as a varint.
 pub fn varint_size(value: u64) -> usize {
@@ -17,12 +17,16 @@ pub async fn varint_decode<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate
         0xff => reader.read_u64_le().await.unwrap(),
         0xfe => reader.read_u32_le().await.unwrap() as u64,
         0xfd => reader.read_u16_le().await.unwrap() as u64,
-        _ => n0 as u64 };
+        _ => n0 as u64,
+    };
     Ok(v)
 }
 
 /// Encode a variable length integer into a byte stream, async version.
-pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(writer: &mut W, value: u64) -> crate::Result<()> {
+pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(
+    writer: &mut W,
+    value: u64,
+) -> crate::Result<()> {
     match value {
         0..=252 => writer.write_u8(value as u8).await?,
         253..=0xffff => {
@@ -41,11 +45,10 @@ pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(writer: &mut W, value: 
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
     use super::*;
+    use std::io::Cursor;
 
     #[test]
     fn size() {

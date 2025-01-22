@@ -1,13 +1,12 @@
-use base58::{FromBase58, ToBase58};
 use crate::bitcoin::Hash;
 use crate::{Error, Result};
+use base58::{FromBase58, ToBase58};
 
 /// Functions for base-58 encoding with checksum.
 ///
 /// Some Bitcoin standards use base-58 encoding with an additional checksum. The checksum
 /// is appended to the end of the base-58 encoding and consists of the first 4 bytes of
 /// the SHA256D hash of the value.
-
 
 /// Encodes `data` as a base58 string including the checksum.
 ///
@@ -30,13 +29,17 @@ pub fn decode_with_checksum(encoded: &String) -> Result<Vec<u8>> {
     let mut data = encoded.from_base58()?;
     let l = data.len();
     if l < 5 {
-        Err(Error::BadData("base58 string too short to contain checksum".parse().unwrap()))
+        Err(Error::BadData(
+            "base58 string too short to contain checksum"
+                .parse()
+                .unwrap(),
+        ))
     } else {
-        let ck = Hash::sha256d(&data[..l-4]);
-        if ck.hash[0..4] != data[l-4..] {
+        let ck = Hash::sha256d(&data[..l - 4]);
+        if ck.hash[0..4] != data[l - 4..] {
             Err(Error::ChecksumMismatch)
         } else {
-            data.truncate(l-4);
+            data.truncate(l - 4);
             Ok(data)
         }
     }
@@ -44,8 +47,8 @@ pub fn decode_with_checksum(encoded: &String) -> Result<Vec<u8>> {
 
 #[cfg(test)]
 mod tests {
-    use hex_literal::hex;
     use crate::bitcoin::base58ck::{decode_with_checksum, encode_with_checksum};
+    use hex_literal::hex;
 
     #[test]
     fn test_base58ck_encode() {
@@ -53,7 +56,10 @@ mod tests {
         // 160 hash is 2c7a568d346629f5308a5b75d825d28b09297153
         // prepend 0x00 for mainnet address
         let addr = hex!("002c7a568d346629f5308a5b75d825d28b09297153");
-        assert_eq!(encode_with_checksum(&Vec::from(addr)), "154BHe8d7Dmm7pWLG8J9gceXiCfCRDtWAo");
+        assert_eq!(
+            encode_with_checksum(&Vec::from(addr)),
+            "154BHe8d7Dmm7pWLG8J9gceXiCfCRDtWAo"
+        );
     }
 
     #[test]

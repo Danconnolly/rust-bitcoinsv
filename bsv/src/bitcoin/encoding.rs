@@ -1,8 +1,8 @@
+use crate::Result;
 use async_trait::async_trait;
 use bytes::{Buf, BufMut};
 use futures::executor::block_on;
 use tokio::io::{AsyncRead, AsyncWrite};
-use crate::Result;
 
 /// Read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
 ///
@@ -28,7 +28,8 @@ use crate::Result;
 pub trait Encodable {
     /// Read the data structure from a buffer.
     fn from_binary(buffer: &mut dyn Buf) -> Result<Self>
-        where Self: Sized;
+    where
+        Self: Sized;
 
     /// Write the data structure to a buffer.
     fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()>;
@@ -39,7 +40,6 @@ pub trait Encodable {
     // for the serialization.
     fn size(&self) -> usize;
 }
-
 
 /// Asynchronously read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
 ///

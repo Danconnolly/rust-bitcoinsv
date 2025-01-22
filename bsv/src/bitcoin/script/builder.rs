@@ -1,7 +1,7 @@
-use std::cmp::max;
-use bytes::Bytes;
 use crate::bitcoin::{Encodable, Operation, Script};
 use crate::Result;
+use bytes::Bytes;
+use std::cmp::max;
 
 /// ScriptBuilder can be used to build [Script]s.
 ///
@@ -27,7 +27,7 @@ impl ScriptBuilder {
         // 1000 bytes should hold most scripts
         let cap = match self.trailing.clone() {
             None => 1_000,
-            Some(v) => max(1_000, v.len())
+            Some(v) => max(1_000, v.len()),
         };
         let mut buffer = Vec::with_capacity(cap);
         let mut last_opreturn = false;
@@ -41,7 +41,7 @@ impl ScriptBuilder {
         }
         if self.trailing.is_some() {
             let o = self.trailing.clone().unwrap();
-            if ! last_opreturn {
+            if !last_opreturn {
                 Operation::OP_RETURN.to_binary(&mut buffer)?;
             }
             buffer.append(&mut o.to_vec());
@@ -70,27 +70,32 @@ impl ScriptBuilder {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::bitcoin::ByteSequence;
     use bytes::Bytes;
     use hex_literal::hex;
-    use crate::bitcoin::ByteSequence;
-    use super::*;
 
     #[test]
     fn create_p2pkh_output_script() {
         // from tx d2bb697e3555cb0e4a82f0d4990d1c826eee9f648a5efc598f648bdb524093ff output 0
         use Operation::*;
-        let byteseq = ByteSequence::new(Bytes::from(&hex!("6f67988ec4b7bf498c9164d76b52dffdc805ff8c")[..]));
+        let byteseq = ByteSequence::new(Bytes::from(
+            &hex!("6f67988ec4b7bf498c9164d76b52dffdc805ff8c")[..],
+        ));
         let script = ScriptBuilder::new()
             .add(OP_DUP)
             .add(OP_HASH160)
             .add(OP_PUSH(byteseq))
             .add(OP_EQUALVERIFY)
             .add(OP_CHECKSIG)
-            .build().unwrap();
+            .build()
+            .unwrap();
         assert_eq!(script.raw.len(), 25);
-        assert_eq!(script.raw, Bytes::from(&hex!("76a9146f67988ec4b7bf498c9164d76b52dffdc805ff8c88ac")[..]));
+        assert_eq!(
+            script.raw,
+            Bytes::from(&hex!("76a9146f67988ec4b7bf498c9164d76b52dffdc805ff8c88ac")[..])
+        );
     }
 }

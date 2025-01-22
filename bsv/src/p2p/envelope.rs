@@ -1,9 +1,9 @@
+use crate::p2p::channel::ChannelConfig;
+use crate::p2p::messages::P2PMessage;
+use crate::util::epoch_millis;
 use std::sync::Arc;
 use tokio::sync::broadcast::{Receiver, Sender};
 use uuid::Uuid;
-use crate::p2p::messages::P2PMessage;
-use crate::p2p::channel::ChannelConfig;
-use crate::util::epoch_millis;
 
 /// The P2PEnvelope contains a P2PMessage and additional meta-data.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]

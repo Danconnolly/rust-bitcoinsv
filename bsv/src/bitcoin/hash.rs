@@ -1,11 +1,11 @@
-use std::cmp::Ordering;
-use std::fmt;
+use crate::bitcoin::AsyncEncodable;
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use std::cmp::Ordering;
+use std::fmt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
 
 /// A struct representing a hash, specifically a SHA256d hash.
 ///
@@ -14,7 +14,7 @@ use crate::bitcoin::AsyncEncodable;
 /// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [Hash]. Those aliases
 /// should generally be used instead of this struct.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Hash{
+pub struct Hash {
     pub hash: [u8; 32],
 }
 
@@ -29,14 +29,14 @@ impl Hash {
         let sha256d = digest(&SHA256, sha256.as_ref());
         let mut hash256 = [0; 32];
         hash256.clone_from_slice(sha256d.as_ref());
-        Hash{hash: hash256}
+        Hash { hash: hash256 }
     }
 
     // helper for ToHex trait implementation
     fn generic_encode_hex<T, F>(&self, mut encode_fn: F) -> T
-        where
-            T: FromIterator<char>,
-            F: FnMut(&[u8]) -> String,
+    where
+        T: FromIterator<char>,
+        F: FnMut(&[u8]) -> String,
     {
         let mut reversed_bytes = self.hash;
         reversed_bytes.reverse();
@@ -46,15 +46,19 @@ impl Hash {
 
 #[async_trait]
 impl AsyncEncodable for Hash {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let mut hash_value: [u8; 32] = [0; 32];
         reader.read_exact(&mut hash_value).await?;
-        Ok(Hash {
-            hash: hash_value,
-        })
+        Ok(Hash { hash: hash_value })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         writer.write_all(&self.hash).await?;
         Ok(())
     }
@@ -72,7 +76,10 @@ impl FromHex for Hash {
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let hex = hex.as_ref();
         if hex.len() != Hash::HEX_SIZE {
-            let msg = format!("Length of hex encoded hash must be 64. Len is {:}.", hex.len());
+            let msg = format!(
+                "Length of hex encoded hash must be 64. Len is {:}.",
+                hex.len()
+            );
             return Err(crate::Error::BadArgument(msg));
         }
         match hex::decode(hex) {
@@ -82,7 +89,7 @@ impl FromHex for Hash {
                 let mut hash_array = [0u8; Hash::SIZE];
                 hash_array.copy_from_slice(&hash_bytes);
                 Ok(Hash { hash: hash_array })
-            },
+            }
             Err(e) => Err(crate::Error::FromHexError(e)),
         }
     }
@@ -161,7 +168,10 @@ impl Serialize for Hash {
 }
 
 impl<'de> Deserialize<'de> for Hash {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         let s = String::deserialize(deserializer)?;
         Hash::from_hex(s).map_err(|e| serde::de::Error::custom(e.to_string()))
     }
@@ -176,7 +186,10 @@ mod tests {
     fn sha256d_test() {
         let x = hex::decode("0123456789abcdef").unwrap();
         let e = hex::encode(Hash::sha256d(&x).hash);
-        assert_eq!(e, "137ad663f79da06e282ed0abbec4d70523ced5ff8e39d5c2e5641d978c5925aa");
+        assert_eq!(
+            e,
+            "137ad663f79da06e282ed0abbec4d70523ced5ff8e39d5c2e5641d978c5925aa"
+        );
     }
 
     #[test]
@@ -224,12 +237,16 @@ mod tests {
     /// Test binary read of hash
     #[test]
     fn hash_read() {
-        let b = [0xbe, 0xc7, 0x7b, 0x08, 0x3c, 0xf7, 0xb7, 0x5c,
-            0x97, 0xcc, 0xfa, 0x0c, 0x4b, 0x0c, 0x0c, 0x40,
-            0xa6, 0xe5, 0xae, 0x6b, 0x05, 0xab, 0x12, 0xc9,
-            0x38, 0x81, 0xaf, 0x7f, 0x8a, 0x04, 0x53, 0xf2];
+        let b = [
+            0xbe, 0xc7, 0x7b, 0x08, 0x3c, 0xf7, 0xb7, 0x5c, 0x97, 0xcc, 0xfa, 0x0c, 0x4b, 0x0c,
+            0x0c, 0x40, 0xa6, 0xe5, 0xae, 0x6b, 0x05, 0xab, 0x12, 0xc9, 0x38, 0x81, 0xaf, 0x7f,
+            0x8a, 0x04, 0x53, 0xf2,
+        ];
         let h = Hash::from_binary_buf(&b[..]).unwrap();
-        assert_eq!(h.encode_hex::<String>(), "f253048a7faf8138c912ab056baee5a6400c0c4b0cfacc975cb7f73c087bc7be");
+        assert_eq!(
+            h.encode_hex::<String>(),
+            "f253048a7faf8138c912ab056baee5a6400c0c4b0cfacc975cb7f73c087bc7be"
+        );
     }
 
     #[test]
@@ -238,20 +255,24 @@ mod tests {
         let h = Hash::from_hex(s).unwrap();
         let b = h.to_binary_buf().unwrap();
         let c = vec![
-            0x4f, 0x75, 0xec, 0x22, 0x89, 0xff, 0xfd, 0x27,
-            0x16, 0x8e, 0x7f, 0x6b, 0xa6, 0xcd, 0xf2, 0x28,
-            0x6a, 0xeb, 0x5e, 0x49, 0x73, 0x9a, 0xbf, 0xa7,
-            0x28, 0xc2, 0xde, 0x73, 0x7e, 0x2f, 0x4b, 0x68
+            0x4f, 0x75, 0xec, 0x22, 0x89, 0xff, 0xfd, 0x27, 0x16, 0x8e, 0x7f, 0x6b, 0xa6, 0xcd,
+            0xf2, 0x28, 0x6a, 0xeb, 0x5e, 0x49, 0x73, 0x9a, 0xbf, 0xa7, 0x28, 0xc2, 0xde, 0x73,
+            0x7e, 0x2f, 0x4b, 0x68,
         ];
         assert_eq!(b, c);
     }
 
     #[test]
     fn json_serialize_hash() {
-        let hash = Hash::from_hex("0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e").expect("Failed to decode test hash");
+        let hash =
+            Hash::from_hex("0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e")
+                .expect("Failed to decode test hash");
         let serialized = serde_json::to_string(&hash).expect("Failed to serialize");
         // Ensure it serializes to a hex string
-        assert_eq!(serialized, "\"0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e\"");
+        assert_eq!(
+            serialized,
+            "\"0000000000000000069347185643c805ff7e00fae025316393e34fa67274df4e\""
+        );
     }
 
     #[test]

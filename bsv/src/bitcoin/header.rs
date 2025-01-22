@@ -1,9 +1,9 @@
+use crate::bitcoin::hash::Hash;
+use crate::bitcoin::params::BlockchainId;
+use crate::bitcoin::AsyncEncodable;
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::AsyncEncodable;
-use crate::bitcoin::hash::Hash;
-use crate::bitcoin::params::BlockchainId;
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
 pub type BlockHash = Hash;
@@ -51,7 +51,10 @@ impl BlockHeader {
 
 #[async_trait]
 impl AsyncEncodable for BlockHeader {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         Ok(BlockHeader {
             version: reader.read_u32_le().await?,
             prev_hash: Hash::async_from_binary(reader).await?,
@@ -62,7 +65,10 @@ impl AsyncEncodable for BlockHeader {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
         self.prev_hash.async_to_binary(writer).await?;
         self.merkle_root.async_to_binary(writer).await?;
@@ -99,8 +105,8 @@ impl ToHex for BlockHeader {
 
 #[cfg(test)]
 mod tests {
-    use hex::FromHex;
     use super::*;
+    use hex::FromHex;
 
     /// Read a block header from a byte array and check it
     #[test]
@@ -111,9 +117,17 @@ mod tests {
         assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce, 1285270638);
         assert_eq!(block_header.bits, 0x1808583c);
-        assert_eq!(block_header.merkle_root, Hash::from_hex("39513f5dd95fcb548f43a6e2719819d3f6ecee1c52e7e64bf25b0e93b5bd4227").unwrap());
+        assert_eq!(
+            block_header.merkle_root,
+            Hash::from_hex("39513f5dd95fcb548f43a6e2719819d3f6ecee1c52e7e64bf25b0e93b5bd4227")
+                .unwrap()
+        );
         assert_eq!(block_header.timestamp, 1703972259);
-        assert_eq!(block_header.prev_hash, Hash::from_hex("00000000000000000328503edec3569a36f5b11cdcfbb3f6c5efe39cf1cafad8").unwrap());
+        assert_eq!(
+            block_header.prev_hash,
+            Hash::from_hex("00000000000000000328503edec3569a36f5b11cdcfbb3f6c5efe39cf1cafad8")
+                .unwrap()
+        );
     }
 
     fn get_block_header824962() -> (Vec<u8>, BlockHash) {
@@ -147,12 +161,28 @@ mod tests {
     #[test]
     fn check_genesis() {
         let hdr = BlockHeader::get_genesis(BlockchainId::Main);
-        assert_eq!(hdr.hash(), BlockHash::from_hex("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f").unwrap());
+        assert_eq!(
+            hdr.hash(),
+            BlockHash::from_hex("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
+                .unwrap()
+        );
         let hdr = BlockHeader::get_genesis(BlockchainId::Test);
-        assert_eq!(hdr.hash(), BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943").unwrap());
+        assert_eq!(
+            hdr.hash(),
+            BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943")
+                .unwrap()
+        );
         let hdr = BlockHeader::get_genesis(BlockchainId::Stn);
-        assert_eq!(hdr.hash(), BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943").unwrap());
+        assert_eq!(
+            hdr.hash(),
+            BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943")
+                .unwrap()
+        );
         let hdr = BlockHeader::get_genesis(BlockchainId::Regtest);
-        assert_eq!(hdr.hash(), BlockHash::from_hex("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206").unwrap());
+        assert_eq!(
+            hdr.hash(),
+            BlockHash::from_hex("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")
+                .unwrap()
+        );
     }
 }

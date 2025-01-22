@@ -1,9 +1,8 @@
+use base58::FromBase58Error;
+use hex::FromHexError;
 use std::fmt::Formatter;
 use std::io;
 use std::string::FromUtf8Error;
-use base58::FromBase58Error;
-use hex::FromHexError;
-
 
 /// Standard Result used in the library
 pub type Result<T> = std::result::Result<T, Error>;
@@ -63,7 +62,7 @@ impl std::fmt::Display for Error {
             Error::Secp256k1Error(e) => f.write_str(&format!("secpk256k1 error: {:?}", e)),
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
-            Error::MinActorError(e) => f.write_str(&format!("Minactor error: {:?}", e)),     // todo: revert to display when implemented
+            Error::MinActorError(e) => f.write_str(&format!("Minactor error: {:?}", e)), // todo: revert to display when implemented
         }
     }
 }
@@ -99,13 +98,16 @@ impl From<FromUtf8Error> for Error {
 }
 
 impl From<secp256k1::Error> for Error {
-    fn from(e: secp256k1::Error) -> Self { Error::Secp256k1Error(e) }
+    fn from(e: secp256k1::Error) -> Self {
+        Error::Secp256k1Error(e)
+    }
 }
 
 impl From<minactor::Error> for Error {
-    fn from(e: minactor::Error) -> Self { Error::MinActorError(e) }
+    fn from(e: minactor::Error) -> Self {
+        Error::MinActorError(e)
+    }
 }
-
 
 /// These are errors that are used internally within the library.
 ///
@@ -114,7 +116,6 @@ impl From<minactor::Error> for Error {
 pub(crate) enum InternalError {
     Dummy,
 }
-
 
 impl std::fmt::Display for InternalError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {

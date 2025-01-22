@@ -1,12 +1,12 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use async_trait::async_trait;
-use log::warn;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
 use crate::p2p::messages::node_addr::NodeAddr;
-use crate::{Error, Result};
-use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size};
 use crate::p2p::params::{MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION};
 use crate::util::{epoch_secs, epoch_secs_u32};
+use crate::{Error, Result};
+use async_trait::async_trait;
+use log::warn;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Service flag that node is not a full node. Used for SPV wallets.
 pub const NODE_NONE: u64 = 0;
@@ -46,46 +46,67 @@ impl Version {
     /// Checks if the version message is valid
     pub fn validate(&self) -> Result<()> {
         if self.version < MIN_SUPPORTED_PROTOCOL_VERSION {
-            return Err(Error::BadData(format!("Unsupported protocol version: {}", self.version)));
+            return Err(Error::BadData(format!(
+                "Unsupported protocol version: {}",
+                self.version
+            )));
         } else if self.version > PROTOCOL_VERSION {
             warn!("unknown protocol version: {}", self.version);
         }
         if (self.timestamp - epoch_secs()).abs() > 2 * 60 * 60 {
-            return Err(Error::BadData(format!("Timestamp too old: {}", self.timestamp)));
+            return Err(Error::BadData(format!(
+                "Timestamp too old: {}",
+                self.timestamp
+            )));
         }
         Ok(())
     }
 
     // the version message does not include the timestamp in the addr, so we have our own function to read the
     // addr structure here
-    async fn read_version_addr<R: AsyncReadExt + Unpin + Send>(reader: &mut R) -> Result<NodeAddr> where NodeAddr: Sized {
+    async fn read_version_addr<R: AsyncReadExt + Unpin + Send>(reader: &mut R) -> Result<NodeAddr>
+    where
+        NodeAddr: Sized,
+    {
         let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
-        reader.read_exact(&mut ip_bin).await?;    // big endian order
-        let ip= if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
+        reader.read_exact(&mut ip_bin).await?; // big endian order
+        let ip = if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
             // ipv4 mapped ipv6 address
-            IpAddr::V4(Ipv4Addr::from([ip_bin[12], ip_bin[13], ip_bin[14], ip_bin[15]]))
+            IpAddr::V4(Ipv4Addr::from([
+                ip_bin[12], ip_bin[13], ip_bin[14], ip_bin[15],
+            ]))
         } else {
             IpAddr::V6(Ipv6Addr::from(ip_bin))
         };
-        let port = reader.read_u16().await?;        // big endian order
-        Ok(NodeAddr { timestamp: epoch_secs_u32(), services, ip, port, })
+        let port = reader.read_u16().await?; // big endian order
+        Ok(NodeAddr {
+            timestamp: epoch_secs_u32(),
+            services,
+            ip,
+            port,
+        })
     }
 
     // the version message does not include the timestamp in the addr, so we have our own function to write the
     // addr structure here
-    async fn write_version_addr<W: AsyncWriteExt + Unpin + Send>(node_addr: &NodeAddr, writer: &mut W) -> Result<()> {
+    async fn write_version_addr<W: AsyncWriteExt + Unpin + Send>(
+        node_addr: &NodeAddr,
+        writer: &mut W,
+    ) -> Result<()> {
         writer.write_u64_le(node_addr.services).await?;
         match node_addr.ip {
             IpAddr::V4(v4) => {
-                writer.write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255]).await?;
+                writer
+                    .write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255])
+                    .await?;
                 writer.write_all(&v4.octets()).await?;
-            },
+            }
             IpAddr::V6(v6) => {
                 writer.write_all(&v6.octets()).await?;
-            },
+            }
         }
-        writer.write_u16(node_addr.port).await?;            // big endian order
+        writer.write_u16(node_addr.port).await?; // big endian order
         Ok(())
     }
 }
@@ -108,7 +129,10 @@ impl Default for Version {
 
 #[async_trait]
 impl AsyncEncodable for Version {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self>
+    where
+        Self: Sized,
+    {
         let version = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let timestamp = reader.read_i64_le().await?;
@@ -122,7 +146,17 @@ impl AsyncEncodable for Version {
         let user_agent = String::from_utf8(user_agent_bytes)?;
         let start_height = reader.read_i32_le().await?;
         let relay = reader.read_u8().await? == 0x01;
-        Ok(Version { version, services, timestamp, recv_addr, tx_addr, nonce, user_agent, start_height, relay, })
+        Ok(Version {
+            version,
+            services,
+            timestamp,
+            recv_addr,
+            tx_addr,
+            nonce,
+            user_agent,
+            start_height,
+            relay,
+        })
     }
 
     async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
@@ -135,7 +169,9 @@ impl AsyncEncodable for Version {
         varint_encode(writer, self.user_agent.len() as u64).await?;
         writer.write_all(self.user_agent.as_bytes()).await?;
         writer.write_i32_le(self.start_height).await?;
-        writer.write_u8(if self.relay { 0x01 } else { 0x00 }).await?;
+        writer
+            .write_u8(if self.relay { 0x01 } else { 0x00 })
+            .await?;
         Ok(())
     }
 
@@ -163,7 +199,7 @@ mod tests {
         assert_eq!(v.recv_addr.ip, IpAddr::V4(Ipv4Addr::new(45, 50, 191, 251)));
         assert_eq!(v.recv_addr.port, 56599);
         assert_eq!(v.tx_addr.services, 37);
-        assert_eq!(v.tx_addr.ip,  IpAddr::V6(Ipv6Addr::UNSPECIFIED));
+        assert_eq!(v.tx_addr.ip, IpAddr::V6(Ipv6Addr::UNSPECIFIED));
         assert_eq!(v.tx_addr.port, 0);
         assert_eq!(v.nonce, 16977786322265395341);
         assert_eq!(v.user_agent, "/Bitcoin ABC:0.16.0(EB8.0; bitcore)/");

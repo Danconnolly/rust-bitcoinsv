@@ -1,13 +1,13 @@
-use crate::{Error, Result};
-use std::fmt;
-use std::str;
-use async_trait::async_trait;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::AsyncEncodable;
+use crate::p2p::channel::ChannelConfig;
 use crate::p2p::messages::messages::commands::{BLOCK, EXTMSG};
 use crate::p2p::messages::messages::PROTOCONF;
 use crate::p2p::messages::protoconf::MAX_PROTOCONF_SIZE;
-use crate::p2p::channel::ChannelConfig;
+use crate::{Error, Result};
+use async_trait::async_trait;
+use std::fmt;
+use std::str;
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 // based on code imported from rust-sv but substantially modified
 
@@ -45,7 +45,10 @@ impl P2PMessageHeader {
     pub fn validate(&self, config: &ChannelConfig) -> Result<()> {
         if self.magic != config.magic {
             // todo: ban
-            let msg = format!("Bad magic: {:02x},{:02x},{:02x},{:02x}", self.magic[0], self.magic[1], self.magic[2], self.magic[3]);
+            let msg = format!(
+                "Bad magic: {:02x},{:02x},{:02x},{:02x}",
+                self.magic[0], self.magic[1], self.magic[2], self.magic[3]
+            );
             return Err(Error::BadData(msg));
         }
         if self.command == PROTOCONF {
@@ -56,16 +59,17 @@ impl P2PMessageHeader {
                 Err(Error::BadData(msg))
             } else {
                 Ok(())
-            }
+            };
         }
-        if self.command == BLOCK {       // normal payload size limit does not apply to block messages
+        if self.command == BLOCK {
+            // normal payload size limit does not apply to block messages
             return if self.payload_size > config.excessive_block_size {
                 // todo: ban score
                 let msg = format!("Bad size for block message: {:?}", self.payload_size);
                 Err(Error::BadData(msg))
             } else {
                 Ok(())
-            }
+            };
         }
         if self.payload_size > config.max_recv_payload_size {
             // todo: ban score
@@ -78,7 +82,10 @@ impl P2PMessageHeader {
 
 #[async_trait]
 impl AsyncEncodable for P2PMessageHeader {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self>
+    where
+        Self: Sized,
+    {
         // read standard header
         let mut magic = vec![0u8; 4];
         reader.read_exact(&mut magic).await?;
@@ -89,17 +96,25 @@ impl AsyncEncodable for P2PMessageHeader {
         reader.read_exact(&mut checksum).await?;
         if command == EXTMSG {
             // its an extended header
-            reader.read_exact(&mut command).await?;     // re-read the command
+            reader.read_exact(&mut command).await?; // re-read the command
             payload_size = reader.read_u64_le().await?;
             if payload_size < 0xffffffff {
-                return Err(Error::BadData("used extended header for small payload".to_string()));
+                return Err(Error::BadData(
+                    "used extended header for small payload".to_string(),
+                ));
             }
             if command != BLOCK {
-                return Err(Error::BadData("unknown command in extended header".to_string()));
+                return Err(Error::BadData(
+                    "unknown command in extended header".to_string(),
+                ));
             }
         }
-        Ok(P2PMessageHeader { magic: magic.try_into().unwrap(), command: command.try_into().unwrap(),
-            payload_size, checksum: checksum.try_into().unwrap(), })
+        Ok(P2PMessageHeader {
+            magic: magic.try_into().unwrap(),
+            command: command.try_into().unwrap(),
+            payload_size,
+            checksum: checksum.try_into().unwrap(),
+        })
     }
 
     async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {

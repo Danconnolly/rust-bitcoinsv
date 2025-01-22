@@ -1,8 +1,7 @@
-use std::fmt;
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Hash};
 use async_trait::async_trait;
+use std::fmt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{AsyncEncodable, varint_decode, varint_encode, varint_size, Hash};
-
 
 /// Inventory payload describing objects a node knows about
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -13,7 +12,10 @@ pub struct Inv {
 
 #[async_trait]
 impl AsyncEncodable for Inv {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let num_objects = varint_decode(reader).await? as usize;
         // if num_objects > MAX_INV_ENTRIES {
         //     let msg = format!("Num objects exceeded maximum: {}", num_objects);
@@ -26,7 +28,10 @@ impl AsyncEncodable for Inv {
         Ok(Inv { objects })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         // if self.objects.len() as u64 > MAX_INV_ENTRIES {
         //     let msg = format!("Too many objects: {}", self.objects.len());
         //     return Err(crate::Error::BadData(msg));
@@ -82,9 +87,7 @@ impl TryFrom<u32> for InvType {
             _ => Err(crate::Error::BadData("Invalid inventory type".to_string())),
         }
     }
-
 }
-
 
 /// An inventory item, one element from a vector of inventory items.
 #[derive(PartialEq, Eq, Hash, Clone, Debug)]
@@ -111,16 +114,24 @@ impl fmt::Display for InvType {
     }
 }
 
-
 #[async_trait]
 impl AsyncEncodable for InvItem {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let obj_type = reader.read_u32_le().await?;
         let hash = Hash::async_from_binary(reader).await?;
-        Ok(InvItem { obj_type: InvType::try_from(obj_type)?, hash })
+        Ok(InvItem {
+            obj_type: InvType::try_from(obj_type)?,
+            hash,
+        })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         match self.obj_type {
             InvType::InvError => writer.write_u32_le(0).await?,
             InvType::Tx => writer.write_u32_le(1).await?,

@@ -1,11 +1,10 @@
-use std::str::FromStr;
-use secp256k1::Secp256k1;
-use serde::{Deserialize, Serialize};
 use crate::bitcoin::base58ck;
-use crate::{Error, Result};
 use crate::bitcoin::hash160::Hash160;
 use crate::bitcoin::params::KeyAddressKind;
-
+use crate::{Error, Result};
+use secp256k1::Secp256k1;
+use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// A Bitcoin private key.
 ///
@@ -30,12 +29,12 @@ impl PrivateKey {
     }
 
     /// Serializes the private key to bytes.
-    pub fn to_bytes(self) -> Vec<u8> { self.inner[..].to_vec() }
+    pub fn to_bytes(self) -> Vec<u8> {
+        self.inner[..].to_vec()
+    }
 
     /// Deserializes a private key from a slice.
-    pub fn from_slice(
-        data: &[u8],
-    ) -> Result<PrivateKey> {
+    pub fn from_slice(data: &[u8]) -> Result<PrivateKey> {
         Ok(PrivateKey::new(secp256k1::SecretKey::from_slice(data)?))
     }
 
@@ -44,7 +43,7 @@ impl PrivateKey {
         let mut ret = Vec::with_capacity(34);
         ret.push(kind.get_private_key_prefix());
         ret.extend_from_slice(&self.inner[..]);
-        ret.push(1);    // always use compressed public keys
+        ret.push(1); // always use compressed public keys
         base58ck::encode_with_checksum(&ret)
     }
 
@@ -65,16 +64,19 @@ impl PrivateKey {
         };
 
         let blockchain = match data[0] {
-            0x80=> KeyAddressKind::Main,
+            0x80 => KeyAddressKind::Main,
             0xef => KeyAddressKind::NotMain,
             _ => {
                 return Err(Error::InvalidBlockchainSpecifier);
             }
         };
 
-        Ok((PrivateKey {
-            inner: secp256k1::SecretKey::from_slice(&data[1..33])?,
-        }, blockchain))
+        Ok((
+            PrivateKey {
+                inner: secp256k1::SecretKey::from_slice(&data[1..33])?,
+            },
+            blockchain,
+        ))
     }
 }
 
@@ -84,7 +86,6 @@ impl From<String> for PrivateKey {
         PrivateKey::from_wif(&value).unwrap().0
     }
 }
-
 
 /// A Bitcoin ECDSA public key.
 #[derive(Debug, Copy, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -114,14 +115,15 @@ impl PublicKey {
 }
 
 impl From<secp256k1::PublicKey> for PublicKey {
-    fn from(pk: secp256k1::PublicKey) -> PublicKey { PublicKey::new(pk) }
+    fn from(pk: secp256k1::PublicKey) -> PublicKey {
+        PublicKey::new(pk)
+    }
 }
 
 impl From<&PrivateKey> for PublicKey {
     fn from(value: &PrivateKey) -> Self {
         let secp = Secp256k1::new();
         PublicKey {
-
             inner: secp256k1::PublicKey::from_secret_key(&secp, &value.inner),
         }
     }
@@ -134,16 +136,15 @@ impl FromStr for PublicKey {
     /// OP_CHECKSIG (e.g. from a P2PKH output script).
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(PublicKey {
-            inner: secp256k1::PublicKey::from_str(s)?
+            inner: secp256k1::PublicKey::from_str(s)?,
         })
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use crate::bitcoin::Address;
     use super::*;
+    use crate::bitcoin::Address;
 
     /// Test decoding a public key from the hex representation within a script.
     #[test]
@@ -171,7 +172,7 @@ mod tests {
         let stn_addr = "n2ziCHyDm8wr7owJwF3smicSBAcP17L8HS";
         let stn_wif = String::from("cU5N3pE6QnRd3rZFgv1KMvUkDwMY4Vnya3bLE5JtZG3Hb549pzDN");
         let (privkey, bchain) = PrivateKey::from_wif(&stn_wif).unwrap();
-        assert_eq!(bchain, KeyAddressKind::NotMain);     // stn is indistinguishable from testnet
+        assert_eq!(bchain, KeyAddressKind::NotMain); // stn is indistinguishable from testnet
         let addr = Address::from_pv(&privkey, bchain);
         assert_eq!(addr.to_string(), stn_addr);
     }

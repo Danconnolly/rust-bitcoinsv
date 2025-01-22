@@ -1,9 +1,9 @@
-use std::fmt;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use async_trait::async_trait;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::bitcoin::AsyncEncodable;
 use crate::util::epoch_secs_u32;
+use async_trait::async_trait;
+use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 // based on code imported from rust-sv
 // this struct includes the timestamp and is therefore not suitable for direct use in the version message
@@ -50,35 +50,50 @@ impl Default for NodeAddr {
 
 #[async_trait]
 impl AsyncEncodable for NodeAddr {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let timestamp = reader.read_u32_le().await?;
         let services = reader.read_u64_le().await?;
         let mut ip_bin = [0u8; 16];
-        reader.read_exact(&mut ip_bin).await?;    // big endian order
+        reader.read_exact(&mut ip_bin).await?; // big endian order
         let ip;
         if ip_bin[0..12] == [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255] {
             // ipv4 mapped ipv6 address
-            ip = IpAddr::V4(Ipv4Addr::from([ip_bin[12], ip_bin[13], ip_bin[14], ip_bin[15]]));
+            ip = IpAddr::V4(Ipv4Addr::from([
+                ip_bin[12], ip_bin[13], ip_bin[14], ip_bin[15],
+            ]));
         } else {
             ip = IpAddr::V6(Ipv6Addr::from(ip_bin));
         }
-        let port = reader.read_u16().await?;        // big endian order
-        Ok(NodeAddr { timestamp, services, ip, port, })
+        let port = reader.read_u16().await?; // big endian order
+        Ok(NodeAddr {
+            timestamp,
+            services,
+            ip,
+            port,
+        })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         writer.write_u32_le(self.timestamp).await?;
         writer.write_u64_le(self.services).await?;
         match self.ip {
             IpAddr::V4(v4) => {
-                writer.write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255]).await?;
+                writer
+                    .write_all(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255])
+                    .await?;
                 writer.write_all(&v4.octets()).await?;
-            },
+            }
             IpAddr::V6(v6) => {
                 writer.write_all(&v6.octets()).await?;
-            },
+            }
         }
-        writer.write_u16(self.port).await?;         // big endian order
+        writer.write_u16(self.port).await?; // big endian order
         Ok(())
     }
 
@@ -89,7 +104,11 @@ impl AsyncEncodable for NodeAddr {
 
 impl fmt::Display for NodeAddr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "NodeAddr(ts={},services={},ip={},port={})", self.timestamp, self.services, self.ip, self.port)
+        write!(
+            f,
+            "NodeAddr(ts={},services={},ip={},port={})",
+            self.timestamp, self.services, self.ip, self.port
+        )
     }
 }
 
@@ -101,13 +120,17 @@ mod tests {
 
     #[test]
     fn read_bytes() {
-        let b =
-            hex::decode(format!("{}{}{}{}",
-                                "5F849A65",         // timestamp = 1_704_625_247, hex = 65 9A 84 5F, little endian = 5F 84 9A 65
-                                "2500000000000000", // services = 37, hex = 25, little endian = 25 00 00 00 00 00 00 00
-                                "00000000000000000000ffff2d32bffb", // ip = 45.50.191.251, hex = 2d32bffb, ipv6 mapped = 0000:0000:0000:0000:0000:ffff:2d32:bffb
-                                "ddd3")             // port = 56787
-                                .as_bytes()).unwrap();
+        let b = hex::decode(
+            format!(
+                "{}{}{}{}",
+                "5F849A65", // timestamp = 1_704_625_247, hex = 65 9A 84 5F, little endian = 5F 84 9A 65
+                "2500000000000000", // services = 37, hex = 25, little endian = 25 00 00 00 00 00 00 00
+                "00000000000000000000ffff2d32bffb", // ip = 45.50.191.251, hex = 2d32bffb, ipv6 mapped = 0000:0000:0000:0000:0000:ffff:2d32:bffb
+                "ddd3"
+            ) // port = 56787
+            .as_bytes(),
+        )
+        .unwrap();
         let a = NodeAddr::from_binary_buf(b.as_slice()).unwrap();
         assert_eq!(a.timestamp, 1_704_625_247);
         assert_eq!(a.services, 37);

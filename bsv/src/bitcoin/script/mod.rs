@@ -1,7 +1,7 @@
 mod base;
+mod builder;
 mod byte_seq;
 mod op;
-mod builder;
 
 pub use base::*;
 pub use builder::*;

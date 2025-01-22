@@ -1,6 +1,13 @@
-use std::sync::Arc;
+use crate::p2p::connection::ConnectionConfig;
+use crate::p2p::envelope::{P2PEnvelope, P2PMessageChannelSender};
+use crate::p2p::messages::Protoconf;
+use crate::p2p::messages::{P2PMessage, P2PMessageType, Ping, Version};
+use crate::p2p::params::{NetworkParams, DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
+use crate::p2p::PeerAddress;
+use crate::Result;
 use log::{info, trace, warn};
 use minactor::{create_actor, Actor, ActorRef, Control};
+use std::sync::Arc;
 use tokio::net::TcpStream;
 use tokio::select;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -8,13 +15,6 @@ use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
-use crate::Result;
-use crate::p2p::connection::ConnectionConfig;
-use crate::p2p::envelope::{P2PEnvelope, P2PMessageChannelSender};
-use crate::p2p::messages::{P2PMessage, Ping, Version, P2PMessageType};
-use crate::p2p::messages::Protoconf;
-use crate::p2p::params::{DEFAULT_MAX_PAYLOAD_SIZE, NetworkParams, PROTOCOL_VERSION};
-use crate::p2p::PeerAddress;
 
 pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
@@ -60,8 +60,11 @@ impl ChannelConfig {
     pub fn new(config: &ConnectionConfig, peer_id: &Uuid, connection_id: &Uuid) -> ChannelConfig {
         let np = NetworkParams::from(config.blockchain);
         ChannelConfig {
-            peer_id: peer_id.clone(), connection_id: connection_id.clone(), channel_id: 0,
-            send_control_messages: config.send_control_messages, magic: np.magic.clone(),
+            peer_id: peer_id.clone(),
+            connection_id: connection_id.clone(),
+            channel_id: 0,
+            send_control_messages: config.send_control_messages,
+            magic: np.magic.clone(),
             max_recv_payload_size: config.max_recv_payload_size,
             max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
             excessive_block_size: config.excessive_block_size,
@@ -90,7 +93,11 @@ pub struct PeerChannel {
 
 impl PeerChannel {
     /// Create a new channel to a peer.
-    pub async fn new(address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> Result<(Self, JoinHandle<()>)> {
+    pub async fn new(
+        address: PeerAddress,
+        config: Arc<RwLock<ChannelConfig>>,
+        data_channel: P2PMessageChannelSender,
+    ) -> Result<(Self, JoinHandle<()>)> {
         let actor = PeerChannelActor::new(address, config, data_channel);
         let (a_ref, j) = create_actor(actor).await?;
         Ok((PeerChannel { actor_ref: a_ref }, j))
@@ -156,15 +163,24 @@ struct PeerChannelActor {
 
 impl PeerChannelActor {
     /// Initialize a new [PeerChannelActor] struct, ready to be created as an actor.
-    fn new(peer_address: PeerAddress, config: Arc<RwLock<ChannelConfig>>, data_channel: P2PMessageChannelSender) -> Self {
+    fn new(
+        peer_address: PeerAddress,
+        config: Arc<RwLock<ChannelConfig>>,
+        data_channel: P2PMessageChannelSender,
+    ) -> Self {
         PeerChannelActor {
-            peer: peer_address, channel_state: ChannelState::Starting, config,
-            data_channel, writer_tx: None, writer_handle: None,
-            reader_handle: None, subtask_cancel: CancellationToken::new(),
+            peer: peer_address,
+            channel_state: ChannelState::Starting,
+            config,
+            data_channel,
+            writer_tx: None,
+            writer_handle: None,
+            reader_handle: None,
+            subtask_cancel: CancellationToken::new(),
             version_received: false,
             verack_received: false,
             send_headers: false,
-            relay_tx: true,         // default is true, the peer can request not to relay tx
+            relay_tx: true, // default is true, the peer can request not to relay tx
         }
     }
 
@@ -175,8 +191,10 @@ impl PeerChannelActor {
             ChannelState::Handshaking => {
                 match msg {
                     P2PMessage::Version(v) => {
-                        { let mut c = self.config.write().await;
-                        c.protocol_version = v.version; }
+                        {
+                            let mut c = self.config.write().await;
+                            c.protocol_version = v.version;
+                        }
                         self.relay_tx = v.relay;
                         let va = P2PMessage::Verack;
                         self.send_msg(va).await;
@@ -188,7 +206,10 @@ impl PeerChannelActor {
                         trace!("received verack message from peer: {}", self.peer.peer_id);
                     }
                     _ => {
-                        warn!("received unexpected message in handshaking state, message: {:?}", msg);
+                        warn!(
+                            "received unexpected message in handshaking state, message: {:?}",
+                            msg
+                        );
                     }
                 };
                 if self.version_received && self.verack_received {
@@ -197,43 +218,46 @@ impl PeerChannelActor {
                     // todo: some sort of notification to owner?
                     self.send_config().await;
                 }
-            },
+            }
             ChannelState::Connected => {
                 trace!("connected state msg received: {:?}", msg);
                 match P2PMessageType::from(msg) {
                     P2PMessageType::Data => {
                         // todo: errors?
                         let _ = self.data_channel.send(envelope);
-                    },
+                    }
                     P2PMessageType::ConnectionControl => {
                         match msg {
                             P2PMessage::Protoconf(p) => {
                                 // we can send larger messages to the peer
                                 let mut c = self.config.write().await;
                                 c.max_send_payload_size = p.max_recv_payload_length as u64;
-                            },
+                            }
                             P2PMessage::SendHeaders => {
                                 // we should send headers
                                 self.send_headers = true;
-                            },
+                            }
                             P2PMessage::Ping(p) => {
                                 let pong = Ping::new(p.nonce);
                                 self.send_msg(P2PMessage::Pong(pong)).await;
                                 trace!("sent pong message");
-                            },
+                            }
                             _ => {
                                 warn!("received unexpected connection control message in connected state, message: {:?}", msg);
-                            },
+                            }
                         }
                         if self.config.read().await.send_control_messages {
                             let _ = self.data_channel.send(envelope);
                         }
                     }
                 }
-            },
+            }
             _ => {
-                warn!("received message in anomalous state, state: {:?}, peer: {}", self.channel_state, self.peer.peer_id);
-            },
+                warn!(
+                    "received message in anomalous state, state: {:?}, peer: {}",
+                    self.channel_state, self.peer.peer_id
+                );
+            }
         }
     }
 
@@ -250,7 +274,9 @@ impl PeerChannelActor {
     async fn send_config(&mut self) {
         // send the protoconf message if necessary
         let max_recv_payload_size = self.config.read().await.max_recv_payload_size;
-        if max_recv_payload_size > DEFAULT_MAX_PAYLOAD_SIZE && max_recv_payload_size <= u32::MAX as u64 {
+        if max_recv_payload_size > DEFAULT_MAX_PAYLOAD_SIZE
+            && max_recv_payload_size <= u32::MAX as u64
+        {
             let protoconf = Protoconf::new(max_recv_payload_size as u32);
             let protoconf_msg = P2PMessage::Protoconf(protoconf);
             self.send_msg(protoconf_msg).await;
@@ -263,8 +289,12 @@ impl PeerChannelActor {
     /// It has no state, it just reads and writes what it is given. In particular, it does not check
     /// the message size.
     /// This task is spawned by on_initialization().
-    async fn writer(mut rx: Receiver<P2PMessage>, mut writer: tokio::net::tcp::OwnedWriteHalf,
-                    shared_config: Arc<RwLock<ChannelConfig>>, cancel_token: CancellationToken) {
+    async fn writer(
+        mut rx: Receiver<P2PMessage>,
+        mut writer: tokio::net::tcp::OwnedWriteHalf,
+        shared_config: Arc<RwLock<ChannelConfig>>,
+        cancel_token: CancellationToken,
+    ) {
         trace!("writer task started.");
         loop {
             select! {
@@ -302,8 +332,12 @@ impl PeerChannelActor {
     /// to the actor as a [ChannelControlMessage::PeerMsgReceived].
     ///
     /// This task is spawned by on_initialization().
-    async fn reader(actor: ActorRef<PeerChannelActor>, mut reader: tokio::net::tcp::OwnedReadHalf,
-                    config: Arc<RwLock<ChannelConfig>>, cancel_token: CancellationToken) {
+    async fn reader(
+        actor: ActorRef<PeerChannelActor>,
+        mut reader: tokio::net::tcp::OwnedReadHalf,
+        config: Arc<RwLock<ChannelConfig>>,
+        cancel_token: CancellationToken,
+    ) {
         trace!("reader task started.");
         loop {
             // todo: do we really need to clone it? doesnt that defeat the point?
@@ -350,7 +384,9 @@ impl Actor for PeerChannelActor {
             // start the reader task
             let cfg = self.config.clone();
             let cancel = self.subtask_cancel.clone();
-            tokio::spawn(async move { PeerChannelActor::reader(self_ref, reader, cfg, cancel).await })
+            tokio::spawn(
+                async move { PeerChannelActor::reader(self_ref, reader, cfg, cancel).await },
+            )
         };
         self.reader_handle = Some(r_handle);
         let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
@@ -359,7 +395,9 @@ impl Actor for PeerChannelActor {
             // start the writer task
             let cfg = self.config.clone();
             let cancel = self.subtask_cancel.clone();
-            tokio::spawn(async move { PeerChannelActor::writer(writer_rx, writer, cfg, cancel).await })
+            tokio::spawn(
+                async move { PeerChannelActor::writer(writer_rx, writer, cfg, cancel).await },
+            )
         };
         self.writer_handle = Some(w_handle);
         self.channel_state = ChannelState::Handshaking;
@@ -395,11 +433,10 @@ impl Actor for PeerChannelActor {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     // todo: get some tests where it is talking to itself once a listener has been implemented
-    
+
     // #[tokio::test]
     // async fn start_stop_test() {
     //     let address = PeerAddress::new("127.0.0.1:8333".parse().unwrap());

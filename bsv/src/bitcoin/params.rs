@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 /// the blockchain defines the parameters used by the P2P network to communicate.
 ///
 /// Use the From<&str> trait to translate string values, e.g. `let chain_id = BlockchainId::from("test");`
-#[derive(Copy, Clone, PartialEq, Debug)]
-#[derive(Serialize, Deserialize)]
+#[derive(Copy, Clone, PartialEq, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum BlockchainId {
     #[serde(alias = "mainnet")]
@@ -33,7 +32,6 @@ impl From<&str> for BlockchainId {
         }
     }
 }
-
 
 /// KeyAddressKind enables us to differentiate whether a Key or Address is for the
 /// production blockchain (mainnet) or whether it is for a test blockchain.
@@ -77,7 +75,6 @@ impl From<BlockchainId> for KeyAddressKind {
         }
     }
 }
-
 
 #[cfg(test)]
 mod tests {

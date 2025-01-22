@@ -1,7 +1,7 @@
 use core::fmt;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::iter::Sum;
 use std::ops::{Add, Sub};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// An Amount of BSV.
 #[derive(Debug, Clone, PartialEq)]
@@ -42,13 +42,19 @@ impl fmt::Display for Amount {
 }
 
 impl Serialize for Amount {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error> where S: Serializer {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
         Ok(f64::serialize(&self.as_bsv_f64(), serializer)?)
     }
 }
 
 impl<'de> Deserialize<'de> for Amount {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error> where D: Deserializer<'de> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         let bsv = f64::deserialize(deserializer)?;
         Ok(Amount::from_satoshis((bsv * 100_000_000.0) as i64))
     }
@@ -64,7 +70,9 @@ impl Add for Amount {
     type Output = Amount;
 
     fn add(self, other: Amount) -> Amount {
-        Amount { satoshis: self.satoshis + other.satoshis }
+        Amount {
+            satoshis: self.satoshis + other.satoshis,
+        }
     }
 }
 
@@ -72,12 +80,14 @@ impl Sub for Amount {
     type Output = Amount;
 
     fn sub(self, other: Amount) -> Amount {
-        Amount { satoshis: self.satoshis - other.satoshis }
+        Amount {
+            satoshis: self.satoshis - other.satoshis,
+        }
     }
 }
 
 impl Sum for Amount {
-    fn sum<I: Iterator<Item=Self>>(iter: I) -> Self {
+    fn sum<I: Iterator<Item = Self>>(iter: I) -> Self {
         iter.fold(Self::ZERO, |acc, x| acc + x)
     }
 }

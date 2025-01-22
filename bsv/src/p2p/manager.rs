@@ -1,17 +1,17 @@
 use crate::bitcoin::BlockchainId;
-use std::collections::HashMap;
-use std::net::IpAddr;
-use std::sync::Arc;
-use minactor::{create_actor, Actor, ActorRef, Control};
-use tokio::task::JoinHandle;
-use crate::Result;
-use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::p2p::connection::{Connection, ConnectionConfig};
 use crate::p2p::envelope::{P2PMessageChannelReceiver, P2PMessageChannelSender};
 use crate::p2p::manager::P2PManagerState::{Paused, Running};
 use crate::p2p::manager::P2PMgrCallMessage::ReplyState;
 use crate::p2p::peer::PeerAddress;
+use crate::p2p::ACTOR_CHANNEL_SIZE;
 use crate::result::InternalError;
+use crate::Result;
+use minactor::{create_actor, Actor, ActorRef, Control};
+use std::collections::HashMap;
+use std::net::IpAddr;
+use std::sync::Arc;
+use tokio::task::JoinHandle;
 
 /// Configuration for the P2PManager.
 #[derive(Debug, Clone)]
@@ -109,13 +109,18 @@ impl P2PManager {
     /// This returns the P2PManager and a tokio join handle to the P2PManager actor.
     ///
     /// The join handle should be awaited at termination to ensure that the P2PManager is stopped in a normal fashion.
-    pub async fn new(config: P2PManagerConfig)
-                -> (P2PManager, JoinHandle<()>) {
+    pub async fn new(config: P2PManagerConfig) -> (P2PManager, JoinHandle<()>) {
         let (data_tx, _data_rx) = tokio::sync::broadcast::channel(ACTOR_CHANNEL_SIZE);
         let d_tx2 = data_tx.clone();
         let actor = P2PManagerActor::new(config, d_tx2);
         let (a_ref, j) = create_actor(actor).await.unwrap();
-        (P2PManager {data_channel: data_tx, actor: a_ref}, j)
+        (
+            P2PManager {
+                data_channel: data_tx,
+                actor: a_ref,
+            },
+            j,
+        )
     }
 
     /// Subscribe to the data channel.
@@ -199,10 +204,7 @@ struct P2PManagerActor {
 }
 
 impl P2PManagerActor {
-    fn new(
-        config: P2PManagerConfig,
-        data_channel: P2PMessageChannelSender,
-    ) -> Self {
+    fn new(config: P2PManagerConfig, data_channel: P2PMessageChannelSender) -> Self {
         let connection_config = Arc::new(ConnectionConfig::from(&config));
         P2PManagerActor {
             config,
@@ -218,8 +220,11 @@ impl P2PManagerActor {
     /// Initiate a connection to a peer.
     async fn connect(&mut self, p: PeerAddress) {
         if let std::collections::hash_map::Entry::Vacant(e) = self.ip_index.entry(p.ip()) {
-            let (c, j) = Connection::new(p.clone(), self.connection_config.clone(),
-                        Some(self.data_channel.clone()));
+            let (c, j) = Connection::new(
+                p.clone(),
+                self.connection_config.clone(),
+                Some(self.data_channel.clone()),
+            );
             self.connections.insert(self.next_c_id, (c, j));
             e.insert(self.next_c_id);
             self.next_c_id += 1
@@ -263,20 +268,26 @@ impl Actor for P2PManagerActor {
         match msg {
             P2PMgrSendMessage::Pause => {
                 self.state = Paused;
-            },
+            }
             P2PMgrSendMessage::Resume => {
                 self.state = Running;
-            },
+            }
         }
         Control::Ok
     }
 
-    async fn handle_calls(&mut self, msg: Self::CallMessage) -> (Control, std::result::Result<Self::CallMessage, InternalError>) {
+    async fn handle_calls(
+        &mut self,
+        msg: Self::CallMessage,
+    ) -> (
+        Control,
+        std::result::Result<Self::CallMessage, InternalError>,
+    ) {
         match msg {
-            P2PMgrCallMessage::GetState => {
-                (Control::Ok, Ok(ReplyState(self.state.clone())))
-            },
-            _ => { panic!("should never get here"); }
+            P2PMgrCallMessage::GetState => (Control::Ok, Ok(ReplyState(self.state.clone()))),
+            _ => {
+                panic!("should never get here");
+            }
         }
     }
 
@@ -290,7 +301,6 @@ impl Actor for P2PManagerActor {
         Control::Ok
     }
 }
-
 
 #[cfg(test)]
 mod tests {

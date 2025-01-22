@@ -1,9 +1,9 @@
-use std::sync::Arc;
-use clap::Parser;
-use env_logger::Env;
 use bitcoinsv::bitcoin::BlockchainId::Main;
 use bitcoinsv::bitcoin::{BlockchainId, FromHex, Hash};
 use bitcoinsv::p2p::{Connection, ConnectionConfig, P2PManager, P2PManagerConfig, PeerAddress};
+use clap::Parser;
+use env_logger::Env;
+use std::sync::Arc;
 
 /// Retrieves a block from the network.
 ///
@@ -12,16 +12,16 @@ use bitcoinsv::p2p::{Connection, ConnectionConfig, P2PManager, P2PManagerConfig,
 #[command(version, about, long_about = None)]
 struct Args {
     /// The ip address of the peer to connect to.
-    #[clap(index=1)]
+    #[clap(index = 1)]
     ip: String,
     /// The port of the peer to connect to.
     #[clap(long, default_value = "8333")]
     port: u16,
     /// The hash of the block to retrieve.
-    #[clap(index=2)]
+    #[clap(index = 2)]
     hash: String,
     /// The path to the file to store the block.
-    #[clap(index=3)]
+    #[clap(index = 3)]
     output_path: String,
 }
 

@@ -1,7 +1,8 @@
+use crate::bitcoin::{
+    varint_decode, varint_encode, varint_size, AsyncEncodable, BlockHeader, Hash,
+};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size, Hash};
-
 
 /// A block header and partial merkle tree for SPV nodes to validate transactions
 #[derive(Default, PartialEq, Eq, Hash, Clone, Debug)]
@@ -18,7 +19,10 @@ pub struct MerkleBlock {
 
 #[async_trait]
 impl AsyncEncodable for MerkleBlock {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let header = BlockHeader::async_from_binary(reader).await?;
         let total_transactions = reader.read_u32_le().await?;
         let num_hashes = varint_decode(reader).await? as usize;
@@ -39,7 +43,10 @@ impl AsyncEncodable for MerkleBlock {
         })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         self.header.async_to_binary(writer).await?;
         writer.write_u32_le(self.total_transactions).await?;
         varint_encode(writer, self.hashes.len() as u64).await?;
@@ -54,7 +61,11 @@ impl AsyncEncodable for MerkleBlock {
     }
 
     fn async_size(&self) -> usize {
-        self.header.async_size() + 4 + varint_size(self.hashes.len() as u64) + self.hashes.len() * 32 +
-            varint_size(self.flags.len() as u64) + self.flags.len()
+        self.header.async_size()
+            + 4
+            + varint_size(self.hashes.len() as u64)
+            + self.hashes.len() * 32
+            + varint_size(self.flags.len() as u64)
+            + self.flags.len()
     }
 }

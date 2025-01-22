@@ -1,6 +1,6 @@
+use crate::{Error, Result};
 use bytes::Bytes;
 use num::{BigInt, ToPrimitive};
-use crate::{Error, Result};
 
 /// A data value that is used in Bitcoin Script.
 ///
@@ -14,9 +14,7 @@ pub struct ByteSequence {
 impl ByteSequence {
     /// Create a new byte sequence.
     pub fn new(data: Bytes) -> Self {
-        ByteSequence {
-            raw: data
-        }
+        ByteSequence { raw: data }
     }
 
     /// Get the bytes from the byte sequence.
@@ -80,7 +78,7 @@ mod tests {
         let i = ByteSequence::new(Bytes::from(vec![1u8, 14u8]));
         assert_eq!(i.len(), 2);
         assert_eq!(i.is_small_num(), true);
-        assert_eq!(i.to_small_number().unwrap(), 256*14+1);
+        assert_eq!(i.to_small_number().unwrap(), 256 * 14 + 1);
 
         // -1
         let i = ByteSequence::new(Bytes::from(vec![255u8]));
@@ -110,6 +108,9 @@ mod tests {
         let i = ByteSequence::new(Bytes::from(vec![1u8, 2, 3, 4, 5, 6, 7, 8]));
         assert_eq!(i.len(), 8);
         assert_eq!(i.is_small_num(), true);
-        assert_eq!(i.to_small_number().unwrap(), (((((((8 * 256 + 7) * 256 + 6) * 256 + 5) * 256 + 4) * 256 + 3) * 256) + 2) * 256 + 1);
+        assert_eq!(
+            i.to_small_number().unwrap(),
+            (((((((8 * 256 + 7) * 256 + 6) * 256 + 5) * 256 + 4) * 256 + 3) * 256) + 2) * 256 + 1
+        );
     }
 }

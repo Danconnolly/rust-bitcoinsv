@@ -1,19 +1,18 @@
 mod getblock;
 
-use std::sync::Arc;
-use clap::Parser;
-use env_logger::Env;
 use bitcoinsv::bitcoin::BlockchainId;
 use bitcoinsv::p2p::{Connection, ConnectionConfig, PeerAddress};
+use clap::Parser;
+use env_logger::Env;
 use log::info;
-
+use std::sync::Arc;
 
 /// A simple example of connecting to a P2P peer and displaying all messages from that peer.
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// The ip address of the peer to connect to.
-    #[clap(index=1)]
+    #[clap(index = 1)]
     ip: String,
     /// The port of the peer to connect to.
     #[clap(long, default_value = "8333")]

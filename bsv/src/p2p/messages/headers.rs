@@ -1,8 +1,7 @@
-use std::fmt;
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, BlockHeader};
 use async_trait::async_trait;
+use std::fmt;
 use tokio::io::{AsyncRead, AsyncWrite};
-use crate::bitcoin::{BlockHeader, AsyncEncodable, varint_decode, varint_encode, varint_size};
-
 
 /// List of block headers
 #[derive(Default, PartialEq, Eq, Hash, Clone, Debug)]
@@ -13,7 +12,10 @@ pub struct Headers {
 
 #[async_trait]
 impl AsyncEncodable for Headers {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self> where Self: Sized {
+    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         let num_headers = varint_decode(reader).await? as usize;
         let mut headers = Vec::with_capacity(num_headers);
         for _ in 0..num_headers {
@@ -22,7 +24,10 @@ impl AsyncEncodable for Headers {
         Ok(Headers { headers })
     }
 
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> crate::Result<()> {
+    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
+        &self,
+        writer: &mut W,
+    ) -> crate::Result<()> {
         varint_encode(writer, self.headers.len() as u64).await?;
         for header in self.headers.iter() {
             header.async_to_binary(writer).await?;
