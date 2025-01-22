@@ -1,15 +1,50 @@
 use crate::bitcoin::{Encodable, Operation, Script};
 use crate::Result;
-use bytes::Bytes;
+use bytes::{Buf, BufMut, Bytes};
 use std::cmp::max;
 
+/// A ScriptToken represents an element in a script. In the simplist case it is a single
+/// operation, but it can represent a signature that can only be calculated when the transaction
+/// is built.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ScriptToken {
+    /// An Operation.
+    Op(Operation),
+    /// A signature that can be verified using OP_CHECKSIG.
+    CheckSigSignature,
+}
+
+impl Encodable for ScriptToken {
+    fn from_binary(buffer: &mut dyn Buf) -> Result<Self>
+    where
+        Self: Sized,
+    {
+        Ok(ScriptToken::Op(Operation::from_binary(buffer)?))
+    }
+
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()> {
+        match self {
+            ScriptToken::Op(op) => op.to_binary(buffer),
+            ScriptToken::CheckSigSignature => {
+                todo!()
+            }
+        }
+    }
+
+    fn size(&self) -> usize {
+        match self {
+            ScriptToken::Op(op) => op.size(),
+            ScriptToken::CheckSigSignature => 32,
+        }
+    }
+}
+
 /// ScriptBuilder can be used to build [Script]s.
-///
-/// todo: add grammar checker
 pub struct ScriptBuilder {
-    /// the operations
-    ops: Vec<Operation>,
-    /// trailing data to be added
+    /// The tokens.
+    ops: Vec<ScriptToken>,
+    /// Trailing data to be added at the end of the script. If the script does not end with an
+    /// OP_RETURN then it will be inserted during build.
     trailing: Option<Bytes>,
 }
 
@@ -20,7 +55,7 @@ impl Default for ScriptBuilder {
 }
 
 impl ScriptBuilder {
-    /// Create a new Scriptbuilder for constructing a [Script].
+    /// Create a new ScriptBuilder for constructing a [Script].
     pub fn new() -> ScriptBuilder {
         Self {
             ops: Vec::new(),
@@ -30,16 +65,16 @@ impl ScriptBuilder {
 
     /// Build the script.
     pub fn build(&self) -> Result<Script> {
-        // 1000 bytes should hold most scripts
+        // initial capacity - 1000 bytes should hold most scripts, unless there's a trailing script
         let cap = match self.trailing.clone() {
             None => 1_000,
             Some(v) => max(1_000, v.len()),
         };
         let mut buffer = Vec::with_capacity(cap);
-        let mut last_opreturn = false;
+        let mut last_opreturn = false; // was the last op an OP_RETURN?
         for o in self.ops.iter() {
             o.to_binary(&mut buffer)?;
-            last_opreturn = *o == Operation::OP_RETURN;
+            last_opreturn = *o == ScriptToken::Op(Operation::OP_RETURN);
         }
         if self.trailing.is_some() {
             let o = self.trailing.clone().unwrap();
@@ -55,7 +90,7 @@ impl ScriptBuilder {
 
     /// Add an operation to the script.
     pub fn add(&mut self, op: Operation) -> &mut ScriptBuilder {
-        self.ops.push(op);
+        self.ops.push(ScriptToken::Op(op));
         self
     }
 

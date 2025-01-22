@@ -109,7 +109,6 @@ impl P2PKHOutput {
             .add(OP_CHECKSIG)
             .build()
             .unwrap();
-        println!("script: {:?}", hex::encode(s.raw.clone()));
         TxOutput {
             value: self.value as u64,
             script: s,
@@ -124,7 +123,7 @@ mod tests {
     use hex::ToHex;
     use std::str::FromStr;
 
-    /// create an output and check it
+    /// Create an output and check it.
     #[test]
     fn test_output_build() {
         let o = P2PKHOutput::new(
@@ -139,7 +138,7 @@ mod tests {
         )
     }
 
-    /// re-create an existing STN transaction.
+    /// Re-create an existing STN P2PKH transaction.
     ///
     /// see notes below labelled "stn tx test" for details of the transaction that was created
     /// using sv node.
