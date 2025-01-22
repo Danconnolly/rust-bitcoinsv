@@ -1,4 +1,4 @@
-use crate::bitcoin::{Encodable, Operation, Script};
+use crate::bitcoin::{Encodable, Operation, PrivateKey, Script};
 use crate::Result;
 use bytes::{Buf, BufMut, Bytes};
 use std::cmp::max;
@@ -11,7 +11,7 @@ pub enum ScriptToken {
     /// An Operation.
     Op(Operation),
     /// A signature that can be verified using OP_CHECKSIG.
-    CheckSigSignature,
+    CheckSigSignature(PrivateKey),
 }
 
 impl Encodable for ScriptToken {
@@ -25,7 +25,7 @@ impl Encodable for ScriptToken {
     fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()> {
         match self {
             ScriptToken::Op(op) => op.to_binary(buffer),
-            ScriptToken::CheckSigSignature => {
+            ScriptToken::CheckSigSignature(_) => {
                 todo!()
             }
         }
@@ -34,7 +34,7 @@ impl Encodable for ScriptToken {
     fn size(&self) -> usize {
         match self {
             ScriptToken::Op(op) => op.size(),
-            ScriptToken::CheckSigSignature => 32,
+            ScriptToken::CheckSigSignature(_) => 32, // todo: check
         }
     }
 }
