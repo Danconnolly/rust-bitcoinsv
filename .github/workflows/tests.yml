@@ -20,37 +20,35 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo2junit
-        run: cargo install cargo2junit
-
-      - name: Install cargo-audit
-        run: cargo install cargo-audit
+      - name: Install cargo nextest & audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: nextest, cargo-audit
 
       - name: Run cargo audit
         run: cargo audit
 
+      - name: Format
+        run: cargo fmt -- --check
+
       - name: Run Clippy
-        uses: clechasseur/rs-clippy-check@v3
-        with:
-          args: --all-features
+        run: cargo clippy -- --deny warnings
 
       - name: Build
         run: cargo build --verbose
 
       - name: Run tests
-        run: RUSTC_BOOTSTRAP=1 cargo test -- -Z unstable-options --format json --report-time | tee results.json
-
-      - name: Convert to JUnit
-        run: cat results.json | cargo2junit > results.xml
+        run: cargo nextest run --profile ci --no-fail-fast
 
       - name: Publish Test Results
         uses: EnricoMi/publish-unit-test-result-action@v2
         id: test-results
         if: always()
         with:
-          files: results.xml
+          files: target/nextest/ci/junit.xml
 
       - name: Set badge color
+        if: always()
         shell: bash
         run: |
           case ${{ fromJSON( steps.test-results.outputs.json ).conclusion }} in
@@ -67,17 +65,18 @@ jobs:
 
       - name: Create badge
         uses: emibcn/badge-action@v2.0.3
+        if: always()
         with:
           label: Tests
-          status: '${{ fromJSON( steps.test-results.outputs.json ).formatted.stats.tests }} tests, ${{ fromJSON( steps.test-results.outputs.json ).formatted.stats.runs }} runs: ${{ fromJSON( steps.test-results.outputs.json ).conclusion }}'
+          status: '${{ fromJSON( steps.test-results.outputs.json ).formatted.stats.tests }} tests, ${{ fromJSON( steps.test-results.outputs.json ).formatted.stats.tests_fail }} fails, ${{ fromJSON( steps.test-results.outputs.json ).formatted.stats.tests_skip }} skipped'
           color: ${{ env.BADGE_COLOR }}
           path: badge.svg
 
       - name: Upload badge to Gist
         # Upload only for master branch
         if: >
-          github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main' ||
-          github.event_name != 'workflow_run' && github.ref == 'refs/heads/main'
+          always() && (github.event_name == 'workflow_run' && github.event.workflow_run.head_branch == 'main' ||
+          github.event_name != 'workflow_run' && github.ref == 'refs/heads/main')
         uses: andymckay/append-gist-action@0.2
         with:
           token: ${{ secrets.GIST_TOKEN }}
