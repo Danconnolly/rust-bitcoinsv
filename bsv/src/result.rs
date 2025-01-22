@@ -113,7 +113,7 @@ impl From<minactor::Error> for Error {
 ///
 /// This is needed to enable Clone for minactor.
 #[derive(Debug, Clone)]
-pub(crate) enum InternalError {
+pub enum InternalError {
     Dummy,
 }
 
