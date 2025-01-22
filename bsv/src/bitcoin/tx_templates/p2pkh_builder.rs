@@ -1,6 +1,9 @@
-use bytes::Bytes;
-use crate::bitcoin::{Address, ByteSequence, KeyAddressKind, Outpoint, PrivateKey, ScriptBuilder, Tx, TxBuilder, TxInput, TxOutput};
 use crate::bitcoin::Operation::{OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSH};
+use crate::bitcoin::{
+    Address, ByteSequence, KeyAddressKind, Outpoint, PrivateKey, ScriptBuilder, Tx, TxBuilder,
+    TxInput, TxOutput,
+};
+use bytes::Bytes;
 
 /// Builds a P2PKH transaction.
 ///
@@ -19,15 +22,17 @@ pub struct P2PKHBuilder {
 impl P2PKHBuilder {
     pub fn new() -> Self {
         Self {
-            inputs: vec![], outputs: vec![], locktime: 0, blockchain_kind: None,
+            inputs: vec![],
+            outputs: vec![],
+            locktime: 0,
+            blockchain_kind: None,
         }
     }
 
     /// Build the transaction.
     pub fn build(&self) -> Tx {
         let mut b = TxBuilder::new();
-        let mut c = b.set_version(1)
-            .set_lock_time(self.locktime);
+        let mut c = b.set_version(1).set_lock_time(self.locktime);
         for i in &self.inputs {
             c = c.add_input(&i.build())
         }
@@ -63,7 +68,6 @@ impl P2PKHBuilder {
     }
 }
 
-
 /// A P2PKHInput is an input that spends a P2PKH output.
 pub struct P2PKHInput {
     /// The outpoint being spent.
@@ -74,14 +78,13 @@ pub struct P2PKHInput {
 
 impl P2PKHInput {
     pub fn new(outpoint: Outpoint, pv_key: PrivateKey) -> Self {
-        Self { outpoint, pv_key}
+        Self { outpoint, pv_key }
     }
 
     pub fn build(&self) -> TxInput {
         todo!()
     }
 }
-
 
 /// A P2PKHOutput is an output that is locked using P2PKH.
 pub struct P2PKHOutput {
@@ -104,7 +107,8 @@ impl P2PKHOutput {
             .add(OP_PUSH(a_hash))
             .add(OP_EQUALVERIFY)
             .add(OP_CHECKSIG)
-            .build().unwrap();
+            .build()
+            .unwrap();
         println!("script: {:?}", hex::encode(s.raw.clone()));
         TxOutput {
             value: self.value as u64,
@@ -113,25 +117,30 @@ impl P2PKHOutput {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
-    use hex::ToHex;
-    use crate::bitcoin::{AsyncEncodable, TxHash};
     use super::*;
+    use crate::bitcoin::{AsyncEncodable, TxHash};
+    use hex::ToHex;
+    use std::str::FromStr;
 
     /// create an output and check it
     #[test]
     fn test_output_build() {
-        let o = P2PKHOutput::new(90_000_000, Address::from_str("mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc").unwrap());
+        let o = P2PKHOutput::new(
+            90_000_000,
+            Address::from_str("mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc").unwrap(),
+        );
         let o2 = o.build();
         let b = o2.to_binary_buf().unwrap();
-        assert_eq!(hex::encode(b), "804a5d05000000001976a9142a717dea82e3040b606daf6afc4f94a54a2b37b788ac")
+        assert_eq!(
+            hex::encode(b),
+            "804a5d05000000001976a9142a717dea82e3040b606daf6afc4f94a54a2b37b788ac"
+        )
     }
 
     /// re-create an existing STN transaction.
-    /// 
+    ///
     /// see notes below labelled "stn tx test" for details of the transaction that was created
     /// using sv node.
     #[test]
@@ -139,19 +148,36 @@ mod tests {
         // the hex of the final transaction that should be created
         let target_hex = "0200000001609b69924ad53d399780ecdcba6eace09b88cc6f003b8c5febed97060cc5bf85000000006b483045022100dbcbac61c96ef2e009a1c851a64c2fed6b3ad148d6637b8a1cc929978bc2cc8d02205c6b52933eb63cabe1c14ea57656e350da5914941a7a11e1d4cb005c15b364c2412103a2ad2079c0c1bd859e5a4c17e116f1dccfad502dde742802b205868f450f7d93feffffff02804a5d05000000001976a9142a717dea82e3040b606daf6afc4f94a54a2b37b788acd8849800000000001976a91406a6c6a3f0663b914ec73d0a4891240726937a6f88ac9ac20000";
         // the private key to spend the input
-        let input_pvkey = PrivateKey::from_wif(&String::from("cTtpACZFWDNTuaEheerpFZyVUBTk7tDFiM4E4xj1joG8sn2Eh8KG")).unwrap().0;
-        
+        let input_pvkey = PrivateKey::from_wif(&String::from(
+            "cTtpACZFWDNTuaEheerpFZyVUBTk7tDFiM4E4xj1joG8sn2Eh8KG",
+        ))
+        .unwrap()
+        .0;
+
         let tx = P2PKHBuilder::new()
             .set_locktime(49818)
-            .add_input(P2PKHInput::new(Outpoint { tx_hash: TxHash::from("85bfc50c0697edeb5f8c3b006fcc889be0ac6ebadcec8097393dd54a92699b60"), index: 0 }, input_pvkey))
-            .add_output(P2PKHOutput::new(90_000_000, Address::from_str("mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc").unwrap()))
-            .add_output(P2PKHOutput::new(9_995_480, Address::from_str("mg888zyaVLWEJLUuoAdy3FCV9VvHyzCGEZ").unwrap()))
+            .add_input(P2PKHInput::new(
+                Outpoint {
+                    tx_hash: TxHash::from(
+                        "85bfc50c0697edeb5f8c3b006fcc889be0ac6ebadcec8097393dd54a92699b60",
+                    ),
+                    index: 0,
+                },
+                input_pvkey,
+            ))
+            .add_output(P2PKHOutput::new(
+                90_000_000,
+                Address::from_str("mjPNdfSRh44bxDmB7HkpnBRAF34GJ7wUnc").unwrap(),
+            ))
+            .add_output(P2PKHOutput::new(
+                9_995_480,
+                Address::from_str("mg888zyaVLWEJLUuoAdy3FCV9VvHyzCGEZ").unwrap(),
+            ))
             .build();
         // they should be equal
         assert_eq!(tx.encode_hex::<String>(), target_hex);
     }
 }
-
 
 // stn tx test transaction
 // input, address miMK7LsxdSiHYaBQagY4g6E1CshKk8sd6s, value 1, outpoint: 85bfc50c0697edeb5f8c3b006fcc889be0ac6ebadcec8097393dd54a92699b60, index 0
