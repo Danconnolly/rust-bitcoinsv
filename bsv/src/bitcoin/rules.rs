@@ -1,5 +1,5 @@
 #![allow(non_snake_case)]
-#![allow(dead_code)]     // lots of important definitions in here that may not be used
+#![allow(dead_code)] // lots of important definitions in here that may not be used
 
 /// Bitcoin SV has a number of rules, consensus rules, and policy values. These are defined in this module.
 ///
@@ -17,7 +17,6 @@
 ///
 /// The values in this version of the module are valid for the Bitcoin SV
 /// blockchains after the Genesis Upgrade.
-
 use std::sync::atomic::{AtomicU64, Ordering};
 
 /// Configurable Consensus Rule for Miners - maximum block size - default value 4GB
