@@ -178,8 +178,8 @@ impl AsyncEncodable for Version {
     fn async_size(&self) -> usize {
         33 + (self.recv_addr.async_size() - 4)        // version addr is smaller
             + (self.tx_addr.async_size() - 4)
-            + varint_size(self.user_agent.as_bytes().len() as u64)
-            + self.user_agent.as_bytes().len()
+            + varint_size(self.user_agent.len() as u64)
+            + self.user_agent.len()
     }
 }
 

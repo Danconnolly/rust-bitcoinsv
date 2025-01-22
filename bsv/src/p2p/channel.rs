@@ -60,11 +60,11 @@ impl ChannelConfig {
     pub fn new(config: &ConnectionConfig, peer_id: &Uuid, connection_id: &Uuid) -> ChannelConfig {
         let np = NetworkParams::from(config.blockchain);
         ChannelConfig {
-            peer_id: peer_id.clone(),
-            connection_id: connection_id.clone(),
+            peer_id: *peer_id,
+            connection_id: *connection_id,
             channel_id: 0,
             send_control_messages: config.send_control_messages,
-            magic: np.magic.clone(),
+            magic: np.magic,
             max_recv_payload_size: config.max_recv_payload_size,
             max_send_payload_size: DEFAULT_MAX_PAYLOAD_SIZE,
             excessive_block_size: config.excessive_block_size,

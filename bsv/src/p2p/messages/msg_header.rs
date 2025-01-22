@@ -198,7 +198,7 @@ mod tests {
             checksum: [0x12, 0x34, 0x56, 0x78],
         };
         let mut config = ChannelConfig::default();
-        config.magic = magic.clone();
+        config.magic = magic;
         // Valid
         assert!(h.validate(&config).is_ok());
         // Bad magic

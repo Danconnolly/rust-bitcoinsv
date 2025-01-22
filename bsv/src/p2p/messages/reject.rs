@@ -43,7 +43,7 @@ impl AsyncEncodable for Reject {
         reader.read_exact(&mut reason_bytes).await?;
         let reason = String::from_utf8(reason_bytes)?;
         let mut data = vec![];
-        if message == "block".to_string() || message == "tx".to_string() {
+        if message == *"block" || message == *"tx" {
             data = vec![0_u8; 32];
             reader.read_exact(&mut data).await?;
         }
@@ -64,7 +64,7 @@ impl AsyncEncodable for Reject {
         writer.write_u8(self.code).await?;
         varint_encode(writer, self.reason.len() as u64).await?;
         writer.write_all(self.reason.as_bytes()).await?;
-        if self.message == "block".to_string() || self.message == "tx".to_string() {
+        if self.message == *"block" || self.message == *"tx" {
             writer.write_all(&self.data).await?;
         }
         Ok(())
@@ -74,7 +74,7 @@ impl AsyncEncodable for Reject {
         let mut size = varint_size(self.message.len() as u64) + self.message.len();
         size += 1;
         size += varint_size(self.reason.len() as u64) + self.reason.len();
-        if self.message == "block".to_string() || self.message == "tx".to_string() {
+        if self.message == *"block" || self.message == *"tx" {
             size += 32;
         }
         size

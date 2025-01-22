@@ -36,7 +36,7 @@ impl ByteSequence {
     pub fn to_small_number(&self) -> Result<i64> {
         if self.raw.len() > 8 {
             Err(Error::DataTooLarge)
-        } else if self.raw.len() == 0 {
+        } else if self.raw.is_empty() {
             Ok(0)
         } else {
             // Using bigint's so we can handle numerics with strange sizes such as 3 bytes
@@ -59,55 +59,55 @@ mod tests {
         // null byte sequence
         let i = ByteSequence::new(Bytes::from(vec![]));
         assert_eq!(i.len(), 0);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(i.to_small_number().unwrap(), 0);
 
         // zero
         let i = ByteSequence::new(Bytes::from(vec![0u8]));
         assert_eq!(i.len(), 1);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(i.to_small_number().unwrap(), 0);
 
         // random single byte value
         let i = ByteSequence::new(Bytes::from(vec![23u8]));
         assert_eq!(i.len(), 1);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(i.to_small_number().unwrap(), 23);
 
         // 2 byte value
         let i = ByteSequence::new(Bytes::from(vec![1u8, 14u8]));
         assert_eq!(i.len(), 2);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(i.to_small_number().unwrap(), 256 * 14 + 1);
 
         // -1
         let i = ByteSequence::new(Bytes::from(vec![255u8]));
         assert_eq!(i.len(), 1);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(i.to_small_number().unwrap(), -1);
 
         // too large
         let i = ByteSequence::new(Bytes::from(vec![1u8, 2, 3, 4, 5, 6, 7, 8, 9]));
         assert_eq!(i.len(), 9);
-        assert_eq!(i.is_small_num(), false);
+        assert!(!i.is_small_num());
         assert!(i.to_small_number().is_err());
 
         // too large but has leading zero so it could actually resolve but is against rules
         let i = ByteSequence::new(Bytes::from(vec![0u8, 2, 3, 4, 5, 6, 7, 8, 9]));
         assert_eq!(i.len(), 9);
-        assert_eq!(i.is_small_num(), false);
+        assert!(!i.is_small_num());
         assert!(i.to_small_number().is_err());
 
         // 3 byte value
         let i = ByteSequence::new(Bytes::from(vec![1u8, 2, 3]));
         assert_eq!(i.len(), 3);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(i.to_small_number().unwrap(), ((3 * 256) + 2) * 256 + 1);
 
         // 8 byte value, no leading zero
         let i = ByteSequence::new(Bytes::from(vec![1u8, 2, 3, 4, 5, 6, 7, 8]));
         assert_eq!(i.len(), 8);
-        assert_eq!(i.is_small_num(), true);
+        assert!(i.is_small_num());
         assert_eq!(
             i.to_small_number().unwrap(),
             (((((((8 * 256 + 7) * 256 + 6) * 256 + 5) * 256 + 4) * 256 + 3) * 256) + 2) * 256 + 1

@@ -46,7 +46,7 @@ impl Serialize for Amount {
     where
         S: Serializer,
     {
-        Ok(f64::serialize(&self.as_bsv_f64(), serializer)?)
+        f64::serialize(&self.as_bsv_f64(), serializer)
     }
 }
 

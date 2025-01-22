@@ -180,7 +180,7 @@ impl P2PMessage {
     ) -> Result<Self> {
         let header = P2PMessageHeader::async_from_binary(reader).await?;
         trace!("P2PMessage::read() - header: {:?}", header);
-        header.validate(&comms_config)?;
+        header.validate(comms_config)?;
         // payload size has been checked for max limit in header.validate()
         let msg = match header.command {
             ADDR => P2PMessage::Addr(Addr::async_from_binary(reader).await?),
@@ -351,22 +351,20 @@ impl P2PMessage {
         W: AsyncWrite + Unpin + Send,
         X: AsyncEncodable,
     {
-        if config.protocol_version >= 70016 {
-            if payload.async_size() > 0xffffffff {
-                // we should use the extended message header
-                if command != BLOCK {
-                    return Err(Error::BadData("payload too large".to_string()));
-                }
-                let header = P2PMessageHeader {
-                    magic: config.magic,
-                    command,
-                    payload_size: payload.async_size() as u64,
-                    checksum: ZERO_CHECKSUM,
-                };
-                header.async_to_binary(writer).await?;
-                payload.async_to_binary(writer).await?;
-                return Ok(());
+        if config.protocol_version >= 70016 && payload.async_size() > 0xffffffff {
+            // we should use the extended message header
+            if command != BLOCK {
+                return Err(Error::BadData("payload too large".to_string()));
             }
+            let header = P2PMessageHeader {
+                magic: config.magic,
+                command,
+                payload_size: payload.async_size() as u64,
+                checksum: ZERO_CHECKSUM,
+            };
+            header.async_to_binary(writer).await?;
+            payload.async_to_binary(writer).await?;
+            return Ok(());
         }
         let buf = payload.to_binary_buf()?;
         let hash = Hash::sha256d(&buf);
@@ -540,7 +538,7 @@ mod tests {
     async fn write_read() {
         let magic = [7, 8, 9, 0];
         let mut config = ChannelConfig::default();
-        config.magic = magic.clone();
+        config.magic = magic;
 
         // Addr
         let mut v = Vec::new();

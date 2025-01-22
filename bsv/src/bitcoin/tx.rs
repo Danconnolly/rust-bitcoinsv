@@ -31,7 +31,7 @@ impl FromHex for Tx {
 
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = hex::decode(hex)?;
-        let tx = Tx::from_binary_buf(&mut bytes.as_slice())?;
+        let tx = Tx::from_binary_buf(bytes.as_slice())?;
         Ok(tx)
     }
 }
@@ -115,6 +115,12 @@ pub struct TxBuilder {
     inputs: Vec<TxInput>,
     outputs: Vec<TxOutput>,
     lock_time: u32,
+}
+
+impl Default for TxBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TxBuilder {
@@ -323,7 +329,7 @@ mod tests {
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);
-        let i = tx.inputs.get(0).unwrap();
+        let i = tx.inputs.first().unwrap();
         assert_eq!(
             i.outpoint.tx_hash,
             Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a")

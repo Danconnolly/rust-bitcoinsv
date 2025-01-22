@@ -533,14 +533,21 @@ impl Encodable for Operation {
         match buffer.has_remaining_mut() {
             false => Err(Error::DataTooSmall),
             true => match self {
-                OP_0 => Ok(buffer.put_u8(0)),
-                OP_FALSE => Ok(buffer.put_u8(0)),
+                OP_0 => {
+                    buffer.put_u8(0);
+                    Ok(())
+                },
+                OP_FALSE => {
+                    buffer.put_u8(0);
+                    Ok(())
+                },
                 OP_PUSH(data) => {
                     if buffer.remaining_mut() < data.len() + 1 {
                         Err(Error::DataTooSmall)
                     } else {
                         buffer.put_u8(data.len() as u8);
-                        Ok(buffer.put_slice(&*data.get_bytes()))
+                        buffer.put_slice(&data.get_bytes());
+                        Ok(())
                     }
                 }
                 OP_PUSHDATA1(data) => {
@@ -549,7 +556,8 @@ impl Encodable for Operation {
                     } else {
                         buffer.put_u8(76);
                         buffer.put_u8(data.len() as u8);
-                        Ok(buffer.put_slice(&*data.get_bytes()))
+                        buffer.put_slice(&data.get_bytes());
+                        Ok(())
                     }
                 }
                 OP_PUSHDATA2(data) => {
@@ -558,7 +566,8 @@ impl Encodable for Operation {
                     } else {
                         buffer.put_u8(77);
                         buffer.put_u16_le(data.len() as u16);
-                        Ok(buffer.put_slice(&*data.get_bytes()))
+                        buffer.put_slice(&data.get_bytes());
+                        Ok(())
                     }
                 }
                 OP_PUSHDATA4(data) => {
@@ -567,106 +576,398 @@ impl Encodable for Operation {
                     } else {
                         buffer.put_u8(78);
                         buffer.put_u32_le(data.len() as u32);
-                        Ok(buffer.put_slice(&*data.get_bytes()))
+                        buffer.put_slice(&data.get_bytes());
+                        Ok(())
                     }
                 }
-                OP_1NEGATE => Ok(buffer.put_u8(79)),
-                OP_RESERVED => Ok(buffer.put_u8(80)),
-                OP_1 => Ok(buffer.put_u8(81)),
-                OP_TRUE => Ok(buffer.put_u8(81)),
-                OP_2 => Ok(buffer.put_u8(82)),
-                OP_3 => Ok(buffer.put_u8(83)),
-                OP_4 => Ok(buffer.put_u8(84)),
-                OP_5 => Ok(buffer.put_u8(85)),
-                OP_6 => Ok(buffer.put_u8(86)),
-                OP_7 => Ok(buffer.put_u8(87)),
-                OP_8 => Ok(buffer.put_u8(88)),
-                OP_9 => Ok(buffer.put_u8(89)),
-                OP_10 => Ok(buffer.put_u8(90)),
-                OP_11 => Ok(buffer.put_u8(91)),
-                OP_12 => Ok(buffer.put_u8(92)),
-                OP_13 => Ok(buffer.put_u8(93)),
-                OP_14 => Ok(buffer.put_u8(94)),
-                OP_15 => Ok(buffer.put_u8(95)),
-                OP_16 => Ok(buffer.put_u8(96)),
-                OP_NOP => Ok(buffer.put_u8(97)),
-                OP_VER => Ok(buffer.put_u8(98)),
-                OP_IF => Ok(buffer.put_u8(99)),
-                OP_NOTIF => Ok(buffer.put_u8(100)),
-                OP_VERIF => Ok(buffer.put_u8(101)),
-                OP_VERNOTIF => Ok(buffer.put_u8(102)),
-                OP_ELSE => Ok(buffer.put_u8(103)),
-                OP_ENDIF => Ok(buffer.put_u8(104)),
-                OP_VERIFY => Ok(buffer.put_u8(105)),
-                OP_RETURN => Ok(buffer.put_u8(106)),
-                OP_TOALTSTACK => Ok(buffer.put_u8(107)),
-                OP_FROMALTSTACK => Ok(buffer.put_u8(108)),
-                OP_2DROP => Ok(buffer.put_u8(109)),
-                OP_2DUP => Ok(buffer.put_u8(110)),
-                OP_3DUP => Ok(buffer.put_u8(111)),
-                OP_2OVER => Ok(buffer.put_u8(112)),
-                OP_2ROT => Ok(buffer.put_u8(113)),
-                OP_2SWAP => Ok(buffer.put_u8(114)),
-                OP_IFDUP => Ok(buffer.put_u8(115)),
-                OP_DEPTH => Ok(buffer.put_u8(116)),
-                OP_DROP => Ok(buffer.put_u8(117)),
-                OP_DUP => Ok(buffer.put_u8(118)),
-                OP_NIP => Ok(buffer.put_u8(119)),
-                OP_OVER => Ok(buffer.put_u8(120)),
-                OP_PICK => Ok(buffer.put_u8(121)),
-                OP_ROLL => Ok(buffer.put_u8(122)),
-                OP_ROT => Ok(buffer.put_u8(123)),
-                OP_SWAP => Ok(buffer.put_u8(124)),
-                OP_TUCK => Ok(buffer.put_u8(125)),
-                OP_CAT => Ok(buffer.put_u8(126)),
-                OP_SPLIT => Ok(buffer.put_u8(127)),
-                OP_NUM2BIN => Ok(buffer.put_u8(128)),
-                OP_BIN2NUM => Ok(buffer.put_u8(129)),
-                OP_SIZE => Ok(buffer.put_u8(130)),
-                OP_INVERT => Ok(buffer.put_u8(131)),
-                OP_AND => Ok(buffer.put_u8(132)),
-                OP_OR => Ok(buffer.put_u8(133)),
-                OP_XOR => Ok(buffer.put_u8(134)),
-                OP_EQUAL => Ok(buffer.put_u8(135)),
-                OP_EQUALVERIFY => Ok(buffer.put_u8(136)),
-                OP_1ADD => Ok(buffer.put_u8(139)),
-                OP_1SUB => Ok(buffer.put_u8(140)),
-                OP_2MUL => Ok(buffer.put_u8(141)),
-                OP_2DIV => Ok(buffer.put_u8(142)),
-                OP_NEGATE => Ok(buffer.put_u8(143)),
-                OP_ABS => Ok(buffer.put_u8(144)),
-                OP_NOT => Ok(buffer.put_u8(145)),
-                OP_0NOTEQUAL => Ok(buffer.put_u8(146)),
-                OP_ADD => Ok(buffer.put_u8(147)),
-                OP_SUB => Ok(buffer.put_u8(148)),
-                OP_MUL => Ok(buffer.put_u8(149)),
-                OP_DIV => Ok(buffer.put_u8(150)),
-                OP_MOD => Ok(buffer.put_u8(151)),
-                OP_LSHIFT => Ok(buffer.put_u8(152)),
-                OP_RSHIFT => Ok(buffer.put_u8(153)),
-                OP_BOOLAND => Ok(buffer.put_u8(154)),
-                OP_BOOLOR => Ok(buffer.put_u8(155)),
-                OP_NUMEQUAL => Ok(buffer.put_u8(156)),
-                OP_NUMEQUALVERIFY => Ok(buffer.put_u8(157)),
-                OP_NUMNOTEQUAL => Ok(buffer.put_u8(158)),
-                OP_LESSTHAN => Ok(buffer.put_u8(159)),
-                OP_GREATERTHAN => Ok(buffer.put_u8(160)),
-                OP_LESSTHANOREQUAL => Ok(buffer.put_u8(161)),
-                OP_GREATERTHANOREQUAL => Ok(buffer.put_u8(162)),
-                OP_MIN => Ok(buffer.put_u8(163)),
-                OP_MAX => Ok(buffer.put_u8(164)),
-                OP_WITHIN => Ok(buffer.put_u8(165)),
-                OP_RIPEMD160 => Ok(buffer.put_u8(166)),
-                OP_SHA1 => Ok(buffer.put_u8(167)),
-                OP_SHA256 => Ok(buffer.put_u8(168)),
-                OP_HASH160 => Ok(buffer.put_u8(169)),
-                OP_HASH256 => Ok(buffer.put_u8(170)),
-                OP_CODESEPARATOR => Ok(buffer.put_u8(171)),
-                OP_CHECKSIG => Ok(buffer.put_u8(172)),
-                OP_CHECKSIGVERIFY => Ok(buffer.put_u8(173)),
-                OP_CHECKMULTISIG => Ok(buffer.put_u8(174)),
-                OP_CHECKMULTISIGVERIFY => Ok(buffer.put_u8(175)),
-                OP_UPNOP => Ok(buffer.put_u8(177)),
+                OP_1NEGATE => {
+                    buffer.put_u8(79);
+                    Ok(())
+                },
+                OP_RESERVED => {
+                    buffer.put_u8(80);
+                    Ok(())
+                },
+                OP_1 => {
+                    buffer.put_u8(81);
+                    Ok(())
+                },
+                OP_TRUE => {
+                    buffer.put_u8(81);
+                    Ok(())
+                },
+                OP_2 => {
+                    buffer.put_u8(82);
+                    Ok(())
+                },
+                OP_3 => {
+                    buffer.put_u8(83);
+                    Ok(())
+                },
+                OP_4 => {
+                    buffer.put_u8(84);
+                    Ok(())
+                },
+                OP_5 => {
+                    buffer.put_u8(85);
+                    Ok(())
+                },
+                OP_6 => {
+                    buffer.put_u8(86);
+                    Ok(())
+                },
+                OP_7 => {
+                    buffer.put_u8(87);
+                    Ok(())
+                },
+                OP_8 => {
+                    buffer.put_u8(88);
+                    Ok(())
+                },
+                OP_9 => {
+                    buffer.put_u8(89);
+                    Ok(())
+                },
+                OP_10 => {
+                    buffer.put_u8(90);
+                    Ok(())
+                },
+                OP_11 => {
+                    buffer.put_u8(91);
+                    Ok(())
+                },
+                OP_12 => {
+                    buffer.put_u8(92);
+                    Ok(())
+                },
+                OP_13 => {
+                    buffer.put_u8(93);
+                    Ok(())
+                },
+                OP_14 => {
+                    buffer.put_u8(94);
+                    Ok(())
+                },
+                OP_15 => {
+                    buffer.put_u8(95);
+                    Ok(())
+                },
+                OP_16 => {
+                    buffer.put_u8(96);
+                    Ok(())
+                },
+                OP_NOP => {
+                    buffer.put_u8(97);
+                    Ok(())
+                },
+                OP_VER => {
+                    buffer.put_u8(98);
+                    Ok(())
+                },
+                OP_IF => {
+                    buffer.put_u8(99);
+                    Ok(())
+                },
+                OP_NOTIF => {
+                    buffer.put_u8(100);
+                    Ok(())
+                },
+                OP_VERIF => {
+                    buffer.put_u8(101);
+                    Ok(())
+                },
+                OP_VERNOTIF => {
+                    buffer.put_u8(102);
+                    Ok(())
+                },
+                OP_ELSE => {
+                    buffer.put_u8(103);
+                    Ok(())
+                },
+                OP_ENDIF => {
+                    buffer.put_u8(104);
+                    Ok(())
+                },
+                OP_VERIFY => {
+                    buffer.put_u8(105);
+                    Ok(())
+                },
+                OP_RETURN => {
+                    buffer.put_u8(106);
+                    Ok(())
+                },
+                OP_TOALTSTACK => {
+                    buffer.put_u8(107);
+                    Ok(())
+                },
+                OP_FROMALTSTACK => {
+                    buffer.put_u8(108);
+                    Ok(())
+                },
+                OP_2DROP => {
+                    buffer.put_u8(109);
+                    Ok(())
+                },
+                OP_2DUP => {
+                    buffer.put_u8(110);
+                    Ok(())
+                },
+                OP_3DUP => {
+                    buffer.put_u8(111);
+                    Ok(())
+                },
+                OP_2OVER => {
+                    buffer.put_u8(112);
+                    Ok(())
+                },
+                OP_2ROT => {
+                    buffer.put_u8(113);
+                    Ok(())
+                },
+                OP_2SWAP => {
+                    buffer.put_u8(114);
+                    Ok(())
+                },
+                OP_IFDUP => {
+                    buffer.put_u8(115);
+                    Ok(())
+                },
+                OP_DEPTH => {
+                    buffer.put_u8(116);
+                    Ok(())
+                },
+                OP_DROP => {
+                    buffer.put_u8(117);
+                    Ok(())
+                },
+                OP_DUP => {
+                    buffer.put_u8(118);
+                    Ok(())
+                },
+                OP_NIP => {
+                    buffer.put_u8(119);
+                    Ok(())
+                },
+                OP_OVER => {
+                    buffer.put_u8(120);
+                    Ok(())
+                },
+                OP_PICK => {
+                    buffer.put_u8(121);
+                    Ok(())
+                },
+                OP_ROLL => {
+                    buffer.put_u8(122);
+                    Ok(())
+                },
+                OP_ROT => {
+                    buffer.put_u8(123);
+                    Ok(())
+                },
+                OP_SWAP => {
+                    buffer.put_u8(124);
+                    Ok(())
+                },
+                OP_TUCK => {
+                    buffer.put_u8(125);
+                    Ok(())
+                },
+                OP_CAT => {
+                    buffer.put_u8(126);
+                    Ok(())
+                },
+                OP_SPLIT => {
+                    buffer.put_u8(127);
+                    Ok(())
+                },
+                OP_NUM2BIN => {
+                    buffer.put_u8(128);
+                    Ok(())
+                },
+                OP_BIN2NUM => {
+                    buffer.put_u8(129);
+                    Ok(())
+                },
+                OP_SIZE => {
+                    buffer.put_u8(130);
+                    Ok(())
+                },
+                OP_INVERT => {
+                    buffer.put_u8(131);
+                    Ok(())
+                },
+                OP_AND => {
+                    buffer.put_u8(132);
+                    Ok(())
+                },
+                OP_OR => {
+                    buffer.put_u8(133);
+                    Ok(())
+                },
+                OP_XOR => {
+                    buffer.put_u8(134);
+                    Ok(())
+                },
+                OP_EQUAL => {
+                    buffer.put_u8(135);
+                    Ok(())
+                },
+                OP_EQUALVERIFY => {
+                    buffer.put_u8(136);
+                    Ok(())
+                },
+                OP_1ADD => {
+                    buffer.put_u8(139);
+                    Ok(())
+                },
+                OP_1SUB => {
+                    buffer.put_u8(140);
+                    Ok(())
+                },
+                OP_2MUL => {
+                    buffer.put_u8(141);
+                    Ok(())
+                },
+                OP_2DIV => {
+                    buffer.put_u8(142);
+                    Ok(())
+                },
+                OP_NEGATE => {
+                    buffer.put_u8(143);
+                    Ok(())
+                },
+                OP_ABS => {
+                    buffer.put_u8(144);
+                    Ok(())
+                },
+                OP_NOT => {
+                    buffer.put_u8(145);
+                    Ok(())
+                },
+                OP_0NOTEQUAL => {
+                    buffer.put_u8(146);
+                    Ok(())
+                },
+                OP_ADD => {
+                    buffer.put_u8(147);
+                    Ok(())
+                },
+                OP_SUB => {
+                    buffer.put_u8(148);
+                    Ok(())
+                },
+                OP_MUL => {
+                    buffer.put_u8(149);
+                    Ok(())
+                },
+                OP_DIV => {
+                    buffer.put_u8(150);
+                    Ok(())
+                },
+                OP_MOD => {
+                    buffer.put_u8(151);
+                    Ok(())
+                },
+                OP_LSHIFT => {
+                    buffer.put_u8(152);
+                    Ok(())
+                },
+                OP_RSHIFT => {
+                    buffer.put_u8(153);
+                    Ok(())
+                },
+                OP_BOOLAND => {
+                    buffer.put_u8(154);
+                    Ok(())
+                },
+                OP_BOOLOR => {
+                    buffer.put_u8(155);
+                    Ok(())
+                },
+                OP_NUMEQUAL => {
+                    buffer.put_u8(156);
+                    Ok(())
+                },
+                OP_NUMEQUALVERIFY => {
+                    buffer.put_u8(157);
+                    Ok(())
+                },
+                OP_NUMNOTEQUAL => {
+                    buffer.put_u8(158);
+                    Ok(())
+                },
+                OP_LESSTHAN => {
+                    buffer.put_u8(159);
+                    Ok(())
+                },
+                OP_GREATERTHAN => {
+                    buffer.put_u8(160);
+                    Ok(())
+                },
+                OP_LESSTHANOREQUAL => {
+                    buffer.put_u8(161);
+                    Ok(())
+                },
+                OP_GREATERTHANOREQUAL => {
+                    buffer.put_u8(162);
+                    Ok(())
+                },
+                OP_MIN => {
+                    buffer.put_u8(163);
+                    Ok(())
+                },
+                OP_MAX => {
+                    buffer.put_u8(164);
+                    Ok(())
+                },
+                OP_WITHIN => {
+                    buffer.put_u8(165);
+                    Ok(())
+                },
+                OP_RIPEMD160 => {
+                    buffer.put_u8(166);
+                    Ok(())
+                },
+                OP_SHA1 => {
+                    buffer.put_u8(167);
+                    Ok(())
+                },
+                OP_SHA256 => {
+                    buffer.put_u8(168);
+                    Ok(())
+                },
+                OP_HASH160 => {
+                    buffer.put_u8(169);
+                    Ok(())
+                },
+                OP_HASH256 => {
+                    buffer.put_u8(170);
+                    Ok(())
+                },
+                OP_CODESEPARATOR => {
+                    buffer.put_u8(171);
+                    Ok(())
+                },
+                OP_CHECKSIG => {
+                    buffer.put_u8(172);
+                    Ok(())
+                },
+                OP_CHECKSIGVERIFY => {
+                    buffer.put_u8(173);
+                    Ok(())
+                },
+                OP_CHECKMULTISIG => {
+                    buffer.put_u8(174);
+                    Ok(())
+                },
+                OP_CHECKMULTISIGVERIFY => {
+                    buffer.put_u8(175);
+                    Ok(())
+                },
+                OP_UPNOP => {
+                    buffer.put_u8(177);
+                    Ok(())
+                },
             },
         }
     }
@@ -724,7 +1025,7 @@ mod tests {
             } else {
                 // the data ops will not parse properly without making some fake data
                 // but the rest should succeed
-                if j < 1 || j > 78 {
+                if !(1..=78).contains(&j) {
                     assert!(false);
                 }
             }

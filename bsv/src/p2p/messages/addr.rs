@@ -58,7 +58,7 @@ impl fmt::Display for Addr {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut addrs = String::new();
         for addr in &self.addrs {
-            if addrs.len() == 0 {
+            if addrs.is_empty() {
                 addrs = format!("{}", addr.ip);
             } else {
                 addrs += &*format!(", {}", addr.ip);

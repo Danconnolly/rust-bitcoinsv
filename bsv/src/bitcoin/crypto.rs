@@ -160,7 +160,7 @@ mod tests {
     fn test_wif() {
         let privkey = PrivateKey::generate();
         let wif = privkey.to_wif(KeyAddressKind::Main);
-        assert!(wif.len() > 0);
+        assert!(!wif.is_empty());
         let (p_key2, blk_chain) = PrivateKey::from_wif(&wif).unwrap();
         assert_eq!(privkey, p_key2);
         assert_eq!(blk_chain, KeyAddressKind::Main);

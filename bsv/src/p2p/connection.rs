@@ -122,7 +122,7 @@ impl Connection {
         let d_chan2 = d_channel.clone();
         let p_c = peer.clone();
         let connection_id = Uuid::new_v4();
-        let c_id2 = connection_id.clone();
+        let c_id2 = connection_id;
         let j = tokio::spawn(
             async move { ConnectionActor::new(rx, p_c, c_id2, config, d_chan2).await },
         );

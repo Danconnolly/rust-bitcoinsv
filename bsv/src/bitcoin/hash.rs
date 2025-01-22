@@ -119,7 +119,7 @@ impl From<&[u8]> for Hash {
 impl From<Hash> for [u8; 32] {
     /// Convert from Hash to u8 encoding
     fn from(value: Hash) -> Self {
-        return value.hash;
+        value.hash
     }
 }
 

@@ -44,7 +44,7 @@ impl fmt::Display for Headers {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut out_str = String::new();
         for header in &self.headers {
-            if out_str.len() == 0 {
+            if out_str.is_empty() {
                 out_str = format!("{:?}", header);
             } else {
                 out_str += &*format!(", {:?}", header);

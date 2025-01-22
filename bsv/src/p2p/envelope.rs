@@ -24,8 +24,8 @@ impl P2PEnvelope {
     pub fn new(message: P2PMessage, config: &ChannelConfig) -> Self {
         P2PEnvelope {
             message,
-            peer_id: config.peer_id.clone(),
-            connection_id: config.connection_id.clone(),
+            peer_id: config.peer_id,
+            connection_id: config.connection_id,
             stream_id: config.channel_id,
             received_time: epoch_millis(),
         }

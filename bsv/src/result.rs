@@ -49,12 +49,12 @@ impl std::fmt::Display for Error {
         match self {
             Error::BadArgument(s) => f.write_str(&format!("Bad argument: {}", s)),
             Error::BadData(s) => f.write_str(&format!("Bad data: {}", s)),
-            Error::ChecksumMismatch => f.write_str(&"Checksum mismatch".to_string()),
-            Error::WifTooLong => f.write_str(&"WIF too long".to_string()),
-            Error::InvalidBlockchainSpecifier => f.write_str(&"Unknown blockchain".to_string()),
-            Error::UnrecognizedOpCode => f.write_str(&"unrecognized opcode".to_string()),
-            Error::DataTooSmall => f.write_str(&"data too small".to_string()),
-            Error::DataTooLarge => f.write_str(&"data too large".to_string()),
+            Error::ChecksumMismatch => f.write_str("Checksum mismatch"),
+            Error::WifTooLong => f.write_str("WIF too long"),
+            Error::InvalidBlockchainSpecifier => f.write_str("Unknown blockchain"),
+            Error::UnrecognizedOpCode => f.write_str("unrecognized opcode"),
+            Error::DataTooSmall => f.write_str("data too small"),
+            Error::DataTooLarge => f.write_str("data too large"),
             Error::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
             Error::InternalError(e) => e.fmt(f),
             Error::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
@@ -121,7 +121,7 @@ impl std::fmt::Display for InternalError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         use InternalError::*;
         match self {
-            Dummy => f.write_str(&"Dummy".to_string()),
+            Dummy => f.write_str("Dummy"),
         }
     }
 }

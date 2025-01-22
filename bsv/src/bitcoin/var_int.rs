@@ -70,7 +70,7 @@ mod tests {
 
     async fn write_read_value(n: u64) {
         let mut v: Vec<u8> = Vec::new();
-        let _ = varint_encode(&mut v, n).await.unwrap();
+        varint_encode(&mut v, n).await.unwrap();
         let j = varint_decode(&mut Cursor::new(&v)).await.unwrap();
         assert_eq!(j, n);
     }
@@ -78,43 +78,43 @@ mod tests {
     #[tokio::test]
     async fn test_known_values() {
         let mut v = Vec::new();
-        let _ = varint_encode(&mut v, 0).await.unwrap();
+        varint_encode(&mut v, 0).await.unwrap();
         assert_eq!(v, vec![0]);
         v.clear();
-        let _ = varint_encode(&mut v, 1).await.unwrap();
+        varint_encode(&mut v, 1).await.unwrap();
         assert_eq!(v, vec![1]);
         v.clear();
-        let _ = varint_encode(&mut v, 252).await.unwrap();
+        varint_encode(&mut v, 252).await.unwrap();
         assert_eq!(v, vec![252]);
         v.clear();
-        let _ = varint_encode(&mut v, 253).await.unwrap();
+        varint_encode(&mut v, 253).await.unwrap();
         assert_eq!(v, vec![253, 253, 0]);
         v.clear();
-        let _ = varint_encode(&mut v, 254).await.unwrap();
+        varint_encode(&mut v, 254).await.unwrap();
         assert_eq!(v, vec![253, 254, 0]);
         v.clear();
-        let _ = varint_encode(&mut v, 255).await.unwrap();
+        varint_encode(&mut v, 255).await.unwrap();
         assert_eq!(v, vec![253, 255, 0]);
         v.clear();
-        let _ = varint_encode(&mut v, 256).await.unwrap();
+        varint_encode(&mut v, 256).await.unwrap();
         assert_eq!(v, vec![253, 0, 1]);
         v.clear();
-        let _ = varint_encode(&mut v, 65535).await.unwrap();
+        varint_encode(&mut v, 65535).await.unwrap();
         assert_eq!(v, vec![253, 255, 255]);
         v.clear();
-        let _ = varint_encode(&mut v, 65536).await.unwrap();
+        varint_encode(&mut v, 65536).await.unwrap();
         assert_eq!(v, vec![254, 0, 0, 1, 0]);
         v.clear();
-        let _ = varint_encode(&mut v, 65537).await.unwrap();
+        varint_encode(&mut v, 65537).await.unwrap();
         assert_eq!(v, vec![254, 1, 0, 1, 0]);
         v.clear();
-        let _ = varint_encode(&mut v, 4294967295).await.unwrap();
+        varint_encode(&mut v, 4294967295).await.unwrap();
         assert_eq!(v, vec![254, 255, 255, 255, 255]);
         v.clear();
-        let _ = varint_encode(&mut v, 4294967296).await.unwrap();
+        varint_encode(&mut v, 4294967296).await.unwrap();
         assert_eq!(v, vec![255, 0, 0, 0, 0, 1, 0, 0, 0]);
         v.clear();
-        let _ = varint_encode(&mut v, 4294967297).await.unwrap();
+        varint_encode(&mut v, 4294967297).await.unwrap();
         assert_eq!(v, vec![255, 1, 0, 0, 0, 1, 0, 0, 0]);
     }
 }

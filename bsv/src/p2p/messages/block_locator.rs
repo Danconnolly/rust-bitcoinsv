@@ -61,7 +61,7 @@ impl fmt::Display for BlockLocator {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut hashes = String::new();
         for hash in &self.block_locator_hashes {
-            if hashes.len() == 0 {
+            if hashes.is_empty() {
                 hashes = format!("{}", hash);
             } else {
                 hashes += &*format!(", {}", hash);

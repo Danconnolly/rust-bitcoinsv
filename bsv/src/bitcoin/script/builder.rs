@@ -13,6 +13,12 @@ pub struct ScriptBuilder {
     trailing: Option<Bytes>,
 }
 
+impl Default for ScriptBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ScriptBuilder {
     /// Create a new Scriptbuilder for constructing a [Script].
     pub fn new() -> ScriptBuilder {
@@ -33,11 +39,7 @@ impl ScriptBuilder {
         let mut last_opreturn = false;
         for o in self.ops.iter() {
             o.to_binary(&mut buffer)?;
-            if *o == Operation::OP_RETURN {
-                last_opreturn = true;
-            } else {
-                last_opreturn = false;
-            }
+            last_opreturn = *o == Operation::OP_RETURN;
         }
         if self.trailing.is_some() {
             let o = self.trailing.clone().unwrap();

@@ -1,6 +1,5 @@
-use bitcoinsv::bitcoin::BlockchainId::Main;
 use bitcoinsv::bitcoin::{BlockchainId, FromHex, Hash};
-use bitcoinsv::p2p::{Connection, ConnectionConfig, P2PManager, P2PManagerConfig, PeerAddress};
+use bitcoinsv::p2p::{Connection, ConnectionConfig, PeerAddress};
 use clap::Parser;
 use env_logger::Env;
 use std::sync::Arc;

@@ -52,7 +52,7 @@ impl fmt::Display for Inv {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut objects = String::new();
         for object in &self.objects {
-            if objects.len() == 0 {
+            if objects.is_empty() {
                 objects = format!("{}", object);
             } else {
                 objects += &*format!(", {}", object);
