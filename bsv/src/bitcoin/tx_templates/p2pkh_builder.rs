@@ -1,6 +1,5 @@
 use bytes::Bytes;
-use hex_literal::hex;
-use crate::bitcoin::{Address, ByteSequence, KeyAddressKind, Outpoint, PrivateKey, Script, ScriptBuilder, Tx, TxBuilder, TxInput, TxOutput};
+use crate::bitcoin::{Address, ByteSequence, KeyAddressKind, Outpoint, PrivateKey, ScriptBuilder, Tx, TxBuilder, TxInput, TxOutput};
 use crate::bitcoin::Operation::{OP_CHECKSIG, OP_DUP, OP_EQUALVERIFY, OP_HASH160, OP_PUSH};
 
 /// Builds a P2PKH transaction.
