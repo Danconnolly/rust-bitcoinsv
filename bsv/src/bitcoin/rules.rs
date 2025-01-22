@@ -1,21 +1,22 @@
 #![allow(non_snake_case)]
+#![allow(dead_code)]     // lots of important definitions in here that may not be used
 
-//! Bitcoin SV has a number of rules, consensus rules, and policy values. These are defined in this module.
-//!
-//! This module makes the consensus rule and policy values available. Applications will generally need
-//! the policy rule values except when dealing with transactions from confirmed blocks in which case
-//! they will need the consensus rule values. The consensus rule values are more generally more permissive
-//! than the policy rule values.
-//!
-//! These values are sometimes needed deep within the code so we have chosen to make these available
-//! through atomic global variables rather than having to pass a reference to configuration through
-//! myriad levels of functions. It is not expected that these values will change dynamically, however
-//! that capability is possible so that we can support online reconfiguration.
-//!
-//! Rules, Consensus Rules, and Policy values are described in the [Genesis Upgrade specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md).
-//!
-//! The values in this version of the module are valid for the Bitcoin SV
-//! blockchains after the Genesis Upgrade.
+/// Bitcoin SV has a number of rules, consensus rules, and policy values. These are defined in this module.
+///
+/// This module makes the consensus rule and policy values available. Applications will generally need
+/// the policy rule values except when dealing with transactions from confirmed blocks in which case
+/// they will need the consensus rule values. The consensus rule values are more generally more permissive
+/// than the policy rule values.
+///
+/// These values are sometimes needed deep within the code so we have chosen to make these available
+/// through atomic global variables rather than having to pass a reference to configuration through
+/// myriad levels of functions. It is not expected that these values will change dynamically, however
+/// that capability is possible so that we can support online reconfiguration.
+///
+/// Rules, Consensus Rules, and Policy values are described in the [Genesis Upgrade specification](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md).
+///
+/// The values in this version of the module are valid for the Bitcoin SV
+/// blockchains after the Genesis Upgrade.
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
