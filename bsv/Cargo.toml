@@ -15,7 +15,7 @@ keywords = ["crypto", "bitcoin-sv"]
 async-trait = "0.1.75"
 base58 = "0.2.0"
 bytes = {  version = "1.9.0", features = ["serde"] }
-futures = "0.3.30"
+futures = "0.3.31"
 hex = "0.4.3"
 log = "0.4.20"
 minactor = "0.3.0"
