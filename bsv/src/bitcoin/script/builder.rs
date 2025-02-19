@@ -1,7 +1,10 @@
-use crate::bitcoin::{Encodable, Operation, PrivateKey, Script};
+use crate::bitcoin::{Encodable, Operation, Outpoint, PrivateKey, Script, TxOutput};
+use crate::Error::SigInScript;
 use crate::Result;
 use bytes::{Buf, BufMut, Bytes};
 use std::cmp::max;
+use futures::AsyncWriteExt;
+use tokio::io::AsyncWriteExt;
 
 /// A ScriptToken represents an element in a script. In the simplist case it is a single
 /// operation, but it can represent a signature that can only be calculated when the transaction
@@ -25,16 +28,14 @@ impl Encodable for ScriptToken {
     fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()> {
         match self {
             ScriptToken::Op(op) => op.to_binary(buffer),
-            ScriptToken::CheckSigSignature(_) => {
-                todo!()
-            }
+            ScriptToken::CheckSigSignature(_) => Err(SigInScript),
         }
     }
 
     fn size(&self) -> usize {
         match self {
             ScriptToken::Op(op) => op.size(),
-            ScriptToken::CheckSigSignature(_) => 32, // todo: check
+            ScriptToken::CheckSigSignature(_) => 71,
         }
     }
 }
@@ -43,9 +44,6 @@ impl Encodable for ScriptToken {
 pub struct ScriptBuilder {
     /// The tokens.
     ops: Vec<ScriptToken>,
-    /// Trailing data to be added at the end of the script. If the script does not end with an
-    /// OP_RETURN then it will be inserted during build.
-    trailing: Option<Bytes>,
 }
 
 impl Default for ScriptBuilder {
@@ -59,33 +57,7 @@ impl ScriptBuilder {
     pub fn new() -> ScriptBuilder {
         Self {
             ops: Vec::new(),
-            trailing: None,
         }
-    }
-
-    /// Build the script.
-    pub fn build(&self) -> Result<Script> {
-        // initial capacity - 1000 bytes should hold most scripts, unless there's a trailing script
-        let cap = match self.trailing.clone() {
-            None => 1_000,
-            Some(v) => max(1_000, v.len()),
-        };
-        let mut buffer = Vec::with_capacity(cap);
-        let mut last_opreturn = false; // was the last op an OP_RETURN?
-        for o in self.ops.iter() {
-            o.to_binary(&mut buffer)?;
-            last_opreturn = *o == ScriptToken::Op(Operation::OP_RETURN);
-        }
-        if self.trailing.is_some() {
-            let o = self.trailing.clone().unwrap();
-            if !last_opreturn {
-                Operation::OP_RETURN.to_binary(&mut buffer)?;
-            }
-            buffer.append(&mut o.to_vec());
-        }
-        Ok(Script {
-            raw: Bytes::from(buffer),
-        })
     }
 
     /// Add an operation to the script.
@@ -94,23 +66,72 @@ impl ScriptBuilder {
         self
     }
 
-    /// Set the trailing bytes (a.k.a OP_RETURN data) for the script.
-    ///
-    /// Additional data can be appended to the end of the script. This should be preceded by
-    /// an OP_RETURN.
-    ///
-    /// When building the Script, if an OP_RETURN is not present at the end of the script, then one
-    /// will be appended.
-    pub fn set_trailing(&mut self, trailing: Bytes) -> &mut ScriptBuilder {
-        self.trailing = Some(trailing);
+    /// Add a signature to the script.
+    pub fn add_sig(&mut self, sig: PrivateKey) -> &mut ScriptBuilder {
+        self.ops.push(ScriptToken::CheckSigSignature(sig));
         self
     }
+
+    /// Build an output script. An output script cannot contain signatures.
+    pub fn build_oscript(&self) -> Result<Script> {
+        // initial capacity - 1000 bytes should hold most scripts
+        let mut buffer = Vec::with_capacity(1000);
+        for o in self.ops.iter() {
+            o.to_binary(&mut buffer)?;
+        }
+        Ok(Script {
+            raw: Bytes::from(buffer),
+        })
+    }
+
+    /// Build an input script.
+    ///
+    /// We need the tx version and lock time, the outputs, and the outpoints, to generate the pre-image
+    /// for signature.
+    pub fn build_iscript(
+        &self,
+        tx_version: u32,
+        tx_lock_time: u32,
+        outputs: &[TxOutput],
+        outpoints: &[Outpoint],
+    ) -> Result<Script> {
+        // initial capacity - 1000 bytes should hold most scripts
+        let mut buffer = Vec::with_capacity(1000);
+        for o in self.ops.iter() {
+            match o {
+                ScriptToken::Op(op) {
+                    op.to_binary(&mut buffer)?;
+                },
+                ScriptToken::CheckSigSignature(sig) => {
+                    let pre_image = calc_pre_image(tx_version, tx_lock_time, outputs, outpoints)?;
+                    todo!()
+                }
+            }
+        }
+        Ok(Script {
+            raw: Bytes::from(buffer),
+        })
+    }
+}
+
+/// Calculate the preimage for signature
+fn calc_pre_image(tx_version: u32,
+                  tx_lock_time: u32,
+                  outputs: &[TxOutput],
+                  outpoints: &[Outpoint],
+) -> Result<Vec<u8>> {
+    let mut pre_image = Vec::with_capacity(1000);
+    // write version
+    let a = pre_image.write_u32_le(tx_version);
+
+    Ok(pre_image)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::bitcoin::ByteSequence;
+    use crate::bitcoin::Operation::OP_PUSH;
+    use crate::bitcoin::{ByteSequence, Outpoint, TxHash};
     use bytes::Bytes;
     use hex_literal::hex;
 
@@ -127,12 +148,36 @@ mod tests {
             .add(OP_PUSH(byteseq))
             .add(OP_EQUALVERIFY)
             .add(OP_CHECKSIG)
-            .build()
+            .build_oscript()
             .unwrap();
         assert_eq!(script.raw.len(), 25);
         assert_eq!(
             script.raw,
             Bytes::from(&hex!("76a9146f67988ec4b7bf498c9164d76b52dffdc805ff8c88ac")[..])
         );
+    }
+
+    /// Check that building an output script with a signature fails.
+    #[test]
+    fn check_iscript_fails() {
+        // the private key to sign the outpoint being spent
+        let (pv_key, _) = PrivateKey::from_wif(&String::from(
+            "cTtpACZFWDNTuaEheerpFZyVUBTk7tDFiM4E4xj1joG8sn2Eh8KG",
+        ))
+        .unwrap();
+        let outpoint = Outpoint {
+            tx_hash: TxHash::from(
+                "85bfc50c0697edeb5f8c3b006fcc889be0ac6ebadcec8097393dd54a92699b60",
+            ),
+            index: 0,
+        };
+        let mut script = ScriptBuilder::new();
+        script
+            .add_sig(pv_key)
+            .add(OP_PUSH(ByteSequence::new(Bytes::from(
+                "03a2ad2079c0c1bd859e5a4c17e116f1dccfad502dde742802b205868f450f7d93",
+            ))));
+        let r = script.build_oscript();
+        assert!(r.is_err());
     }
 }

@@ -26,6 +26,8 @@ pub enum Error {
     DataTooSmall,
     /// The data provided is too large to perform the operation.
     DataTooLarge,
+    /// Cannot build an output script with a signature.
+    SigInScript,
     /// Internal error
     Internal(String),
     /// Internal errors
@@ -55,6 +57,7 @@ impl std::fmt::Display for Error {
             Error::UnrecognizedOpCode => f.write_str("unrecognized opcode"),
             Error::DataTooSmall => f.write_str("data too small"),
             Error::DataTooLarge => f.write_str("data too large"),
+            Error::SigInScript => f.write_str("cannot build script with signature"),
             Error::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
             Error::InternalError(e) => e.fmt(f),
             Error::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
