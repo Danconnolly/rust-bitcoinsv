@@ -1,5 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Run getblock" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+    <option name="buildProfileId" value="dev" />
     <option name="command" value="run --package bitcoinsv-examples --bin getblock -- 95.216.243.249 000000008f1a7008320c16b8402b7f11e82951f44ca2663caf6860ab2eeef320" />
     <option name="workingDirectory" value="file://$PROJECT_DIR$" />
     <envs />
