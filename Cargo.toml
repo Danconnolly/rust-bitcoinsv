@@ -4,6 +4,3 @@ members = [
     "examples",
 ]
 resolver = "2"
-
-[workspace.dependencies]
-rand = {  version = "0.8.5" }
