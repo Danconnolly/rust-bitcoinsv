@@ -35,6 +35,10 @@ bincode = "1.3.3"
 hex-literal = "0.4.1"
 serde_json = { version = "1.0.108", features = [] }
 
+[features]
+# P2P Communication.
+p2p = []
+
 [lib]
 path = "src/lib.rs"
 
