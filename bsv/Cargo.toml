@@ -36,8 +36,8 @@ hex-literal = "0.4.1"
 serde_json = { version = "1.0.108", features = [] }
 
 [features]
-# P2P Communication.
-p2p = []
+# P2P Communication - under development.
+dev_p2p = []
 
 [lib]
 path = "src/lib.rs"

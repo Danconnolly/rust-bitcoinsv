@@ -13,7 +13,7 @@ keywords = ["crypto", "bitcoin-sv"]
 
 [dependencies]
 tokio = { version = ">=1.23.1", features = ["full"] }
-bitcoinsv = { path = "../bsv", features = ["p2p"] }
+bitcoinsv = { path = "../bsv", features = ["dev_p2p"] }
 env_logger = "0.11.3"
 clap = {  version = "4.5.2", features = ["derive"]}
 log = "0.4.21"

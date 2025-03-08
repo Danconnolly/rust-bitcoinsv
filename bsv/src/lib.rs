@@ -18,7 +18,7 @@
 /// Functionality related to the core of Bitcoin SV. Transactions, Block Headers, etc.
 pub mod bitcoin;
 
-#[cfg(feature = "p2p")]
+#[cfg(feature = "dev_p2p")]
 /// Functionality related to the Bitcoin SV peer-to-peer protocol and network.
 pub mod p2p;
 
