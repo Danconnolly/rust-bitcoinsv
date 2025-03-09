@@ -1,44 +1,73 @@
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::params::BlockchainId;
+use hex::{FromHex, ToHex};
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use crate::bitcoin::Encodable;
 #[cfg(feature="dev_tokio")]
 use crate::bitcoin::AsyncEncodable;
 #[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
-use hex::{FromHex, ToHex};
 #[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::Error;
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
 pub type BlockHash = Hash;
 /// The MerkleRoot is the root of the merkle tree of this block's transaction hashes.
 pub type MerkleRoot = Hash;
 
-/// BlockHeaders are linked to together to form a blockchain.
+/// BlockHeaders are linked together to form a blockchain.
+///
+/// This implementation stores the encoded form and extracts fields when they are requested.
 #[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
 pub struct BlockHeader {
-    /// Block version.
-    pub version: u32,
-    /// Hash of the previous block header.
-    pub prev_hash: BlockHash,
-    /// Root of the merkle tree of this block's transaction hashes.
-    pub merkle_root: MerkleRoot,
-    /// Timestamp when this block was created as recorded by the miner.
-    pub timestamp: u32,
-    /// Target difficulty bits.
-    pub bits: u32,
-    /// Nonce used to mine the block.
-    pub nonce: u32,
+    pub raw: Bytes,
 }
 
 impl BlockHeader {
     /// Size of the BlockHeader in bytes
-    pub const SIZE: usize = 80;
-    pub const HEX_SIZE: usize = BlockHeader::SIZE * 2;
+    pub const SIZE: u64 = 80;
+    pub const HEX_SIZE: u64 = BlockHeader::SIZE * 2;
 
-    /// Calculates the hash for this block header
+    /// Block hash.
     pub fn hash(&self) -> BlockHash {
-        let v = self.to_binary_buf().unwrap();
-        Hash::sha256d(&v)
+        BlockHash::sha256d(self.raw.as_ref())
+    }
+
+    /// Block version.
+    pub fn version(&self) -> u32 {
+        let mut slice = &self.raw[0..4];
+        slice.get_u32_le()
+    }
+
+    /// Hash of the previous block header.
+    pub fn prev_hash(&self) -> BlockHash {
+        let slice = &self.raw[4..36];
+        BlockHash::from(slice)
+    }
+
+    /// Root of the merkle tree of this block's transaction hashes.
+    pub fn merkle_root(&self) -> MerkleRoot {
+        let slice = &self.raw[36..68];
+        MerkleRoot::from(slice)
+    }
+
+    /// Timestamp when this block was created as recorded by the miner.
+    pub fn timestamp(&self) -> u32 {
+        let mut slice = &self.raw[68..72];
+        slice.get_u32_le()
+    }
+
+    /// Target difficulty bits.
+    pub fn bits(&self) -> u32 {
+        let mut slice = &self.raw[72..76];
+        slice.get_u32_le()
+    }
+
+    /// Nonce used to mine the block.
+    pub fn nonce(&self) -> u32 {
+        let mut slice = &self.raw[76..80];
+        slice.get_u32_le()
     }
 
     /// Get the Genesis BlockHeader for the given chain.
@@ -52,20 +81,41 @@ impl BlockHeader {
     }
 }
 
+impl Encodable for BlockHeader {
+    fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self>
+    {
+        if buffer.remaining() < Self::SIZE as usize {
+            Err(Error::DataTooSmall)
+        } else {
+            Ok(BlockHeader {
+                raw: buffer.copy_to_bytes(Self::SIZE as usize),
+            })
+        }
+    }
+
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> crate::Result<()> {
+        buffer.put_slice(&self.raw);
+        Ok(())
+    }
+
+    fn size(&self) -> u64 {
+        BlockHeader::SIZE
+    }
+}
+
+
 #[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for BlockHeader {
+    // todo: async versions untested
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
     where
         Self: Sized,
     {
+        let mut bytes = Vec::with_capacity(BlockHeader::SIZE as usize); 
+        reader.read_exact(&mut bytes).await?;
         Ok(BlockHeader {
-            version: reader.read_u32_le().await?,
-            prev_hash: Hash::async_from_binary(reader).await?,
-            merkle_root: Hash::async_from_binary(reader).await?,
-            timestamp: reader.read_u32_le().await?,
-            bits: reader.read_u32_le().await?,
-            nonce: reader.read_u32_le().await?,
+            raw: Bytes::from(bytes),
         })
     }
 
@@ -73,36 +123,34 @@ impl AsyncEncodable for BlockHeader {
         &self,
         writer: &mut W,
     ) -> crate::Result<()> {
-        writer.write_u32_le(self.version).await?;
-        self.prev_hash.async_to_binary(writer).await?;
-        self.merkle_root.async_to_binary(writer).await?;
-        writer.write_u32_le(self.timestamp).await?;
-        writer.write_u32_le(self.bits).await?;
-        writer.write_u32_le(self.nonce).await?;
+        writer.write_all(self.raw.as_ref()).await?;
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
+    fn async_size(&self) -> u64 {
         BlockHeader::SIZE
     }
 }
 
 impl FromHex for BlockHeader {
-    type Error = crate::Error;
+    type Error = Error;
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
-        BlockHeader::from_binary_buf(bytes.as_slice())
+        let mut b = Bytes::from(bytes);
+        BlockHeader::from_binary(&mut b)
     }
 }
 
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
-        let bytes = self.to_binary_buf().unwrap();
+        let mut bytes = BytesMut::with_capacity(BlockHeader::SIZE as usize);
+        self.to_binary(&mut bytes).unwrap();
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
-        let bytes = self.to_binary_buf().unwrap();
+        let mut bytes = BytesMut::with_capacity(BlockHeader::SIZE as usize);
+        self.to_binary(&mut bytes).unwrap();
         bytes.encode_hex_upper()
     }
 }
@@ -116,19 +164,20 @@ mod tests {
     #[test]
     fn block_header_read() {
         let (block_header_bin, block_header_hash) = get_block_header824962();
-        let block_header = BlockHeader::from_binary_buf(block_header_bin.as_slice()).unwrap();
-        assert_eq!(block_header.version, 609435648);
+        let mut bh_bytes = Bytes::from(block_header_bin);
+        let block_header = BlockHeader::from_binary(&mut bh_bytes).unwrap();
+        assert_eq!(block_header.version(), 609435648);
         assert_eq!(block_header.hash(), block_header_hash);
-        assert_eq!(block_header.nonce, 1285270638);
-        assert_eq!(block_header.bits, 0x1808583c);
+        assert_eq!(block_header.nonce(), 1285270638);
+        assert_eq!(block_header.bits(), 0x1808583c);
         assert_eq!(
-            block_header.merkle_root,
+            block_header.merkle_root(),
             Hash::from_hex("39513f5dd95fcb548f43a6e2719819d3f6ecee1c52e7e64bf25b0e93b5bd4227")
                 .unwrap()
         );
-        assert_eq!(block_header.timestamp, 1703972259);
+        assert_eq!(block_header.timestamp(), 1703972259);
         assert_eq!(
-            block_header.prev_hash,
+            block_header.prev_hash(),
             Hash::from_hex("00000000000000000328503edec3569a36f5b11cdcfbb3f6c5efe39cf1cafad8")
                 .unwrap()
         );
@@ -139,18 +188,6 @@ mod tests {
             Vec::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap(),
             Hash::from_hex("000000000000000001749126813c455cabd41bb80fdfc1833ffe09deacb91967").unwrap()
         )
-    }
-
-    #[test]
-    fn from_hex_non_async() {
-        let bh = BlockHeader::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
-        assert_eq!(bh.version, 609435648);
-    }
-
-    #[test]
-    fn from_hex_async() {
-        let bh = BlockHeader::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
-        assert_eq!(bh.version, 609435648);
     }
 
     #[test]

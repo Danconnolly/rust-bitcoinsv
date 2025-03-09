@@ -1,12 +1,16 @@
-#[cfg(feature="dev_tokio")]
-use crate::bitcoin::AsyncEncodable;
-#[cfg(feature="dev_tokio")]
-use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt;
+use crate::bitcoin::Encodable;
+use crate::Error;
+
+#[cfg(feature="dev_tokio")]
+use crate::bitcoin::AsyncEncodable;
+#[cfg(feature="dev_tokio")]
+use async_trait::async_trait;
+use bytes::{Buf, BufMut};
 #[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -16,15 +20,17 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 ///
 /// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [Hash]. Those aliases
 /// should generally be used instead of this struct.
+// todo: analyse whether to use a Bytes for this or not.
+// note: https://docs.rs/bytes/latest/bytes/struct.Bytes.html# reports that Bytes struct has 4 x usize fields
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash {
     pub hash: [u8; 32],
 }
 
 impl Hash {
-    pub const SIZE: usize = 32;
-    pub const HEX_SIZE: usize = Hash::SIZE * 2;
-    pub const ZERO: Hash = Hash { hash: [0; 32] };
+    pub const SIZE: u64 = 32;
+    pub const HEX_SIZE: u64 = Hash::SIZE * 2;
+    pub const ZERO: Hash = Hash { hash: [0; Self::SIZE as usize] };
 
     /// Double SHA256 hash the given data.
     pub fn sha256d(data: &[u8]) -> Hash {
@@ -44,6 +50,28 @@ impl Hash {
         let mut reversed_bytes = self.hash;
         reversed_bytes.reverse();
         encode_fn(&reversed_bytes).chars().collect()
+    }
+}
+
+impl Encodable for Hash {
+    fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self> where Self: Sized {
+        if buffer.remaining() < Self::SIZE as usize {
+            Err(Error::DataTooSmall)
+        } else {
+            let mut hash = [0; 32];
+            buffer.copy_to_slice(&mut hash);
+            Ok(Self {
+                hash
+            })
+        }
+    }
+
+    fn to_binary(&self, buffer: &mut dyn BufMut) -> crate::Result<()> {
+        Ok(buffer.put_slice(&self.hash))
+    }
+
+    fn size(&self) -> u64 {
+        Self::SIZE
     }
 }
 
@@ -67,34 +95,34 @@ impl AsyncEncodable for Hash {
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
+    fn async_size(&self) -> u64 {
         Hash::SIZE
     }
 }
 
 impl FromHex for Hash {
-    type Error = crate::Error;
+    type Error = Error;
 
     /// Converts a string of 64 hex characters into a hash. The bytes of the hex encoded form are reversed in
     /// accordance with Bitcoin standards.
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> Result<Self, Self::Error> {
         let hex = hex.as_ref();
-        if hex.len() != Hash::HEX_SIZE {
+        if hex.len() != Hash::HEX_SIZE as usize {
             let msg = format!(
                 "Length of hex encoded hash must be 64. Len is {:}.",
                 hex.len()
             );
-            return Err(crate::Error::BadArgument(msg));
+            return Err(Error::BadArgument(msg));
         }
         match hex::decode(hex) {
             Ok(mut hash_bytes) => {
                 // Reverse bytes in place to match Bitcoin standard representation.
                 hash_bytes.reverse();
-                let mut hash_array = [0u8; Hash::SIZE];
+                let mut hash_array = [0u8; Hash::SIZE as usize];
                 hash_array.copy_from_slice(&hash_bytes);
                 Ok(Hash { hash: hash_array })
             }
-            Err(e) => Err(crate::Error::FromHexError(e)),
+            Err(e) => Err(Error::FromHexError(e)),
         }
     }
 }
