@@ -1,8 +1,12 @@
 use crate::bitcoin::hash::Hash;
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Script};
+#[cfg(feature="dev_tokio")]
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
+use crate::bitcoin::Script;
+#[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The TxHash is used to identify transactions.
@@ -48,6 +52,7 @@ impl ToHex for Tx {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Tx {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -164,6 +169,7 @@ impl Outpoint {
     pub const SIZE: usize = 36;
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Outpoint {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -209,6 +215,7 @@ impl TxInput {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for TxInput {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -254,6 +261,7 @@ impl TxOutput {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for TxOutput {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>

@@ -1,10 +1,13 @@
+#[cfg(feature="dev_tokio")]
 use crate::bitcoin::AsyncEncodable;
+#[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt;
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// A struct representing a hash, specifically a SHA256d hash.
@@ -44,6 +47,7 @@ impl Hash {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Hash {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -235,6 +239,7 @@ mod tests {
     }
 
     /// Test binary read of hash
+    #[cfg(feature="dev_tokio")]
     #[test]
     fn hash_read() {
         let b = [
@@ -250,6 +255,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature="dev_tokio")]
     fn hash_write() {
         let s = "684b2f7e73dec228a7bf9a73495eeb6a28f2cda66b7f8e1627fdff8922ec754f";
         let h = Hash::from_hex(s).unwrap();

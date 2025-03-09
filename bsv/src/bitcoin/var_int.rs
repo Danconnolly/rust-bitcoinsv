@@ -1,3 +1,4 @@
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The size of the value encoded as a varint.
@@ -11,6 +12,7 @@ pub fn varint_size(value: u64) -> usize {
 }
 
 /// Decode a variable length integer from a byte stream, async version.
+#[cfg(feature="dev_tokio")]
 pub async fn varint_decode<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<u64> {
     let n0 = reader.read_u8().await.unwrap();
     let v = match n0 {
@@ -23,6 +25,7 @@ pub async fn varint_decode<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate
 }
 
 /// Encode a variable length integer into a byte stream, async version.
+#[cfg(feature="dev_tokio")]
 pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(
     writer: &mut W,
     value: u64,
@@ -48,6 +51,7 @@ pub async fn varint_encode<W: AsyncWrite + Unpin + Send>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature="dev_tokio")]
     use std::io::Cursor;
 
     #[test]
@@ -60,6 +64,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature="dev_tokio")]
     async fn write_read() {
         write_read_value(0).await;
         write_read_value(253).await;
@@ -68,6 +73,7 @@ mod tests {
         write_read_value(u64::max_value()).await;
     }
 
+    #[cfg(feature="dev_tokio")]
     async fn write_read_value(n: u64) {
         let mut v: Vec<u8> = Vec::new();
         varint_encode(&mut v, n).await.unwrap();
@@ -76,6 +82,7 @@ mod tests {
     }
 
     #[tokio::test]
+    #[cfg(feature="dev_tokio")]
     async fn test_known_values() {
         let mut v = Vec::new();
         varint_encode(&mut v, 0).await.unwrap();

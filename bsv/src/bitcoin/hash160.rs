@@ -1,5 +1,7 @@
 use crate::bitcoin::crypto::PublicKey;
+#[cfg(feature="dev_tokio")]
 use crate::bitcoin::AsyncEncodable;
+#[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
@@ -8,6 +10,7 @@ use ripemd::{Digest, Ripemd160};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt;
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.
@@ -48,6 +51,7 @@ impl Hash160 {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Hash160 {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -192,6 +196,7 @@ impl<'de> Deserialize<'de> for Hash160 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature="dev_tokio")]
     use crate::bitcoin::AsyncEncodable;
     use hex;
     use hex::{FromHex, ToHex};

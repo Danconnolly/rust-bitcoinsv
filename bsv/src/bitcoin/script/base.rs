@@ -1,12 +1,16 @@
 use crate::bitcoin::script::byte_seq::ByteSequence;
 use crate::bitcoin::script::Operation;
+#[cfg(feature="dev_tokio")]
 use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Encodable};
+#[cfg(feature="dev_tokio")]
 use crate::Error::DataTooSmall;
 use crate::Result;
+#[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
 use bytes::{Buf, Bytes};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
@@ -71,6 +75,7 @@ impl FromHex for Script {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Script {
     /// Decode a Script from an async reader.
@@ -113,9 +118,12 @@ impl AsyncEncodable for Script {
 
 #[cfg(test)]
 mod tests {
-    use crate::bitcoin::{AsyncEncodable, Script};
+    #[cfg(feature="dev_tokio")]
+    use crate::bitcoin::AsyncEncodable;
+    use crate::bitcoin::Script;
     use hex::FromHex;
 
+    #[cfg(feature="dev_tokio")]     // todo: relies on async_size(), change this
     /// Test reading a script from hex.
     #[test]
     fn script_read_hex() {

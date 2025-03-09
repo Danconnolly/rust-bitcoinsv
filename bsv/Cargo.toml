@@ -12,22 +12,22 @@ documentation = "https://docs.rs/bitcoinsv/latest/bitcoinsv/"
 keywords = ["crypto", "bitcoin-sv"]
 
 [dependencies]
-async-trait = "0.1.75"
+async-trait = { version = "0.1.75" , optional = true }
 base58 = "0.2.0"
-bytes = {  version = "1.9.0", features = ["serde"] }
-futures = "0.3.31"
+bytes = { version = "1.9.0", features = ["serde"] }
+futures = { version = "0.3.31", optional = true }
 hex = "0.4.3"
 log = "0.4.20"
-minactor = "0.3.0"
+minactor = { version = "0.3.0" , optional = true }
 num = "0.4.3"
 rand = "0.8.5"      # v0.9.0 is not usable with secp256k1 version 0.30.0 (the latest version)
 ring = "0.17.7"
 ripemd = "0.1.3"
 secp256k1 = { version = "0.30.0", features = ["alloc", "rand", "serde"] }
 serde = { version = "1.0.193", features = ["derive"] }
-tokio = { version = ">=1.23.1", features = ["full"] }
-tokio-stream = "0.1"
-tokio-util = "0.7.12"
+tokio = { version = ">=1.23.1", features = ["full"], optional = true }
+tokio-stream = {  version = "0.1", optional = true }
+tokio-util = { version = "0.7.12", optional = true }
 uuid = { version = "1.3.2", features = ["v4", "fast-rng", "macro-diagnostics"] }
 
 [dev-dependencies]
@@ -37,7 +37,9 @@ serde_json = { version = "1.0.108", features = [] }
 
 [features]
 # P2P Communication - under development.
-dev_p2p = []
+dev_p2p = ["dep:minactor", "dev_tokio"]
+# Enable support for the tokio async library - under development
+dev_tokio = ["dep:async-trait", "dep:futures", "dep:tokio", "dep:tokio-stream", "dep:tokio-util"]
 
 [lib]
 path = "src/lib.rs"

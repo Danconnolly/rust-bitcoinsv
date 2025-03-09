@@ -1,7 +1,10 @@
 use crate::Result;
+#[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
 use bytes::{Buf, BufMut};
+#[cfg(feature="dev_tokio")]
 use futures::executor::block_on;
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncWrite};
 
 /// Read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
@@ -47,6 +50,7 @@ pub trait Encodable {
 /// asynchronous source but these should only be used if the [Encodable] trait is not implemented.
 ///
 /// For a discussion on async versus non-async, see [Encodable].
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 pub trait AsyncEncodable {
     /// Read the data structure from an async reader.

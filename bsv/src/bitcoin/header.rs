@@ -1,8 +1,11 @@
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::params::BlockchainId;
+#[cfg(feature="dev_tokio")]
 use crate::bitcoin::AsyncEncodable;
+#[cfg(feature="dev_tokio")]
 use async_trait::async_trait;
 use hex::{FromHex, ToHex};
+#[cfg(feature="dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
@@ -49,6 +52,7 @@ impl BlockHeader {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for BlockHeader {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
