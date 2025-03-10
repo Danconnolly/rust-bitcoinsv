@@ -70,7 +70,7 @@ impl Encodable for Hash {
         Ok(buffer.put_slice(&self.hash))
     }
 
-    fn size(&self) -> u64 {
+    fn encoded_size(&self) -> u64 {
         Self::SIZE
     }
 }

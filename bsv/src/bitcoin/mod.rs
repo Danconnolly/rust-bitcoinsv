@@ -27,9 +27,9 @@ pub use self::hash::Hash;
 pub use self::header::{BlockHash, BlockHeader, MerkleRoot};
 pub use self::params::{BlockchainId, KeyAddressKind};
 pub use self::script::*;
-pub use self::tx::{Outpoint, Tx, TxBuilder, TxHash, TxInput, TxOutput};
-pub use self::var_int::{varint_size};
+pub use self::tx::{Outpoint, Tx, TxHash, TxInput, TxOutput};
+pub use self::var_int::{varint_size, varint_decode, varint_encode};
 #[cfg(feature="dev_tokio")]
-pub use self::var_int::{varint_decode, varint_encode};
+pub use self::var_int::{varint_decode_async, varint_encode_async};
 
 pub use hex::{FromHex, ToHex};

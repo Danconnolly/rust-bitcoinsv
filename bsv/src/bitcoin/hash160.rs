@@ -199,7 +199,7 @@ mod tests {
     #[cfg(feature="dev_tokio")]
     use crate::bitcoin::AsyncEncodable;
     use hex;
-    use hex::{FromHex, ToHex};
+    use hex::FromHex;
 
     #[test]
     fn generate_test() {

@@ -18,11 +18,11 @@ pub trait Encodable {
     /// Write the data structure to a buffer.
     fn to_binary(&self, buffer: &mut dyn BufMut) -> Result<()>;
 
-    /// Return the size of the serialized form.
-    // It is vital (for efficiency) that implementations of this function use a method that does not just serialize the object
+    /// Return the size of the encoded form.
+    // It is vital (for efficiency) that implementations of this function use a method that does not just encode the object
     // and count the bytes. This is because this function is used to determine the size of the buffer to allocate
-    // for the serialization.
-    fn size(&self) -> u64;
+    // for the encoding.
+    fn encoded_size(&self) -> u64;
 }
 
 /// Asynchronously read & write Bitcoin data structures to and from binary in Bitcoin encoding format.
@@ -41,30 +41,4 @@ pub trait AsyncEncodable {
 
     /// Write the data structure to an async writer.
     async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()>;
-
-    /// Return the size of the serialized form.
-    // It is vital that implementations of this function use a method that does not just serialize the object
-    // and count the bytes. This is because this function is used to determine the size of the buffer to allocate
-    // for the serialization.
-    fn async_size(&self) -> u64;
-
-    /// Read the data structure from a buffer.
-    ///
-    /// This is a convenience function that wraps the `from_binary` function.
-    fn from_binary_buf(buf: &[u8]) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let mut reader = std::io::Cursor::new(buf);
-        block_on(Self::async_from_binary(&mut reader))
-    }
-
-    /// Write the data structure to a new buffer.
-    ///
-    /// This is a convenience function that wraps the `to_binary` function.
-    fn to_binary_buf(&self) -> Result<Vec<u8>> {
-        let mut v = Vec::with_capacity(self.async_size());
-        block_on(self.async_to_binary(&mut v))?;
-        Ok(v)
-    }
 }

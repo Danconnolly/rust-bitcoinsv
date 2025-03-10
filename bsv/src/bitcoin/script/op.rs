@@ -972,7 +972,7 @@ impl Encodable for Operation {
         }
     }
 
-    fn size(&self) -> u64 {
+    fn encoded_size(&self) -> u64 {
         use Operation::*;
         match self {
             OP_PUSH(data) => data.len() as u64 + 1,

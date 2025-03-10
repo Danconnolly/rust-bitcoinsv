@@ -87,7 +87,7 @@ impl Encodable for BlockHeader {
         if buffer.remaining() < Self::SIZE as usize {
             Err(Error::DataTooSmall)
         } else {
-            Ok(BlockHeader {
+            Ok(Self {
                 raw: buffer.copy_to_bytes(Self::SIZE as usize),
             })
         }
@@ -98,8 +98,8 @@ impl Encodable for BlockHeader {
         Ok(())
     }
 
-    fn size(&self) -> u64 {
-        BlockHeader::SIZE
+    fn encoded_size(&self) -> u64 {
+        Self::SIZE
     }
 }
 
@@ -125,10 +125,6 @@ impl AsyncEncodable for BlockHeader {
     ) -> crate::Result<()> {
         writer.write_all(self.raw.as_ref()).await?;
         Ok(())
-    }
-
-    fn async_size(&self) -> u64 {
-        BlockHeader::SIZE
     }
 }
 
