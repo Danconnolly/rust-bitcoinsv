@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable};
 use crate::p2p::messages::NodeAddr;
 use async_trait::async_trait;
 use std::fmt;
@@ -16,13 +16,14 @@ impl Addr {
     pub const MAX_ADDR_COUNT: u64 = 1000;
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Addr {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
     where
         Self: Sized,
     {
-        let i = varint_decode(reader).await?;
+        let i = varint_decode_async(reader).await?;
         if i > Addr::MAX_ADDR_COUNT {
             let msg = format!("Too many addrs: {}", i);
             return Err(crate::Error::BadData(msg));
@@ -42,16 +43,17 @@ impl AsyncEncodable for Addr {
             let msg = format!("Too many addrs: {}", self.addrs.len());
             return Err(crate::Error::BadData(msg));
         }
-        varint_encode(writer, self.addrs.len() as u64).await?;
+        varint_encode_async(writer, self.addrs.len() as u64).await?;
         for addr in self.addrs.iter() {
             addr.async_to_binary(writer).await?;
         }
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        varint_size(self.addrs.len() as u64) + self.addrs.len() * NodeAddr::SIZE
-    }
+    // todo: add Encodable
+    // fn async_size(&self) -> usize {
+    //     varint_size(self.addrs.len() as u64) + self.addrs.len() * NodeAddr::SIZE
+    // }
 }
 
 impl fmt::Display for Addr {

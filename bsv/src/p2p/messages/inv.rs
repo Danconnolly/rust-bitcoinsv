@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Hash};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable, Hash};
 use async_trait::async_trait;
 use std::fmt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -16,7 +16,7 @@ impl AsyncEncodable for Inv {
     where
         Self: Sized,
     {
-        let num_objects = varint_decode(reader).await? as usize;
+        let num_objects = varint_decode_async(reader).await? as usize;
         // if num_objects > MAX_INV_ENTRIES {
         //     let msg = format!("Num objects exceeded maximum: {}", num_objects);
         //     return Err(crate::Error::BadData(msg));
@@ -36,16 +36,17 @@ impl AsyncEncodable for Inv {
         //     let msg = format!("Too many objects: {}", self.objects.len());
         //     return Err(crate::Error::BadData(msg));
         // }
-        varint_encode(writer, self.objects.len() as u64).await?;
+        varint_encode_async(writer, self.objects.len() as u64).await?;
         for object in self.objects.iter() {
             object.async_to_binary(writer).await?;
         }
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        varint_size(self.objects.len() as u64) + self.objects.len() * InvItem::SIZE
-    }
+    // todo: add Encodable trait
+    // fn async_size(&self) -> usize {
+    //     varint_size(self.objects.len() as u64) + self.objects.len() * InvItem::SIZE
+    // }
 }
 
 impl fmt::Display for Inv {
@@ -114,6 +115,7 @@ impl fmt::Display for InvType {
     }
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for InvItem {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -141,9 +143,10 @@ impl AsyncEncodable for InvItem {
         self.hash.async_to_binary(writer).await
     }
 
-    fn async_size(&self) -> usize {
-        InvItem::SIZE
-    }
+    // todo: add Encodable trait
+    // fn async_size(&self) -> usize {
+    //     InvItem::SIZE
+    // }
 }
 
 impl fmt::Display for InvItem {

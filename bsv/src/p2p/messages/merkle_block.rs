@@ -1,6 +1,4 @@
-use crate::bitcoin::{
-    varint_decode, varint_encode, varint_size, AsyncEncodable, BlockHeader, Hash,
-};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable, BlockHeader, Hash};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -17,6 +15,7 @@ pub struct MerkleBlock {
     pub flags: Vec<u8>,
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for MerkleBlock {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -25,12 +24,12 @@ impl AsyncEncodable for MerkleBlock {
     {
         let header = BlockHeader::async_from_binary(reader).await?;
         let total_transactions = reader.read_u32_le().await?;
-        let num_hashes = varint_decode(reader).await? as usize;
+        let num_hashes = varint_decode_async(reader).await? as usize;
         let mut hashes = Vec::with_capacity(num_hashes);
         for _ in 0..num_hashes {
             hashes.push(Hash::async_from_binary(reader).await?);
         }
-        let num_flags = varint_decode(reader).await? as usize;
+        let num_flags = varint_decode_async(reader).await? as usize;
         let mut flags = Vec::with_capacity(num_flags);
         for _ in 0..num_flags {
             flags.push(reader.read_u8().await?);
@@ -49,23 +48,24 @@ impl AsyncEncodable for MerkleBlock {
     ) -> crate::Result<()> {
         self.header.async_to_binary(writer).await?;
         writer.write_u32_le(self.total_transactions).await?;
-        varint_encode(writer, self.hashes.len() as u64).await?;
+        varint_encode_async(writer, self.hashes.len() as u64).await?;
         for hash in self.hashes.iter() {
             hash.async_to_binary(writer).await?;
         }
-        varint_encode(writer, self.flags.len() as u64).await?;
+        varint_encode_async(writer, self.flags.len() as u64).await?;
         for flag in self.flags.iter() {
             writer.write_u8(*flag).await?;
         }
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        self.header.async_size()
-            + 4
-            + varint_size(self.hashes.len() as u64)
-            + self.hashes.len() * 32
-            + varint_size(self.flags.len() as u64)
-            + self.flags.len()
-    }
+    // todo: add Encodable trait?
+    // fn async_size(&self) -> usize {
+    //     self.header.async_size()
+    //         + 4
+    //         + varint_size(self.hashes.len() as u64)
+    //         + self.hashes.len() * 32
+    //         + varint_size(self.flags.len() as u64)
+    //         + self.flags.len()
+    // }
 }

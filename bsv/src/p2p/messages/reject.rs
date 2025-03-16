@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -33,12 +33,12 @@ impl AsyncEncodable for Reject {
     where
         Self: Sized,
     {
-        let str_size = varint_decode(reader).await? as usize;
+        let str_size = varint_decode_async(reader).await? as usize;
         let mut str_bytes = vec![0; str_size];
         reader.read_exact(&mut str_bytes).await?;
         let message = String::from_utf8(str_bytes)?;
         let code = reader.read_u8().await?;
-        let reason_size = varint_decode(reader).await? as usize;
+        let reason_size = varint_decode_async(reader).await? as usize;
         let mut reason_bytes = vec![0; reason_size];
         reader.read_exact(&mut reason_bytes).await?;
         let reason = String::from_utf8(reason_bytes)?;
@@ -59,10 +59,10 @@ impl AsyncEncodable for Reject {
         &self,
         writer: &mut W,
     ) -> crate::Result<()> {
-        varint_encode(writer, self.message.len() as u64).await?;
+        varint_encode_async(writer, self.message.len() as u64).await?;
         writer.write_all(self.message.as_bytes()).await?;
         writer.write_u8(self.code).await?;
-        varint_encode(writer, self.reason.len() as u64).await?;
+        varint_encode_async(writer, self.reason.len() as u64).await?;
         writer.write_all(self.reason.as_bytes()).await?;
         if self.message == *"block" || self.message == *"tx" {
             writer.write_all(&self.data).await?;
@@ -70,13 +70,14 @@ impl AsyncEncodable for Reject {
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        let mut size = varint_size(self.message.len() as u64) + self.message.len();
-        size += 1;
-        size += varint_size(self.reason.len() as u64) + self.reason.len();
-        if self.message == *"block" || self.message == *"tx" {
-            size += 32;
-        }
-        size
-    }
+    // todo: Encodable?
+    // fn async_size(&self) -> usize {
+    //     let mut size = varint_size(self.message.len() as u64) + self.message.len();
+    //     size += 1;
+    //     size += varint_size(self.reason.len() as u64) + self.reason.len();
+    //     if self.message == *"block" || self.message == *"tx" {
+    //         size += 32;
+    //     }
+    //     size
+    // }
 }

@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable};
 use async_trait::async_trait;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -56,7 +56,7 @@ impl AsyncEncodable for Protoconf {
     where
         Self: Sized,
     {
-        let num_entries = varint_decode(reader).await?;
+        let num_entries = varint_decode_async(reader).await?;
         if num_entries < 2 {
             return Err(crate::Error::BadData(
                 "Protoconf must have at least 2 entries".to_string(),
@@ -65,7 +65,7 @@ impl AsyncEncodable for Protoconf {
             warn!("Protoconf has more than 2 entries, ignoring extra entries.");
         }
         let max_recv_payload_length = reader.read_u32_le().await?;
-        let string_size = varint_decode(reader).await?;
+        let string_size = varint_decode_async(reader).await?;
         // todo: check size of string
         let mut string_bytes = vec![0; string_size as usize];
         reader.read_exact(&mut string_bytes).await?;
@@ -80,17 +80,17 @@ impl AsyncEncodable for Protoconf {
         &self,
         writer: &mut W,
     ) -> crate::Result<()> {
-        varint_encode(writer, 2).await?;
+        varint_encode_async(writer, 2).await?;
         writer.write_u32_le(self.max_recv_payload_length).await?;
-        varint_encode(writer, self.stream_policies.len() as u64).await?;
+        varint_encode_async(writer, self.stream_policies.len() as u64).await?;
         writer.write_all(self.stream_policies.as_bytes()).await?;
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        varint_size(2)
-            + 4
-            + varint_size(self.stream_policies.len() as u64)
-            + self.stream_policies.len()
-    }
+    // fn async_size(&self) -> usize {
+    //     varint_size(2)
+    //         + 4
+    //         + varint_size(self.stream_policies.len() as u64)
+    //         + self.stream_policies.len()
+    // }
 }

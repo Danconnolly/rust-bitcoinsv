@@ -41,7 +41,8 @@ impl AsyncEncodable for SendCmpct {
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        SendCmpct::SIZE
-    }
+    // todo: Encodable?
+    // fn async_size(&self) -> usize {
+    //     SendCmpct::SIZE
+    // }
 }

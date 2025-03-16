@@ -173,211 +173,211 @@ pub enum P2PMessage {
 }
 
 impl P2PMessage {
-    /// Read a full P2P message from the reader
-    pub async fn read<R: AsyncRead + Unpin + Send>(
-        reader: &mut R,
-        comms_config: &ChannelConfig,
-    ) -> Result<Self> {
-        let header = P2PMessageHeader::async_from_binary(reader).await?;
-        trace!("P2PMessage::read() - header: {:?}", header);
-        header.validate(comms_config)?;
-        // payload size has been checked for max limit in header.validate()
-        let msg = match header.command {
-            ADDR => P2PMessage::Addr(Addr::async_from_binary(reader).await?),
-            BLOCK => P2PMessage::Block(Block::async_from_binary(reader).await?),
-            GETADDR => P2PMessage::GetAddr,
-            GETBLOCKS => P2PMessage::GetBlocks(BlockLocator::async_from_binary(reader).await?),
-            GETDATA => P2PMessage::GetData(Inv::async_from_binary(reader).await?),
-            GETHEADERS => P2PMessage::GetHeaders(BlockLocator::async_from_binary(reader).await?),
-            HEADERS => P2PMessage::Headers(Headers::async_from_binary(reader).await?),
-            INV => P2PMessage::Inv(Inv::async_from_binary(reader).await?),
-            MEMPOOL => P2PMessage::Mempool,
-            MERKLEBLOCK => P2PMessage::MerkleBlock(MerkleBlock::async_from_binary(reader).await?),
-            NOTFOUND => P2PMessage::NotFound(Inv::async_from_binary(reader).await?),
-            PING => P2PMessage::Ping(Ping::async_from_binary(reader).await?),
-            PONG => P2PMessage::Pong(Ping::async_from_binary(reader).await?),
-            PROTOCONF => P2PMessage::Protoconf(Protoconf::async_from_binary(reader).await?),
-            REJECT => P2PMessage::Reject(Reject::async_from_binary(reader).await?),
-            SENDCMPCT => P2PMessage::SendCmpct(SendCmpct::async_from_binary(reader).await?),
-            SENDHEADERS => P2PMessage::SendHeaders,
-            TX => P2PMessage::Tx(Tx::async_from_binary(reader).await?),
-            VERACK => P2PMessage::Verack,
-            VERSION => P2PMessage::Version(Version::async_from_binary(reader).await?),
-            _ => {
-                if header.payload_size == 0 {
-                    trace!(
-                        "received unknown command={:?} with empty payload",
-                        std::str::from_utf8(&header.command).unwrap()
-                    );
-                    P2PMessage::Unknown(
-                        format!(
-                            "Unknown command: {}",
-                            std::str::from_utf8(&header.command).unwrap()
-                        ),
-                        0,
-                    )
-                } else {
-                    let mut v = vec![0u8; header.payload_size as usize];
-                    reader.read_exact(&mut v).await?;
-                    trace!(
-                        "received unknown command={:?} with payload size: {}",
-                        std::str::from_utf8(&header.command).unwrap(),
-                        header.payload_size
-                    );
-                    P2PMessage::Unknown(
-                        format!(
-                            "Unknown command: {:?}, payload size {}",
-                            std::str::from_utf8(&header.command).unwrap(),
-                            header.payload_size
-                        ),
-                        header.payload_size as usize,
-                    )
-                }
-            }
-        };
-        if msg.size() < header.payload_size as usize {
-            if header.command != VERSION {
-                // todo: 70016 version message is larger. dont report on it. remove this when we support 70016
-                warn!(
-                    "received larger payload than msg: command={:?}, payload size={}, msg size={}",
-                    std::str::from_utf8(&header.command).unwrap(),
-                    header.payload_size,
-                    msg.size()
-                );
-            }
-            // we've read less bytes than the payload size, we need to read the rest and discard it
-            let mut v = vec![0u8; header.payload_size as usize - msg.size()];
-            reader.read_exact(&mut v).await?;
-        }
-        Ok(msg)
-    }
+    // /// Read a full P2P message from the reader
+    // pub async fn read<R: AsyncRead + Unpin + Send>(
+    //     reader: &mut R,
+    //     comms_config: &ChannelConfig,
+    // ) -> Result<Self> {
+    //     let header = P2PMessageHeader::async_from_binary(reader).await?;
+    //     trace!("P2PMessage::read() - header: {:?}", header);
+    //     header.validate(comms_config)?;
+    //     // payload size has been checked for max limit in header.validate()
+    //     let msg = match header.command {
+    //         ADDR => P2PMessage::Addr(Addr::async_from_binary(reader).await?),
+    //         BLOCK => P2PMessage::Block(Block::async_from_binary(reader).await?),
+    //         GETADDR => P2PMessage::GetAddr,
+    //         GETBLOCKS => P2PMessage::GetBlocks(BlockLocator::async_from_binary(reader).await?),
+    //         GETDATA => P2PMessage::GetData(Inv::async_from_binary(reader).await?),
+    //         GETHEADERS => P2PMessage::GetHeaders(BlockLocator::async_from_binary(reader).await?),
+    //         HEADERS => P2PMessage::Headers(Headers::async_from_binary(reader).await?),
+    //         INV => P2PMessage::Inv(Inv::async_from_binary(reader).await?),
+    //         MEMPOOL => P2PMessage::Mempool,
+    //         MERKLEBLOCK => P2PMessage::MerkleBlock(MerkleBlock::async_from_binary(reader).await?),
+    //         NOTFOUND => P2PMessage::NotFound(Inv::async_from_binary(reader).await?),
+    //         PING => P2PMessage::Ping(Ping::async_from_binary(reader).await?),
+    //         PONG => P2PMessage::Pong(Ping::async_from_binary(reader).await?),
+    //         PROTOCONF => P2PMessage::Protoconf(Protoconf::async_from_binary(reader).await?),
+    //         REJECT => P2PMessage::Reject(Reject::async_from_binary(reader).await?),
+    //         SENDCMPCT => P2PMessage::SendCmpct(SendCmpct::async_from_binary(reader).await?),
+    //         SENDHEADERS => P2PMessage::SendHeaders,
+    //         TX => P2PMessage::Tx(Tx::async_from_binary(reader).await?),
+    //         VERACK => P2PMessage::Verack,
+    //         VERSION => P2PMessage::Version(Version::async_from_binary(reader).await?),
+    //         _ => {
+    //             if header.payload_size == 0 {
+    //                 trace!(
+    //                     "received unknown command={:?} with empty payload",
+    //                     std::str::from_utf8(&header.command).unwrap()
+    //                 );
+    //                 P2PMessage::Unknown(
+    //                     format!(
+    //                         "Unknown command: {}",
+    //                         std::str::from_utf8(&header.command).unwrap()
+    //                     ),
+    //                     0,
+    //                 )
+    //             } else {
+    //                 let mut v = vec![0u8; header.payload_size as usize];
+    //                 reader.read_exact(&mut v).await?;
+    //                 trace!(
+    //                     "received unknown command={:?} with payload size: {}",
+    //                     std::str::from_utf8(&header.command).unwrap(),
+    //                     header.payload_size
+    //                 );
+    //                 P2PMessage::Unknown(
+    //                     format!(
+    //                         "Unknown command: {:?}, payload size {}",
+    //                         std::str::from_utf8(&header.command).unwrap(),
+    //                         header.payload_size
+    //                     ),
+    //                     header.payload_size as usize,
+    //                 )
+    //             }
+    //         }
+    //     };
+    //     if msg.size() < header.payload_size as usize {
+    //         if header.command != VERSION {
+    //             // todo: 70016 version message is larger. dont report on it. remove this when we support 70016
+    //             warn!(
+    //                 "received larger payload than msg: command={:?}, payload size={}, msg size={}",
+    //                 std::str::from_utf8(&header.command).unwrap(),
+    //                 header.payload_size,
+    //                 msg.size()
+    //             );
+    //         }
+    //         // we've read less bytes than the payload size, we need to read the rest and discard it
+    //         let mut v = vec![0u8; header.payload_size as usize - msg.size()];
+    //         reader.read_exact(&mut v).await?;
+    //     }
+    //     Ok(msg)
+    // }
 
-    /// Writes a Bitcoin P2P message with its payload to bytes
-    pub async fn write<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-        config: &ChannelConfig,
-    ) -> Result<()> {
-        match self {
-            P2PMessage::Addr(p) => self.write_with_payload(writer, ADDR, config, p).await,
-            P2PMessage::Block(p) => self.write_with_payload(writer, BLOCK, config, p).await,
-            P2PMessage::GetAddr => self.write_without_payload(writer, GETADDR, config).await,
-            P2PMessage::GetBlocks(p) => self.write_with_payload(writer, GETBLOCKS, config, p).await,
-            P2PMessage::GetData(p) => self.write_with_payload(writer, GETDATA, config, p).await,
-            P2PMessage::GetHeaders(p) => {
-                self.write_with_payload(writer, GETHEADERS, config, p).await
-            }
-            P2PMessage::Headers(p) => self.write_with_payload(writer, HEADERS, config, p).await,
-            P2PMessage::Inv(p) => self.write_with_payload(writer, INV, config, p).await,
-            P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
-            P2PMessage::MerkleBlock(p) => {
-                self.write_with_payload(writer, MERKLEBLOCK, config, p)
-                    .await
-            }
-            P2PMessage::NotFound(p) => self.write_with_payload(writer, NOTFOUND, config, p).await,
-            P2PMessage::Ping(p) => self.write_with_payload(writer, PING, config, p).await,
-            P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
-            P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, config, p).await,
-            P2PMessage::Reject(p) => self.write_with_payload(writer, REJECT, config, p).await,
-            P2PMessage::SendCmpct(p) => self.write_with_payload(writer, SENDCMPCT, config, p).await,
-            P2PMessage::SendHeaders => {
-                self.write_without_payload(writer, SENDHEADERS, config)
-                    .await
-            }
-            P2PMessage::Tx(p) => self.write_with_payload(writer, TX, config, p).await,
-            P2PMessage::Verack => self.write_without_payload(writer, VERACK, config).await,
-            P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, config, v).await,
-            P2PMessage::Unknown(s, _size) => {
-                let msg = format!("Unknown command: {:?}", s);
-                Err(Error::BadData(msg))
-            }
-        }
-    }
+    // /// Writes a Bitcoin P2P message with its payload to bytes
+    // pub async fn write<W: AsyncWrite + Unpin + Send>(
+    //     &self,
+    //     writer: &mut W,
+    //     config: &ChannelConfig,
+    // ) -> Result<()> {
+    //     match self {
+    //         P2PMessage::Addr(p) => self.write_with_payload(writer, ADDR, config, p).await,
+    //         P2PMessage::Block(p) => self.write_with_payload(writer, BLOCK, config, p).await,
+    //         P2PMessage::GetAddr => self.write_without_payload(writer, GETADDR, config).await,
+    //         P2PMessage::GetBlocks(p) => self.write_with_payload(writer, GETBLOCKS, config, p).await,
+    //         P2PMessage::GetData(p) => self.write_with_payload(writer, GETDATA, config, p).await,
+    //         P2PMessage::GetHeaders(p) => {
+    //             self.write_with_payload(writer, GETHEADERS, config, p).await
+    //         }
+    //         P2PMessage::Headers(p) => self.write_with_payload(writer, HEADERS, config, p).await,
+    //         P2PMessage::Inv(p) => self.write_with_payload(writer, INV, config, p).await,
+    //         P2PMessage::Mempool => self.write_without_payload(writer, MEMPOOL, config).await,
+    //         P2PMessage::MerkleBlock(p) => {
+    //             self.write_with_payload(writer, MERKLEBLOCK, config, p)
+    //                 .await
+    //         }
+    //         P2PMessage::NotFound(p) => self.write_with_payload(writer, NOTFOUND, config, p).await,
+    //         P2PMessage::Ping(p) => self.write_with_payload(writer, PING, config, p).await,
+    //         P2PMessage::Pong(p) => self.write_with_payload(writer, PONG, config, p).await,
+    //         P2PMessage::Protoconf(p) => self.write_with_payload(writer, PROTOCONF, config, p).await,
+    //         P2PMessage::Reject(p) => self.write_with_payload(writer, REJECT, config, p).await,
+    //         P2PMessage::SendCmpct(p) => self.write_with_payload(writer, SENDCMPCT, config, p).await,
+    //         P2PMessage::SendHeaders => {
+    //             self.write_without_payload(writer, SENDHEADERS, config)
+    //                 .await
+    //         }
+    //         P2PMessage::Tx(p) => self.write_with_payload(writer, TX, config, p).await,
+    //         P2PMessage::Verack => self.write_without_payload(writer, VERACK, config).await,
+    //         P2PMessage::Version(v) => self.write_with_payload(writer, VERSION, config, v).await,
+    //         P2PMessage::Unknown(s, _size) => {
+    //             let msg = format!("Unknown command: {:?}", s);
+    //             Err(Error::BadData(msg))
+    //         }
+    //     }
+    // }
 
-    /// Get the size of the payload of the message
-    pub fn size(&self) -> usize {
-        match self {
-            P2PMessage::Addr(p) => p.async_size(),
-            P2PMessage::Block(p) => p.async_size(),
-            P2PMessage::GetAddr => 0,
-            P2PMessage::GetBlocks(p) => p.async_size(),
-            P2PMessage::GetData(p) => p.async_size(),
-            P2PMessage::GetHeaders(p) => p.async_size(),
-            P2PMessage::Headers(p) => p.async_size(),
-            P2PMessage::Inv(p) => p.async_size(),
-            P2PMessage::Mempool => 0,
-            P2PMessage::MerkleBlock(p) => p.async_size(),
-            P2PMessage::NotFound(p) => p.async_size(),
-            P2PMessage::Ping(p) => p.async_size(),
-            P2PMessage::Pong(p) => p.async_size(),
-            P2PMessage::Protoconf(p) => p.async_size(),
-            P2PMessage::Reject(p) => p.async_size(),
-            P2PMessage::SendCmpct(p) => p.async_size(),
-            P2PMessage::SendHeaders => 0,
-            P2PMessage::Tx(p) => p.async_size(),
-            P2PMessage::Verack => 0,
-            P2PMessage::Version(v) => v.async_size(),
-            P2PMessage::Unknown(_s, size) => *size,
-        }
-    }
+    // /// Get the size of the payload of the message
+    // pub fn size(&self) -> usize {
+    //     match self {
+    //         P2PMessage::Addr(p) => p.async_size(),
+    //         P2PMessage::Block(p) => p.async_size(),
+    //         P2PMessage::GetAddr => 0,
+    //         P2PMessage::GetBlocks(p) => p.async_size(),
+    //         P2PMessage::GetData(p) => p.async_size(),
+    //         P2PMessage::GetHeaders(p) => p.async_size(),
+    //         P2PMessage::Headers(p) => p.async_size(),
+    //         P2PMessage::Inv(p) => p.async_size(),
+    //         P2PMessage::Mempool => 0,
+    //         P2PMessage::MerkleBlock(p) => p.async_size(),
+    //         P2PMessage::NotFound(p) => p.async_size(),
+    //         P2PMessage::Ping(p) => p.async_size(),
+    //         P2PMessage::Pong(p) => p.async_size(),
+    //         P2PMessage::Protoconf(p) => p.async_size(),
+    //         P2PMessage::Reject(p) => p.async_size(),
+    //         P2PMessage::SendCmpct(p) => p.async_size(),
+    //         P2PMessage::SendHeaders => 0,
+    //         P2PMessage::Tx(p) => p.async_size(),
+    //         P2PMessage::Verack => 0,
+    //         P2PMessage::Version(v) => v.async_size(),
+    //         P2PMessage::Unknown(_s, size) => *size,
+    //     }
+    // }
 
-    /// Write a P2P message that does not have a payload
-    async fn write_without_payload<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-        command: [u8; 12],
-        config: &ChannelConfig,
-    ) -> Result<()> {
-        let header = P2PMessageHeader {
-            magic: config.magic,
-            command,
-            payload_size: 0,
-            checksum: NO_CHECKSUM,
-        };
-        let v = header.to_binary_buf()?;
-        let _ = writer.write(&v).await?;
-        Ok(())
-    }
+    // /// Write a P2P message that does not have a payload
+    // async fn write_without_payload<W: AsyncWrite + Unpin + Send>(
+    //     &self,
+    //     writer: &mut W,
+    //     command: [u8; 12],
+    //     config: &ChannelConfig,
+    // ) -> Result<()> {
+    //     let header = P2PMessageHeader {
+    //         magic: config.magic,
+    //         command,
+    //         payload_size: 0,
+    //         checksum: NO_CHECKSUM,
+    //     };
+    //     let v = header.to_binary_buf()?;
+    //     let _ = writer.write(&v).await?;
+    //     Ok(())
+    // }
 
-    /// Write a P2P message that has a payload
-    async fn write_with_payload<W, X>(
-        &self,
-        writer: &mut W,
-        command: [u8; 12],
-        config: &ChannelConfig,
-        payload: &X,
-    ) -> Result<()>
-    where
-        W: AsyncWrite + Unpin + Send,
-        X: AsyncEncodable,
-    {
-        if config.protocol_version >= 70016 && payload.async_size() > 0xffffffff {
-            // we should use the extended message header
-            if command != BLOCK {
-                return Err(Error::BadData("payload too large".to_string()));
-            }
-            let header = P2PMessageHeader {
-                magic: config.magic,
-                command,
-                payload_size: payload.async_size() as u64,
-                checksum: ZERO_CHECKSUM,
-            };
-            header.async_to_binary(writer).await?;
-            payload.async_to_binary(writer).await?;
-            return Ok(());
-        }
-        let buf = payload.to_binary_buf()?;
-        let hash = Hash::sha256d(&buf);
-        let header = P2PMessageHeader {
-            magic: config.magic,
-            command,
-            payload_size: buf.len() as u64,
-            checksum: hash.hash[..4].try_into().unwrap(),
-        };
-        header.async_to_binary(writer).await?;
-        let _ = writer.write(&buf).await?;
-        Ok(())
-    }
+    // /// Write a P2P message that has a payload
+    // async fn write_with_payload<W, X>(
+    //     &self,
+    //     writer: &mut W,
+    //     command: [u8; 12],
+    //     config: &ChannelConfig,
+    //     payload: &X,
+    // ) -> Result<()>
+    // where
+    //     W: AsyncWrite + Unpin + Send,
+    //     X: AsyncEncodable,
+    // {
+    //     if config.protocol_version >= 70016 && payload.encoded_size() > 0xffffffff {
+    //         // we should use the extended message header
+    //         if command != BLOCK {
+    //             return Err(Error::BadData("payload too large".to_string()));
+    //         }
+    //         let header = P2PMessageHeader {
+    //             magic: config.magic,
+    //             command,
+    //             payload_size: payload.async_size() as u64,
+    //             checksum: ZERO_CHECKSUM,
+    //         };
+    //         header.async_to_binary(writer).await?;
+    //         payload.async_to_binary(writer).await?;
+    //         return Ok(());
+    //     }
+    //     let buf = payload.to_binary_buf()?;
+    //     let hash = Hash::sha256d(&buf);
+    //     let header = P2PMessageHeader {
+    //         magic: config.magic,
+    //         command,
+    //         payload_size: buf.len() as u64,
+    //         checksum: hash.hash[..4].try_into().unwrap(),
+    //     };
+    //     header.async_to_binary(writer).await?;
+    //     let _ = writer.write(&buf).await?;
+    //     Ok(())
+    // }
 }
 
 impl fmt::Debug for P2PMessage {
@@ -534,397 +534,397 @@ mod tests {
     use std::io::Cursor;
     use std::net::{IpAddr, Ipv6Addr};
 
-    #[tokio::test]
-    async fn write_read() {
-        let magic = [7, 8, 9, 0];
-        let mut config = ChannelConfig::default();
-        config.magic = magic;
-
-        // Addr
-        let mut v = Vec::new();
-        let a = NodeAddr {
-            timestamp: 700,
-            services: 900,
-            ip: IpAddr::from(Ipv6Addr::from([
-                0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 9, 8, 7, 6, 5,
-            ])),
-            port: 4000,
-        };
-        let p = Addr { addrs: vec![a] };
-        let m = P2PMessage::Addr(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Block
-        let mut v = Vec::new();
-        let p = Block {
-            header: BlockHeader {
-                version: 0x00000001,
-                prev_hash: Hash::from(
-                    "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234",
-                ),
-                merkle_root: Hash::from(
-                    "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
-                ),
-                timestamp: 0x4dd7f5c7,
-                bits: 0x1a44b9f2,
-                nonce: 0x9546a142,
-            },
-            transactions: vec![
-                Tx {
-                    version: 0x44556677,
-                    inputs: vec![TxInput {
-                        outpoint: Outpoint {
-                            tx_hash: Hash::from(
-                                "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
-                            ),
-                            index: 3,
-                        },
-                        script: Script::from(vec![5; 5]),
-                        sequence: 2,
-                    }],
-                    outputs: vec![TxOutput {
-                        value: 42,
-                        script: Script::from(vec![9; 21]),
-                    }],
-                    lock_time: 0x12ff34aa,
-                },
-                Tx {
-                    version: 0x99881122,
-                    inputs: vec![TxInput {
-                        outpoint: Outpoint {
-                            tx_hash: Hash::from(
-                                "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
-                            ),
-                            index: 4,
-                        },
-                        script: Script::from(vec![4; 4]),
-                        sequence: 3,
-                    }],
-                    outputs: vec![TxOutput {
-                        value: 43,
-                        script: Script::from(vec![10; 22]),
-                    }],
-                    lock_time: 0x44550011,
-                },
-            ],
-        };
-        let m = P2PMessage::Block(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // GetAddr
-        let mut v = Vec::new();
-        let m = P2PMessage::GetAddr;
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // GetBlocks
-        let mut v = Vec::new();
-        let p = BlockLocator {
-            version: 567,
-            block_locator_hashes: vec![
-                Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
-                Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
-            ],
-            hash_stop: Hash::from(
-                "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
-            ),
-        };
-        let m = P2PMessage::GetBlocks(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // GetData
-        let mut v = Vec::new();
-        let p = Inv {
-            objects: vec![InvItem {
-                obj_type: InvType::Tx,
-                hash: Hash::from(
-                    "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
-                ),
-            }],
-        };
-        let m = P2PMessage::GetData(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // GetHeaders
-        let mut v = Vec::new();
-        let p = BlockLocator {
-            version: 345,
-            block_locator_hashes: vec![
-                Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
-                Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
-            ],
-            hash_stop: Hash::from(
-                "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
-            ),
-        };
-        let m = P2PMessage::GetHeaders(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Headers
-        let mut v = Vec::new();
-        let bh_bin = Vec::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
-        let p = Headers {
-            headers: vec![BlockHeader::from_binary_buf(bh_bin.as_slice()).unwrap()],
-        };
-        let m = P2PMessage::Headers(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Inv
-        let mut v = Vec::new();
-        let p = Inv {
-            objects: vec![InvItem {
-                obj_type: InvType::Tx,
-                hash: Hash::from(
-                    "00000000000000000538178e5c48e51e271e009c31d3854886d29328fa0aa037",
-                ),
-            }],
-        };
-        let m = P2PMessage::Inv(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Mempool
-        let mut v = Vec::new();
-        let m = P2PMessage::Mempool;
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // MerkleBlock
-        let mut v = Vec::new();
-        let p = MerkleBlock {
-            header: BlockHeader {
-                version: 12345,
-                prev_hash: Hash::from_hex(
-                    "7766009988776600998877660099887766009988776600998877660099887766",
-                )
-                .unwrap(),
-                merkle_root: Hash::from_hex(
-                    "2211554433221155443322115544332211554433221155443322115544332211",
-                )
-                .unwrap(),
-                timestamp: 66,
-                bits: 4488,
-                nonce: 9999,
-            },
-            total_transactions: 14,
-            hashes: vec![
-                Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
-                Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
-            ],
-            flags: vec![24, 125, 199],
-        };
-        let m = P2PMessage::MerkleBlock(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // NotFound
-        let mut v = Vec::new();
-        let p = Inv {
-            objects: vec![InvItem {
-                obj_type: InvType::Tx,
-                hash: Hash::from(
-                    "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
-                ),
-            }],
-        };
-        let m = P2PMessage::NotFound(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Ping
-        let mut v = Vec::new();
-        let p = Ping { nonce: 7890 };
-        let m = P2PMessage::Ping(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Pong
-        let mut v = Vec::new();
-        let p = Ping { nonce: 7890 };
-        let m = P2PMessage::Pong(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Reject
-        let mut v = Vec::new();
-        let p = Reject {
-            message: "getaddr\0\0\0\0\0".to_string(),
-            code: REJECT_INVALID,
-            reason: "womp womp".to_string(),
-            data: vec![],
-        };
-        let m = P2PMessage::Reject(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // SendCmpct
-        let mut v = Vec::new();
-        let p = SendCmpct {
-            enable: 1,
-            version: 1,
-        };
-        let m = P2PMessage::SendCmpct(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // SendHeaders
-        let mut v = Vec::new();
-        let m = P2PMessage::SendHeaders;
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Tx
-        let mut v = Vec::new();
-        let p = Tx {
-            version: 0x44556677,
-            inputs: vec![TxInput {
-                outpoint: Outpoint {
-                    tx_hash: Hash::from(
-                        "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
-                    ),
-                    index: 3,
-                },
-                script: Script::from(vec![7u8; 7]),
-                sequence: 2,
-            }],
-            outputs: vec![TxOutput {
-                value: 42,
-                script: Script::from(vec![8u8; 8]),
-            }],
-            lock_time: 0x12ff34aa,
-        };
-        let m = P2PMessage::Tx(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Verack
-        let mut v = Vec::new();
-        let m = P2PMessage::Verack;
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-
-        // Version
-        let mut v = Vec::new();
-        let p = Version {
-            version: PROTOCOL_VERSION,
-            services: 77,
-            timestamp: epoch_secs(),
-            recv_addr: NodeAddr {
-                ..Default::default()
-            },
-            tx_addr: NodeAddr {
-                ..Default::default()
-            },
-            nonce: 99,
-            user_agent: "dummy".to_string(),
-            start_height: 22,
-            relay: true,
-        };
-        let m = P2PMessage::Version(p);
-        m.write(&mut v, &config).await.unwrap();
-        assert_eq!(
-            P2PMessage::read(&mut Cursor::new(&v), &config)
-                .await
-                .unwrap(),
-            m
-        );
-    }
+    // #[tokio::test]
+    // async fn write_read() {
+    //     let magic = [7, 8, 9, 0];
+    //     let mut config = ChannelConfig::default();
+    //     config.magic = magic;
+    //
+    //     // Addr
+    //     let mut v = Vec::new();
+    //     let a = NodeAddr {
+    //         timestamp: 700,
+    //         services: 900,
+    //         ip: IpAddr::from(Ipv6Addr::from([
+    //             0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 9, 8, 7, 6, 5,
+    //         ])),
+    //         port: 4000,
+    //     };
+    //     let p = Addr { addrs: vec![a] };
+    //     let m = P2PMessage::Addr(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Block
+    //     let mut v = Vec::new();
+    //     let p = Block {
+    //         header: BlockHeader {
+    //             version: 0x00000001,
+    //             prev_hash: Hash::from(
+    //                 "abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234",
+    //             ),
+    //             merkle_root: Hash::from(
+    //                 "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
+    //             ),
+    //             timestamp: 0x4dd7f5c7,
+    //             bits: 0x1a44b9f2,
+    //             nonce: 0x9546a142,
+    //         },
+    //         transactions: vec![
+    //             Tx {
+    //                 version: 0x44556677,
+    //                 inputs: vec![TxInput {
+    //                     outpoint: Outpoint {
+    //                         tx_hash: Hash::from(
+    //                             "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
+    //                         ),
+    //                         index: 3,
+    //                     },
+    //                     script: Script::from(vec![5; 5]),
+    //                     sequence: 2,
+    //                 }],
+    //                 outputs: vec![TxOutput {
+    //                     value: 42,
+    //                     script: Script::from(vec![9; 21]),
+    //                 }],
+    //                 lock_time: 0x12ff34aa,
+    //             },
+    //             Tx {
+    //                 version: 0x99881122,
+    //                 inputs: vec![TxInput {
+    //                     outpoint: Outpoint {
+    //                         tx_hash: Hash::from(
+    //                             "2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3",
+    //                         ),
+    //                         index: 4,
+    //                     },
+    //                     script: Script::from(vec![4; 4]),
+    //                     sequence: 3,
+    //                 }],
+    //                 outputs: vec![TxOutput {
+    //                     value: 43,
+    //                     script: Script::from(vec![10; 22]),
+    //                 }],
+    //                 lock_time: 0x44550011,
+    //             },
+    //         ],
+    //     };
+    //     let m = P2PMessage::Block(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // GetAddr
+    //     let mut v = Vec::new();
+    //     let m = P2PMessage::GetAddr;
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // GetBlocks
+    //     let mut v = Vec::new();
+    //     let p = BlockLocator {
+    //         version: 567,
+    //         block_locator_hashes: vec![
+    //             Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
+    //             Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
+    //         ],
+    //         hash_stop: Hash::from(
+    //             "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
+    //         ),
+    //     };
+    //     let m = P2PMessage::GetBlocks(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // GetData
+    //     let mut v = Vec::new();
+    //     let p = Inv {
+    //         objects: vec![InvItem {
+    //             obj_type: InvType::Tx,
+    //             hash: Hash::from(
+    //                 "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
+    //             ),
+    //         }],
+    //     };
+    //     let m = P2PMessage::GetData(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // GetHeaders
+    //     let mut v = Vec::new();
+    //     let p = BlockLocator {
+    //         version: 345,
+    //         block_locator_hashes: vec![
+    //             Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
+    //             Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
+    //         ],
+    //         hash_stop: Hash::from(
+    //             "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
+    //         ),
+    //     };
+    //     let m = P2PMessage::GetHeaders(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Headers
+    //     let mut v = Vec::new();
+    //     let bh_bin = Vec::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap();
+    //     let p = Headers {
+    //         headers: vec![BlockHeader::from_binary_buf(bh_bin.as_slice()).unwrap()],
+    //     };
+    //     let m = P2PMessage::Headers(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Inv
+    //     let mut v = Vec::new();
+    //     let p = Inv {
+    //         objects: vec![InvItem {
+    //             obj_type: InvType::Tx,
+    //             hash: Hash::from(
+    //                 "00000000000000000538178e5c48e51e271e009c31d3854886d29328fa0aa037",
+    //             ),
+    //         }],
+    //     };
+    //     let m = P2PMessage::Inv(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Mempool
+    //     let mut v = Vec::new();
+    //     let m = P2PMessage::Mempool;
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // MerkleBlock
+    //     let mut v = Vec::new();
+    //     let p = MerkleBlock {
+    //         header: BlockHeader {
+    //             version: 12345,
+    //             prev_hash: Hash::from_hex(
+    //                 "7766009988776600998877660099887766009988776600998877660099887766",
+    //             )
+    //             .unwrap(),
+    //             merkle_root: Hash::from_hex(
+    //                 "2211554433221155443322115544332211554433221155443322115544332211",
+    //             )
+    //             .unwrap(),
+    //             timestamp: 66,
+    //             bits: 4488,
+    //             nonce: 9999,
+    //         },
+    //         total_transactions: 14,
+    //         hashes: vec![
+    //             Hash::from("2b12fcf1b09288fcaff797d71e950e71ae42b91e8bdb2304758dfcffc2b620e3"),
+    //             Hash::from("abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234abcd1234"),
+    //         ],
+    //         flags: vec![24, 125, 199],
+    //     };
+    //     let m = P2PMessage::MerkleBlock(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // NotFound
+    //     let mut v = Vec::new();
+    //     let p = Inv {
+    //         objects: vec![InvItem {
+    //             obj_type: InvType::Tx,
+    //             hash: Hash::from(
+    //                 "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
+    //             ),
+    //         }],
+    //     };
+    //     let m = P2PMessage::NotFound(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Ping
+    //     let mut v = Vec::new();
+    //     let p = Ping { nonce: 7890 };
+    //     let m = P2PMessage::Ping(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Pong
+    //     let mut v = Vec::new();
+    //     let p = Ping { nonce: 7890 };
+    //     let m = P2PMessage::Pong(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Reject
+    //     let mut v = Vec::new();
+    //     let p = Reject {
+    //         message: "getaddr\0\0\0\0\0".to_string(),
+    //         code: REJECT_INVALID,
+    //         reason: "womp womp".to_string(),
+    //         data: vec![],
+    //     };
+    //     let m = P2PMessage::Reject(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // SendCmpct
+    //     let mut v = Vec::new();
+    //     let p = SendCmpct {
+    //         enable: 1,
+    //         version: 1,
+    //     };
+    //     let m = P2PMessage::SendCmpct(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // SendHeaders
+    //     let mut v = Vec::new();
+    //     let m = P2PMessage::SendHeaders;
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Tx
+    //     let mut v = Vec::new();
+    //     let p = Tx {
+    //         version: 0x44556677,
+    //         inputs: vec![TxInput {
+    //             outpoint: Outpoint {
+    //                 tx_hash: Hash::from(
+    //                     "0b5a8ca2ce1e9a761ae41fa7dcf93973c81851b38e20a7e8f3756f02cdc8e66f",
+    //                 ),
+    //                 index: 3,
+    //             },
+    //             script: Script::from(vec![7u8; 7]),
+    //             sequence: 2,
+    //         }],
+    //         outputs: vec![TxOutput {
+    //             value: 42,
+    //             script: Script::from(vec![8u8; 8]),
+    //         }],
+    //         lock_time: 0x12ff34aa,
+    //     };
+    //     let m = P2PMessage::Tx(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Verack
+    //     let mut v = Vec::new();
+    //     let m = P2PMessage::Verack;
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    //
+    //     // Version
+    //     let mut v = Vec::new();
+    //     let p = Version {
+    //         version: PROTOCOL_VERSION,
+    //         services: 77,
+    //         timestamp: epoch_secs(),
+    //         recv_addr: NodeAddr {
+    //             ..Default::default()
+    //         },
+    //         tx_addr: NodeAddr {
+    //             ..Default::default()
+    //         },
+    //         nonce: 99,
+    //         user_agent: "dummy".to_string(),
+    //         start_height: 22,
+    //         relay: true,
+    //     };
+    //     let m = P2PMessage::Version(p);
+    //     m.write(&mut v, &config).await.unwrap();
+    //     assert_eq!(
+    //         P2PMessage::read(&mut Cursor::new(&v), &config)
+    //             .await
+    //             .unwrap(),
+    //         m
+    //     );
+    // }
 
     // #[test]
     // #[should_panic]

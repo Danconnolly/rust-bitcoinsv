@@ -285,86 +285,86 @@ impl PeerChannelActor {
         self.send_msg(P2PMessage::SendHeaders).await;
     }
 
-    /// The writer task. It reads [P2PMessage]s from the channel and writes them the socket.
-    /// It has no state, it just reads and writes what it is given. In particular, it does not check
-    /// the message size.
-    /// This task is spawned by on_initialization().
-    async fn writer(
-        mut rx: Receiver<P2PMessage>,
-        mut writer: tokio::net::tcp::OwnedWriteHalf,
-        shared_config: Arc<RwLock<ChannelConfig>>,
-        cancel_token: CancellationToken,
-    ) {
-        trace!("writer task started.");
-        loop {
-            select! {
-                _ = cancel_token.cancelled() => { break; }
-                msg = rx.recv() => {
-                    match msg {
-                        Some(msg) => {
-                            let config = shared_config.read().await.clone();
-                            // respect the cancel token that arrives in middle of write
-                            // writes could be long, either naturally or due to malicious actors
-                            select! {
-                                _ = cancel_token.cancelled() => { break; }
-                                r = msg.write(&mut writer, &config) => {
-                                    match r {
-                                        Ok(_) => {}
-                                        Err(e) => {
-                                            warn!("error writing message to peer, error: {}", e);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        None => {
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // /// The writer task. It reads [P2PMessage]s from the channel and writes them the socket.
+    // /// It has no state, it just reads and writes what it is given. In particular, it does not check
+    // /// the message size.
+    // /// This task is spawned by on_initialization().
+    // async fn writer(
+    //     mut rx: Receiver<P2PMessage>,
+    //     mut writer: tokio::net::tcp::OwnedWriteHalf,
+    //     shared_config: Arc<RwLock<ChannelConfig>>,
+    //     cancel_token: CancellationToken,
+    // ) {
+    //     trace!("writer task started.");
+    //     loop {
+    //         select! {
+    //             _ = cancel_token.cancelled() => { break; }
+    //             msg = rx.recv() => {
+    //                 match msg {
+    //                     Some(msg) => {
+    //                         let config = shared_config.read().await.clone();
+    //                         // respect the cancel token that arrives in middle of write
+    //                         // writes could be long, either naturally or due to malicious actors
+    //                         select! {
+    //                             _ = cancel_token.cancelled() => { break; }
+    //                             r = msg.write(&mut writer, &config) => {
+    //                                 match r {
+    //                                     Ok(_) => {}
+    //                                     Err(e) => {
+    //                                         warn!("error writing message to peer, error: {}", e);
+    //                                     }
+    //                                 }
+    //                             }
+    //                         }
+    //                     }
+    //                     None => {
+    //                         break;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 
-    /// The reader task.
-    ///
-    /// It has no state or intelligence, it just reads messages from the socket and sends them
-    /// to the actor as a [ChannelControlMessage::PeerMsgReceived].
-    ///
-    /// This task is spawned by on_initialization().
-    async fn reader(
-        actor: ActorRef<PeerChannelActor>,
-        mut reader: tokio::net::tcp::OwnedReadHalf,
-        config: Arc<RwLock<ChannelConfig>>,
-        cancel_token: CancellationToken,
-    ) {
-        trace!("reader task started.");
-        loop {
-            // todo: do we really need to clone it? doesnt that defeat the point?
-            let config = config.read().await.clone();
-            select! {
-                _ = cancel_token.cancelled() => { break; }
-                r = P2PMessage::read(&mut reader, &config) => {
-                    match r {
-                        Ok(msg) => {
-                            let envelope = P2PEnvelope::new(msg, &config);
-                            match actor.send(ChannelControlMessage::PeerMsgReceived(Arc::new(envelope))).await {
-                                Ok(_) => {}
-                                Err(e) => {
-                                    warn!("stream reader: error sending message to actor, error: {:?}", e);
-                                    break;
-                                }
-                            }
-                        }
-                        Err(e) => {
-                            warn!("stream reader: error reading message from peer, error: {}", e);
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
+    // /// The reader task.
+    // ///
+    // /// It has no state or intelligence, it just reads messages from the socket and sends them
+    // /// to the actor as a [ChannelControlMessage::PeerMsgReceived].
+    // ///
+    // /// This task is spawned by on_initialization().
+    // async fn reader(
+    //     actor: ActorRef<PeerChannelActor>,
+    //     mut reader: tokio::net::tcp::OwnedReadHalf,
+    //     config: Arc<RwLock<ChannelConfig>>,
+    //     cancel_token: CancellationToken,
+    // ) {
+    //     trace!("reader task started.");
+    //     loop {
+    //         // todo: do we really need to clone it? doesnt that defeat the point?
+    //         let config = config.read().await.clone();
+    //         select! {
+    //             _ = cancel_token.cancelled() => { break; }
+    //             r = P2PMessage::read(&mut reader, &config) => {
+    //                 match r {
+    //                     Ok(msg) => {
+    //                         let envelope = P2PEnvelope::new(msg, &config);
+    //                         match actor.send(ChannelControlMessage::PeerMsgReceived(Arc::new(envelope))).await {
+    //                             Ok(_) => {}
+    //                             Err(e) => {
+    //                                 warn!("stream reader: error sending message to actor, error: {:?}", e);
+    //                                 break;
+    //                             }
+    //                         }
+    //                     }
+    //                     Err(e) => {
+    //                         warn!("stream reader: error reading message from peer, error: {}", e);
+    //                         break;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    // }
 }
 
 impl Actor for PeerChannelActor {
@@ -372,51 +372,51 @@ impl Actor for PeerChannelActor {
     type CallMessage = ();
     type ErrorType = ();
 
-    /// Called to initialize the actor.
-    async fn on_initialization(&mut self, self_ref: ActorRef<Self>) -> Control {
-        trace!("PeerStreamActor started.");
-        self.channel_state = ChannelState::Connecting;
-        // todo: failure & retry logic
-        let stream = TcpStream::connect(self.peer.address).await.unwrap();
-        trace!("PeerChannelActor connected to {:?}", self.peer);
-        let (reader, writer) = stream.into_split();
-        let r_handle = {
-            // start the reader task
-            let cfg = self.config.clone();
-            let cancel = self.subtask_cancel.clone();
-            tokio::spawn(
-                async move { PeerChannelActor::reader(self_ref, reader, cfg, cancel).await },
-            )
-        };
-        self.reader_handle = Some(r_handle);
-        let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
-        self.writer_tx = Some(writer_tx);
-        let w_handle = {
-            // start the writer task
-            let cfg = self.config.clone();
-            let cancel = self.subtask_cancel.clone();
-            tokio::spawn(
-                async move { PeerChannelActor::writer(writer_rx, writer, cfg, cancel).await },
-            )
-        };
-        self.writer_handle = Some(w_handle);
-        self.channel_state = ChannelState::Handshaking;
-        // we send our version straightaway
-        let v = Version::default();
-        let v_msg = P2PMessage::Version(v);
-        self.send_msg(v_msg).await;
-        Control::Ok
-    }
-
-    async fn handle_sends(&mut self, msg: Self::SendMessage) -> Control {
-        use ChannelControlMessage::*;
-        match msg {
-            PeerMsgReceived(envelope) => {
-                self.handle_received(envelope).await;
-                Control::Ok
-            }
-        }
-    }
+    // /// Called to initialize the actor.
+    // async fn on_initialization(&mut self, self_ref: ActorRef<Self>) -> Control {
+    //     trace!("PeerStreamActor started.");
+    //     self.channel_state = ChannelState::Connecting;
+    //     // todo: failure & retry logic
+    //     let stream = TcpStream::connect(self.peer.address).await.unwrap();
+    //     trace!("PeerChannelActor connected to {:?}", self.peer);
+    //     let (reader, writer) = stream.into_split();
+    //     let r_handle = {
+    //         // start the reader task
+    //         let cfg = self.config.clone();
+    //         let cancel = self.subtask_cancel.clone();
+    //         tokio::spawn(
+    //             async move { PeerChannelActor::reader(self_ref, reader, cfg, cancel).await },
+    //         )
+    //     };
+    //     self.reader_handle = Some(r_handle);
+    //     let (writer_tx, writer_rx) = channel(P2P_COMMS_BUFFER_LENGTH);
+    //     self.writer_tx = Some(writer_tx);
+    //     let w_handle = {
+    //         // start the writer task
+    //         let cfg = self.config.clone();
+    //         let cancel = self.subtask_cancel.clone();
+    //         tokio::spawn(
+    //             async move { PeerChannelActor::writer(writer_rx, writer, cfg, cancel).await },
+    //         )
+    //     };
+    //     self.writer_handle = Some(w_handle);
+    //     self.channel_state = ChannelState::Handshaking;
+    //     // we send our version straightaway
+    //     let v = Version::default();
+    //     let v_msg = P2PMessage::Version(v);
+    //     self.send_msg(v_msg).await;
+    //     Control::Ok
+    // }
+    //
+    // async fn handle_sends(&mut self, msg: Self::SendMessage) -> Control {
+    //     use ChannelControlMessage::*;
+    //     match msg {
+    //         PeerMsgReceived(envelope) => {
+    //             self.handle_received(envelope).await;
+    //             Control::Ok
+    //         }
+    //     }
+    // }
 
     async fn on_shutdown(&mut self) -> Control {
         self.channel_state = ChannelState::Closing;

@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, Hash};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable, Hash};
 use async_trait::async_trait;
 use std::fmt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -18,6 +18,7 @@ impl BlockLocator {
     pub const HASH_STOP: Hash = Hash::ZERO;
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for BlockLocator {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -25,7 +26,7 @@ impl AsyncEncodable for BlockLocator {
         Self: Sized,
     {
         let version = reader.read_u32_le().await?;
-        let num_hashes = varint_decode(reader).await? as usize;
+        let num_hashes = varint_decode_async(reader).await? as usize;
         let mut block_locator_hashes = Vec::with_capacity(num_hashes);
         for _ in 0..num_hashes {
             block_locator_hashes.push(Hash::async_from_binary(reader).await?);
@@ -42,7 +43,7 @@ impl AsyncEncodable for BlockLocator {
         writer: &mut W,
     ) -> crate::Result<()> {
         writer.write_u32_le(self.version).await?;
-        varint_encode(writer, self.block_locator_hashes.len() as u64).await?;
+        varint_encode_async(writer, self.block_locator_hashes.len() as u64).await?;
         for hash in self.block_locator_hashes.iter() {
             hash.async_to_binary(writer).await?;
         }
@@ -50,11 +51,12 @@ impl AsyncEncodable for BlockLocator {
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        4 + varint_size(self.block_locator_hashes.len() as u64)
-            + self.block_locator_hashes.len() * 32
-            + 32
-    }
+    // todo: add Encodable trait
+    // fn async_size(&self) -> usize {
+    //     4 + varint_size(self.block_locator_hashes.len() as u64)
+    //         + self.block_locator_hashes.len() * 32
+    //         + 32
+    // }
 }
 
 impl fmt::Display for BlockLocator {

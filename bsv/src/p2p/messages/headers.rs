@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, AsyncEncodable, BlockHeader};
+use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable, BlockHeader};
 use async_trait::async_trait;
 use std::fmt;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -10,13 +10,14 @@ pub struct Headers {
     pub headers: Vec<BlockHeader>,
 }
 
+#[cfg(feature="dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Headers {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
     where
         Self: Sized,
     {
-        let num_headers = varint_decode(reader).await? as usize;
+        let num_headers = varint_decode_async(reader).await? as usize;
         let mut headers = Vec::with_capacity(num_headers);
         for _ in 0..num_headers {
             headers.push(BlockHeader::async_from_binary(reader).await?);
@@ -28,16 +29,17 @@ impl AsyncEncodable for Headers {
         &self,
         writer: &mut W,
     ) -> crate::Result<()> {
-        varint_encode(writer, self.headers.len() as u64).await?;
+        varint_encode_async(writer, self.headers.len() as u64).await?;
         for header in self.headers.iter() {
             header.async_to_binary(writer).await?;
         }
         Ok(())
     }
 
-    fn async_size(&self) -> usize {
-        varint_size(self.headers.len() as u64) + self.headers.len() * BlockHeader::SIZE
-    }
+    // todo: add Encodable trait
+    // fn async_size(&self) -> usize {
+    //     varint_size(self.headers.len() as u64) + self.headers.len() * BlockHeader::SIZE
+    // }
 }
 
 impl fmt::Display for Headers {

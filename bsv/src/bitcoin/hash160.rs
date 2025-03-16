@@ -70,10 +70,6 @@ impl AsyncEncodable for Hash160 {
         writer.write_all(&self.hash).await?;
         Ok(())
     }
-
-    fn async_size(&self) -> usize {
-        Self::SIZE
-    }
 }
 
 impl FromHex for Hash160 {
