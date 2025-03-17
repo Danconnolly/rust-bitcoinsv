@@ -1,5 +1,5 @@
 use bytes::{Buf, BufMut};
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The size of the value encoded as a varint.
@@ -46,8 +46,10 @@ pub fn varint_encode(buffer: &mut dyn BufMut, value: u64) -> crate::Result<()> {
 
 /// Decode a variable length integer from a byte stream, async version.
 // todo: async version untested
-#[cfg(feature="dev_tokio")]
-pub async fn varint_decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<u64> {
+#[cfg(feature = "dev_tokio")]
+pub async fn varint_decode_async<R: AsyncRead + Unpin + Send>(
+    reader: &mut R,
+) -> crate::Result<u64> {
     let n0 = reader.read_u8().await.unwrap();
     let v = match n0 {
         0xff => reader.read_u64_le().await.unwrap(),
@@ -59,7 +61,7 @@ pub async fn varint_decode_async<R: AsyncRead + Unpin + Send>(reader: &mut R) ->
 }
 
 /// Encode a variable length integer into a byte stream, async version.
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 pub async fn varint_encode_async<W: AsyncWrite + Unpin + Send>(
     writer: &mut W,
     value: u64,
@@ -85,9 +87,9 @@ pub async fn varint_encode_async<W: AsyncWrite + Unpin + Send>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature="dev_tokio")]
-    use std::io::Cursor;
     use bytes::BytesMut;
+    #[cfg(feature = "dev_tokio")]
+    use std::io::Cursor;
 
     #[test]
     fn size() {

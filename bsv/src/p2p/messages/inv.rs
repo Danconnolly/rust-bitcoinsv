@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable, Hash};
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable, Hash};
 use async_trait::async_trait;
 use std::fmt;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -115,7 +115,7 @@ impl fmt::Display for InvType {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for InvItem {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>

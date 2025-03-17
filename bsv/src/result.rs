@@ -1,9 +1,9 @@
 use base58::FromBase58Error;
+use bytes::TryGetError;
 use hex::FromHexError;
 use std::fmt::Formatter;
 use std::io;
 use std::string::FromUtf8Error;
-use bytes::TryGetError;
 
 /// Standard Result used in the library
 pub type Result<T> = std::result::Result<T, Error>;
@@ -41,7 +41,7 @@ pub enum Error {
     IOError(io::Error),
     /// String conversion error
     Utf8Error(FromUtf8Error),
-    #[cfg(feature="dev_tokio")]    
+    #[cfg(feature = "dev_tokio")]
     /// Error from minactor
     MinActorError(minactor::Error),
     /// Error from TryGet
@@ -66,7 +66,7 @@ impl std::fmt::Display for Error {
             Error::Secp256k1Error(e) => f.write_str(&format!("secpk256k1 error: {:?}", e)),
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
-            #[cfg(feature="dev_tokio")]
+            #[cfg(feature = "dev_tokio")]
             Error::MinActorError(e) => f.write_str(&format!("Minactor error: {:?}", e)), // todo: revert to display when implemented
             Error::TryGet(e) => f.write_str(&format!("Tryget error: {}", e)),
         }
@@ -109,7 +109,7 @@ impl From<secp256k1::Error> for Error {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 impl From<minactor::Error> for Error {
     fn from(e: minactor::Error) -> Self {
         Error::MinActorError(e)

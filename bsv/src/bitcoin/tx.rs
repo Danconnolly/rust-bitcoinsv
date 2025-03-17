@@ -1,24 +1,23 @@
 use crate::bitcoin::hash::Hash;
+use crate::bitcoin::{varint_decode, varint_encode, varint_size};
+#[cfg(feature = "dev_tokio")]
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
 use crate::bitcoin::{Encodable, Script};
+use crate::Error;
+#[cfg(feature = "dev_tokio")]
+use async_trait::async_trait;
+use bytes::{Buf, BufMut, Bytes};
 use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
-use bytes::{Buf, BufMut, Bytes};
-use crate::bitcoin::{varint_decode, varint_encode, varint_size};
-use crate::Error;
-#[cfg(feature="dev_tokio")]
-use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
-#[cfg(feature="dev_tokio")]
-use async_trait::async_trait;
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
-
 
 /// The TxHash is used to identify transactions.
 pub type TxHash = Hash;
 
 /// A Bitcoin transaction.
 ///
-/// This implementation stores the encoded form and extracts fields when they are requested. 
+/// This implementation stores the encoded form and extracts fields when they are requested.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Tx {
     /// transaction version number
@@ -66,17 +65,17 @@ impl ToHex for Tx {
 impl Encodable for Tx {
     fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         let version = buffer.get_u32_le();
         let num_inputs = varint_decode(buffer)?;
-        // todo: check size before allocation        
+        // todo: check size before allocation
         let mut inputs = Vec::with_capacity(num_inputs as usize);
         for _ in 0..num_inputs {
             inputs.push(TxInput::from_binary(buffer)?);
         }
         let num_outputs = varint_decode(buffer)?;
-        // todo: check size before allocation        
+        // todo: check size before allocation
         let mut outputs = Vec::with_capacity(num_outputs as usize);
         for _ in 0..num_outputs {
             outputs.push(TxOutput::from_binary(buffer)?);
@@ -105,7 +104,8 @@ impl Encodable for Tx {
     }
 
     fn encoded_size(&self) -> u64 {
-        let mut size = varint_size(self.inputs.len() as u64) + varint_size(self.outputs.len() as u64);
+        let mut size =
+            varint_size(self.inputs.len() as u64) + varint_size(self.outputs.len() as u64);
         for input in self.inputs.iter() {
             size += input.encoded_size();
         }
@@ -116,7 +116,7 @@ impl Encodable for Tx {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Tx {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -173,12 +173,12 @@ pub struct Outpoint {
 
 impl Outpoint {
     pub const SIZE: u64 = 36;
-    
+
     pub fn tx_hash(&self) -> TxHash {
         let slice = &self.raw[0..32];
         TxHash::from(slice)
     }
-    
+
     pub fn index(&self) -> u32 {
         let mut slice = &self.raw[32..36];
         slice.get_u32_le()
@@ -188,7 +188,7 @@ impl Outpoint {
 impl Encodable for Outpoint {
     fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         if buffer.remaining() < Self::SIZE as usize {
             Err(Error::DataTooSmall)
@@ -209,7 +209,7 @@ impl Encodable for Outpoint {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Outpoint {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -243,7 +243,7 @@ impl Encodable for TxInput {
         let outpoint = Outpoint::from_binary(buffer)?;
         let script = Script::from_binary(buffer)?;
         let sequence = buffer.try_get_u32_le()?;
-        Ok( TxInput {
+        Ok(TxInput {
             outpoint,
             script,
             sequence,
@@ -262,7 +262,7 @@ impl Encodable for TxInput {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for TxInput {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -307,7 +307,7 @@ impl TxOutput {
 impl Encodable for TxOutput {
     fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         let value = buffer.try_get_u64_le()?;
         let script = Script::from_binary(buffer)?;
@@ -325,7 +325,7 @@ impl Encodable for TxOutput {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for TxOutput {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -364,7 +364,7 @@ mod tests {
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(l, tx.encoded_size());
     }
-    
+
     /// If the binary is incomplete, we should get an error
     #[test]
     fn read_short() {
@@ -373,7 +373,7 @@ mod tests {
         let mut b2 = bytes.split_to(200);
         assert!(Tx::from_binary(&mut b2).is_err());
     }
-    
+
     /// If we supply too many bytes then the read should succeed and we should have some bytes left over.
     #[test]
     fn tx_long() {
@@ -385,7 +385,7 @@ mod tests {
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
     }
-    
+
     #[test]
     fn read_from_hex() {
         let (tx_bin, tx_hash) = get_tx1();
@@ -395,7 +395,7 @@ mod tests {
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
     }
-    
+
     #[test]
     fn check_deser() {
         let (tx_bin, tx_hash) = get_tx1();
@@ -412,7 +412,7 @@ mod tests {
         assert_eq!(i.outpoint.index(), 1);
         assert_eq!(tx.outputs.len(), 2);
     }
-    
+
     /// Test Rust standard serde of transaction and sub-structs.
     #[test]
     fn test_bincode() {
@@ -424,7 +424,7 @@ mod tests {
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
     }
-    
+
     fn get_tx1() -> (Vec<u8>, Hash) {
         let tx_hex = "01000000018a052edc7ae2136bfc0a860cdc91185ab0d7329107802f0a9c1cd0026c815f75010000006b483045022100e587ef1b4497a6694cad646cab468b6ece2fa98c7f49f9488611ca34eecebd1002205c4ea9066484bd1bffb7fdd7d84b5ae0ee6b7cdc20a8a513e41e420e0633b98841210262142850483b6728b8ecd299e4d0c8cf30ea0636f66205166814e52d73b64b4bffffffff0200000000000000000a006a075354554b2e434fb8ce3f01000000001976a91454cba8da8701174e34aac2bb31d42a88e2c302d088ac00000000";
         let tx_hash = "3abc31f8ff40ffb66d9037e156842fe782e6fa1ae728759263471c68660095f1";

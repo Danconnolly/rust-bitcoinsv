@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable};
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
 use async_trait::async_trait;
 use log::warn;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};

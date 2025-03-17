@@ -1,22 +1,20 @@
 use crate::p2p::connection::ConnectionConfig;
 use crate::p2p::envelope::{P2PEnvelope, P2PMessageChannelSender};
 use crate::p2p::messages::Protoconf;
-use crate::p2p::messages::{P2PMessage, P2PMessageType, Ping, Version};
+use crate::p2p::messages::{P2PMessage, P2PMessageType, Ping};
 use crate::p2p::params::{NetworkParams, DEFAULT_MAX_PAYLOAD_SIZE, PROTOCOL_VERSION};
 use crate::p2p::PeerAddress;
 use crate::Result;
 use log::{info, trace, warn};
 use minactor::{create_actor, Actor, ActorRef, Control};
 use std::sync::Arc;
-use tokio::net::TcpStream;
-use tokio::select;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 use tokio::sync::RwLock;
 use tokio::task::JoinHandle;
 use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
-pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
+// pub const P2P_COMMS_BUFFER_LENGTH: usize = 100;
 
 // todo: implement support for protoconf, including inv limits
 

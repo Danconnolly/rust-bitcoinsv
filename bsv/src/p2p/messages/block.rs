@@ -12,7 +12,7 @@ pub struct Block {
     pub transactions: Vec<Tx>,
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Block {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>

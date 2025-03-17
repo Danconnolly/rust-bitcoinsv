@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable};
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
 use crate::p2p::messages::NodeAddr;
 use async_trait::async_trait;
 use std::fmt;
@@ -16,7 +16,7 @@ impl Addr {
     pub const MAX_ADDR_COUNT: u64 = 1000;
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Addr {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>

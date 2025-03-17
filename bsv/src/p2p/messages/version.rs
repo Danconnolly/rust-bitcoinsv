@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable};
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
 use crate::p2p::messages::node_addr::NodeAddr;
 use crate::p2p::params::{MIN_SUPPORTED_PROTOCOL_VERSION, PROTOCOL_VERSION};
 use crate::util::{epoch_secs, epoch_secs_u32};

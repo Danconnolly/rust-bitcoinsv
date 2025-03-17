@@ -1,15 +1,15 @@
 use crate::bitcoin::script::byte_seq::ByteSequence;
 use crate::bitcoin::script::Operation;
+use crate::bitcoin::{varint_decode, varint_encode, varint_size, Encodable};
+#[cfg(feature = "dev_tokio")]
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
+use crate::{Error, Result};
+#[cfg(feature = "dev_tokio")]
+use async_trait::async_trait;
 use bytes::{Buf, BufMut, Bytes};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
-use crate::{Error, Result};
-use crate::bitcoin::{varint_decode, varint_encode, varint_size, Encodable};
-#[cfg(feature="dev_tokio")]
-use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
-#[cfg(feature="dev_tokio")]
-use async_trait::async_trait;
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
@@ -26,7 +26,7 @@ impl Script {
     /// Decode the script, producing a vector of operations and possibly a byte sequence of trailing data.
     pub fn decode(&self) -> Result<(Vec<Operation>, Option<ByteSequence>)> {
         use Operation::*;
-    
+
         let mut result = Vec::new();
         let mut buf = self.raw.clone();
         let mut trailing = None;
@@ -58,7 +58,7 @@ impl Script {
 impl Encodable for Script {
     fn from_binary(buffer: &mut dyn Buf) -> Result<Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         let sz = varint_decode(buffer)?;
         if buffer.remaining() < sz as usize {
@@ -101,7 +101,7 @@ impl FromHex for Script {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Script {
     /// Decode a Script from an async reader.
@@ -156,7 +156,7 @@ mod tests {
         assert_eq!(2, ops.len());
         assert!(trailing.is_none());
     }
-    
+
     /// Test with an op_return
     #[test]
     fn test_opreturn_decode() {

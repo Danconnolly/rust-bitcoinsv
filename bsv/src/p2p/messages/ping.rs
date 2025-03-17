@@ -18,7 +18,7 @@ impl Ping {
     }
 }
 
-#[cfg(feature="dev_p2p")]
+#[cfg(feature = "dev_p2p")]
 #[async_trait]
 impl AsyncEncodable for Ping {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>

@@ -1,15 +1,15 @@
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::params::BlockchainId;
-use hex::{FromHex, ToHex};
-use bytes::{Buf, BufMut, Bytes, BytesMut};
-use crate::bitcoin::Encodable;
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use crate::bitcoin::AsyncEncodable;
-#[cfg(feature="dev_tokio")]
-use async_trait::async_trait;
-#[cfg(feature="dev_tokio")]
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
+use crate::bitcoin::Encodable;
 use crate::Error;
+#[cfg(feature = "dev_tokio")]
+use async_trait::async_trait;
+use bytes::{Buf, BufMut, Bytes, BytesMut};
+use hex::{FromHex, ToHex};
+#[cfg(feature = "dev_tokio")]
+use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The BlockHash is used to identify block headers and enforce proof of work.
 pub type BlockHash = Hash;
@@ -82,8 +82,7 @@ impl BlockHeader {
 }
 
 impl Encodable for BlockHeader {
-    fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self>
-    {
+    fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self> {
         if buffer.remaining() < Self::SIZE as usize {
             Err(Error::DataTooSmall)
         } else {
@@ -103,8 +102,7 @@ impl Encodable for BlockHeader {
     }
 }
 
-
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for BlockHeader {
     // todo: async versions untested
@@ -112,7 +110,7 @@ impl AsyncEncodable for BlockHeader {
     where
         Self: Sized,
     {
-        let mut bytes = Vec::with_capacity(BlockHeader::SIZE as usize); 
+        let mut bytes = Vec::with_capacity(BlockHeader::SIZE as usize);
         reader.read_exact(&mut bytes).await?;
         Ok(BlockHeader {
             raw: Bytes::from(bytes),

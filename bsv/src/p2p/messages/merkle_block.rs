@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_decode_async, varint_encode, varint_encode_async, varint_size, AsyncEncodable, BlockHeader, Hash};
+use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable, BlockHeader, Hash};
 use async_trait::async_trait;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
@@ -15,7 +15,7 @@ pub struct MerkleBlock {
     pub flags: Vec<u8>,
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for MerkleBlock {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>

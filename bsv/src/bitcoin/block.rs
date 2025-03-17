@@ -1,4 +1,4 @@
-use crate::bitcoin::{varint_decode, varint_decode_async, AsyncEncodable, BlockHeader, Tx};
+use crate::bitcoin::{varint_decode_async, AsyncEncodable, BlockHeader, Tx};
 use crate::Result;
 use std::pin::Pin;
 use std::task::{Context, Poll};

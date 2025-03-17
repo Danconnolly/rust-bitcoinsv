@@ -1,27 +1,18 @@
 pub use self::commands::PROTOCONF;
-use crate::bitcoin::{AsyncEncodable, Hash, Tx};
-use crate::p2p::channel::ChannelConfig;
+use crate::bitcoin::Tx;
 use crate::p2p::messages::addr::Addr;
 use crate::p2p::messages::block::Block;
 use crate::p2p::messages::block_locator::BlockLocator;
 use crate::p2p::messages::headers::Headers;
 use crate::p2p::messages::inv::Inv;
 use crate::p2p::messages::merkle_block::MerkleBlock;
-use crate::p2p::messages::messages::commands::{
-    ADDR, BLOCK, GETADDR, GETBLOCKS, GETDATA, GETHEADERS, HEADERS, INV, MEMPOOL, MERKLEBLOCK,
-    NOTFOUND, PING, PONG, REJECT, SENDCMPCT, SENDHEADERS, TX, VERACK, VERSION,
-};
 use crate::p2p::messages::messages::P2PMessageType::{ConnectionControl, Data};
-use crate::p2p::messages::msg_header::P2PMessageHeader;
 use crate::p2p::messages::protoconf::Protoconf;
 use crate::p2p::messages::reject::Reject;
 use crate::p2p::messages::send_cmpct::SendCmpct;
 use crate::p2p::messages::{Ping, Version};
-use crate::{Error, Result};
-use log::{trace, warn};
 use std::fmt;
 use std::sync::Arc;
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 // based on code imported from rust-sv but substantially modified
 

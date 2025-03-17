@@ -1,17 +1,17 @@
+use crate::bitcoin::Encodable;
+use crate::Error;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt;
-use crate::bitcoin::Encodable;
-use crate::Error;
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use crate::bitcoin::AsyncEncodable;
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use async_trait::async_trait;
 use bytes::{Buf, BufMut};
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// A struct representing a hash, specifically a SHA256d hash.
@@ -30,7 +30,9 @@ pub struct Hash {
 impl Hash {
     pub const SIZE: u64 = 32;
     pub const HEX_SIZE: u64 = Hash::SIZE * 2;
-    pub const ZERO: Hash = Hash { hash: [0; Self::SIZE as usize] };
+    pub const ZERO: Hash = Hash {
+        hash: [0; Self::SIZE as usize],
+    };
 
     /// Double SHA256 hash the given data.
     pub fn sha256d(data: &[u8]) -> Hash {
@@ -54,15 +56,16 @@ impl Hash {
 }
 
 impl Encodable for Hash {
-    fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self> where Self: Sized {
+    fn from_binary(buffer: &mut dyn Buf) -> crate::Result<Self>
+    where
+        Self: Sized,
+    {
         if buffer.remaining() < Self::SIZE as usize {
             Err(Error::DataTooSmall)
         } else {
             let mut hash = [0; 32];
             buffer.copy_to_slice(&mut hash);
-            Ok(Self {
-                hash
-            })
+            Ok(Self { hash })
         }
     }
 
@@ -75,7 +78,7 @@ impl Encodable for Hash {
     }
 }
 
-#[cfg(feature="dev_tokio")]
+#[cfg(feature = "dev_tokio")]
 #[async_trait]
 impl AsyncEncodable for Hash {
     async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
@@ -207,8 +210,8 @@ impl<'de> Deserialize<'de> for Hash {
 
 #[cfg(test)]
 mod tests {
-    use bytes::Bytes;
     use super::*;
+    use bytes::Bytes;
     use hex;
 
     #[test]
