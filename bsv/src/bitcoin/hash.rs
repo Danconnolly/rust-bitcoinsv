@@ -18,8 +18,11 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 ///
 /// This is the hash type that is generally used within the Bitcoin infrastructure.
 ///
-/// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [Hash]. Those aliases
+/// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [struct@Hash]. Those aliases
 /// should generally be used instead of this struct.
+/// [MerkleRoot]: crate::bitcoin::MerkleRoot 
+/// [TxHash]: crate::bitcoin::TxHash
+/// [BlockHash]: crate::bitcoin::BlockHash
 // todo: analyse whether to use a Bytes for this or not.
 // note: https://docs.rs/bytes/latest/bytes/struct.Bytes.html# reports that Bytes struct has 4 x usize fields
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]

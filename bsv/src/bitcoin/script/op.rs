@@ -334,7 +334,6 @@ impl Operation {
     /// by an i64 then NONE is returned.
     ///
     /// In comparison to the size of numbers supported by the Bitcoin rules, an i64 is small.
-    /// See [rules::MAX_NUMERIC_LEN].
     pub fn small_num_pushed(&self) -> Option<i64> {
         use Operation::*;
         match self {

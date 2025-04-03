@@ -14,8 +14,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
 ///
-/// This struct is a Script in its encoded form and is read-only. Use [decode()]
-/// to examine a script or [ScriptBuilder] to build a script.
+/// This struct is a Script in its encoded form and is read-only.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Script {
     /// The raw bytes of the script, not including the length of the script.
