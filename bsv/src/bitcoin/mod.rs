@@ -2,6 +2,7 @@
 
 mod address;
 mod base58ck;
+mod block;
 mod crypto;
 mod encoding;
 mod hash;
@@ -14,6 +15,7 @@ mod tx;
 mod var_int;
 
 pub use self::address::Address;
+pub use self::block::Block;
 pub use self::crypto::{PrivateKey, PublicKey};
 pub use self::encoding::Encodable;
 pub use self::hash::Hash;
