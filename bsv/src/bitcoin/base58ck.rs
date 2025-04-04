@@ -12,7 +12,7 @@ use base58::{FromBase58, ToBase58};
 ///
 /// The checksum is the first four bytes of the sha256d of the data and is concatenated onto the end.
 pub fn encode_with_checksum(data: &Vec<u8>) -> String {
-    let mut checksum = Hash::sha256d(data).hash[0..4].to_vec();
+    let mut checksum = Hash::sha256d(data).raw[0..4].to_vec();
     let mut ck_data = data.clone();
     ck_data.append(&mut checksum);
     ck_data.to_base58()
@@ -36,7 +36,7 @@ pub fn decode_with_checksum(encoded: &String) -> Result<Vec<u8>> {
         ))
     } else {
         let ck = Hash::sha256d(&data[..l - 4]);
-        if ck.hash[0..4] != data[l - 4..] {
+        if ck.raw[0..4] != data[l - 4..] {
             Err(Error::ChecksumMismatch)
         } else {
             data.truncate(l - 4);

@@ -16,18 +16,19 @@ use std::fmt;
 /// [MerkleRoot]: crate::bitcoin::MerkleRoot
 /// [TxHash]: crate::bitcoin::TxHash
 /// [BlockHash]: crate::bitcoin::BlockHash
-// todo: analyse whether to use a Bytes for this or not.
-// note: https://docs.rs/bytes/latest/bytes/struct.Bytes.html# reports that Bytes struct has 4 x usize fields
+// We're not going to use a Bytes here. https://docs.rs/bytes/latest/bytes/struct.Bytes.html# reports
+// that Bytes struct has 4 x usize fields = 32 bytes (on 64-bit architecture, our main goal). This is
+// equal in size to the hash, might as well just copy it when needed.
 #[derive(Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Hash {
-    pub hash: [u8; 32],
+    pub raw: [u8; 32],
 }
 
 impl Hash {
     pub const SIZE: u64 = 32;
     pub const HEX_SIZE: u64 = Hash::SIZE * 2;
     pub const ZERO: Hash = Hash {
-        hash: [0; Self::SIZE as usize],
+        raw: [0; Self::SIZE as usize],
     };
 
     /// Double SHA256 hash the given data.
@@ -36,7 +37,7 @@ impl Hash {
         let sha256d = digest(&SHA256, sha256.as_ref());
         let mut hash256 = [0; 32];
         hash256.clone_from_slice(sha256d.as_ref());
-        Hash { hash: hash256 }
+        Hash { raw: hash256 }
     }
 
     // helper for ToHex trait implementation
@@ -45,7 +46,7 @@ impl Hash {
         T: FromIterator<char>,
         F: FnMut(&[u8]) -> String,
     {
-        let mut reversed_bytes = self.hash;
+        let mut reversed_bytes = self.raw;
         reversed_bytes.reverse();
         encode_fn(&reversed_bytes).chars().collect()
     }
@@ -61,12 +62,12 @@ impl Encodable for Hash {
         } else {
             let mut hash = [0; 32];
             buffer.copy_to_slice(&mut hash);
-            Ok(Self { hash })
+            Ok(Self { raw: hash })
         }
     }
 
     fn to_binary(&self, buffer: &mut dyn BufMut) -> crate::Result<()> {
-        Ok(buffer.put_slice(&self.hash))
+        Ok(buffer.put_slice(&self.raw))
     }
 
     fn encoded_size(&self) -> u64 {
@@ -94,7 +95,7 @@ impl FromHex for Hash {
                 hash_bytes.reverse();
                 let mut hash_array = [0u8; Hash::SIZE as usize];
                 hash_array.copy_from_slice(&hash_bytes);
-                Ok(Hash { hash: hash_array })
+                Ok(Hash { raw: hash_array })
             }
             Err(e) => Err(Error::FromHexError(e)),
         }
@@ -117,7 +118,7 @@ impl From<&[u8]> for Hash {
     /// This converts a u8 encoded hash into a Hash struct.
     fn from(hash_as_bytes: &[u8]) -> Hash {
         Hash {
-            hash: <[u8; 32]>::try_from(hash_as_bytes).expect("Hash must be 32 bytes"),
+            raw: <[u8; 32]>::try_from(hash_as_bytes).expect("Hash must be 32 bytes"),
         }
     }
 }
@@ -125,7 +126,7 @@ impl From<&[u8]> for Hash {
 impl From<Hash> for [u8; 32] {
     /// Convert from Hash to u8 encoding
     fn from(value: Hash) -> Self {
-        value.hash
+        value.raw
     }
 }
 
@@ -139,9 +140,9 @@ impl From<&str> for Hash {
 impl Ord for Hash {
     fn cmp(&self, other: &Hash) -> Ordering {
         for i in (0..32).rev() {
-            if self.hash[i] < other.hash[i] {
+            if self.raw[i] < other.raw[i] {
                 return Ordering::Less;
-            } else if self.hash[i] > other.hash[i] {
+            } else if self.raw[i] > other.raw[i] {
                 return Ordering::Greater;
             }
         }
@@ -192,7 +193,7 @@ mod tests {
     #[test]
     fn sha256d_test() {
         let x = hex::decode("0123456789abcdef").unwrap();
-        let e = hex::encode(Hash::sha256d(&x).hash);
+        let e = hex::encode(Hash::sha256d(&x).raw);
         assert_eq!(
             e,
             "137ad663f79da06e282ed0abbec4d70523ced5ff8e39d5c2e5641d978c5925aa"
