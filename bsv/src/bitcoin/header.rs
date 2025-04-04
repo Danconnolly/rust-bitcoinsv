@@ -1,15 +1,9 @@
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::params::BlockchainId;
-#[cfg(feature = "dev_tokio")]
-use crate::bitcoin::AsyncEncodable;
 use crate::bitcoin::Encodable;
 use crate::Error;
-#[cfg(feature = "dev_tokio")]
-use async_trait::async_trait;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use hex::{FromHex, ToHex};
-#[cfg(feature = "dev_tokio")]
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The BlockHash is used to identify block headers and implement proof of work.
 pub type BlockHash = Hash;
@@ -99,30 +93,6 @@ impl Encodable for BlockHeader {
 
     fn encoded_size(&self) -> u64 {
         Self::SIZE
-    }
-}
-
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for BlockHeader {
-    // todo: async versions untested
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
-        let mut bytes = Vec::with_capacity(BlockHeader::SIZE as usize);
-        reader.read_exact(&mut bytes).await?;
-        Ok(BlockHeader {
-            raw: Bytes::from(bytes),
-        })
-    }
-
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
-        writer.write_all(self.raw.as_ref()).await?;
-        Ok(())
     }
 }
 

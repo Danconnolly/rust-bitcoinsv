@@ -1,8 +1,4 @@
 use crate::bitcoin::crypto::PublicKey;
-#[cfg(feature = "dev_tokio")]
-use crate::bitcoin::AsyncEncodable;
-#[cfg(feature = "dev_tokio")]
-use async_trait::async_trait;
 use hex::{FromHex, ToHex};
 use ring::digest::{digest, SHA256};
 use ripemd::digest::Update;
@@ -10,8 +6,6 @@ use ripemd::{Digest, Ripemd160};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
 use std::fmt;
-#[cfg(feature = "dev_tokio")]
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.
 ///
@@ -48,27 +42,6 @@ impl Hash160 {
         let mut reversed_bytes = self.hash;
         reversed_bytes.reverse();
         encode_fn(&reversed_bytes).chars().collect()
-    }
-}
-
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for Hash160 {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
-        let mut hash_value: [u8; Self::SIZE] = [0; Self::SIZE];
-        reader.read_exact(&mut hash_value).await?;
-        Ok(Hash160 { hash: hash_value })
-    }
-
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
-        writer.write_all(&self.hash).await?;
-        Ok(())
     }
 }
 
@@ -192,8 +165,6 @@ impl<'de> Deserialize<'de> for Hash160 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(feature = "dev_tokio")]
-    use crate::bitcoin::AsyncEncodable;
     use hex;
     use hex::FromHex;
 

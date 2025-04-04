@@ -1,16 +1,10 @@
 use crate::bitcoin::script::byte_seq::ByteSequence;
 use crate::bitcoin::script::Operation;
 use crate::bitcoin::{varint_decode, varint_encode, varint_size, Encodable};
-#[cfg(feature = "dev_tokio")]
-use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
 use crate::{Error, Result};
-#[cfg(feature = "dev_tokio")]
-use async_trait::async_trait;
 use bytes::{Buf, BufMut, Bytes};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "dev_tokio")]
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
 ///
@@ -97,39 +91,6 @@ impl FromHex for Script {
         Ok(Self {
             raw: Bytes::from(raw),
         })
-    }
-}
-
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for Script {
-    /// Decode a Script from an async reader.
-    ///
-    /// A script is always encoded with its size.
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> Result<Self>
-    where
-        Self: Sized,
-    {
-        let size = varint_decode_async(reader).await?;
-        // todo: check size is not too big
-        let mut buffer = vec![0u8; size as usize];
-        let i = reader.read_exact(&mut buffer).await?;
-        if i != (size as usize) {
-            Err(Error::DataTooSmall)
-        } else {
-            Ok(Self {
-                raw: Bytes::from(buffer),
-            })
-        }
-    }
-
-    /// Encode a Script from to an async writer.
-    ///
-    /// A script is always encoded with its size.
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(&self, writer: &mut W) -> Result<()> {
-        varint_encode_async(writer, self.raw.len() as u64).await?;
-        writer.write_all(&self.raw).await?;
-        Ok(())
     }
 }
 

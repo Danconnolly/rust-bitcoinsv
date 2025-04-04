@@ -1,16 +1,10 @@
 use crate::bitcoin::hash::Hash;
 use crate::bitcoin::{varint_decode, varint_encode, varint_size};
-#[cfg(feature = "dev_tokio")]
-use crate::bitcoin::{varint_decode_async, varint_encode_async, AsyncEncodable};
 use crate::bitcoin::{Encodable, Script};
 use crate::Error;
-#[cfg(feature = "dev_tokio")]
-use async_trait::async_trait;
 use bytes::{Buf, BufMut, Bytes};
 use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "dev_tokio")]
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 /// The TxHash is used to identify transactions.
 pub type TxHash = Hash;
@@ -116,55 +110,6 @@ impl Encodable for Tx {
     }
 }
 
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for Tx {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
-        let version = reader.read_u32_le().await?;
-        let num_inputs = varint_decode_async(reader).await?;
-        // todo: check size before allocation
-        let mut inputs = Vec::with_capacity(num_inputs as usize);
-        for _i in 0..num_inputs {
-            let input = TxInput::async_from_binary(reader).await?;
-            inputs.push(input);
-        }
-        let num_outputs = varint_decode_async(reader).await?;
-        // todo: check size before allocation
-        let mut outputs = Vec::with_capacity(num_outputs as usize);
-        for _i in 0..num_outputs {
-            let output = TxOutput::async_from_binary(reader).await?;
-            outputs.push(output);
-        }
-        let lock_time = reader.read_u32_le().await?;
-        Ok(Tx {
-            version,
-            inputs,
-            outputs,
-            lock_time,
-        })
-    }
-
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
-        writer.write_u32_le(self.version).await?;
-        varint_encode_async(writer, self.inputs.len() as u64).await?;
-        for input in self.inputs.iter() {
-            input.async_to_binary(writer).await?;
-        }
-        varint_encode_async(writer, self.outputs.len() as u64).await?;
-        for output in self.outputs.iter() {
-            output.async_to_binary(writer).await?;
-        }
-        writer.write_u32_le(self.lock_time).await?;
-        Ok(())
-    }
-}
-
 /// An Outpoint is a reference to a specific output of a specific transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct Outpoint {
@@ -209,27 +154,6 @@ impl Encodable for Outpoint {
     }
 }
 
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for Outpoint {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
-        let mut v = Vec::with_capacity(Self::SIZE as usize);
-        reader.read_exact(&mut v).await?;
-        Ok(Outpoint { raw: v.into() })
-    }
-
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
-        writer.write_all(self.raw.as_ref()).await?;
-        Ok(())
-    }
-}
-
 /// A TxInput is an input to a transaction.
 #[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
 pub struct TxInput {
@@ -259,34 +183,6 @@ impl Encodable for TxInput {
 
     fn encoded_size(&self) -> u64 {
         self.outpoint.encoded_size() + self.script.encoded_size() + 4
-    }
-}
-
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for TxInput {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
-        let outpoint = Outpoint::async_from_binary(reader).await?;
-        let script = Script::async_from_binary(reader).await?;
-        let sequence = reader.read_u32_le().await?;
-        Ok(TxInput {
-            outpoint,
-            script,
-            sequence,
-        })
-    }
-
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
-        self.outpoint.async_to_binary(writer).await?;
-        self.script.async_to_binary(writer).await?;
-        writer.write_u32_le(self.sequence).await?;
-        Ok(())
     }
 }
 
@@ -322,28 +218,6 @@ impl Encodable for TxOutput {
 
     fn encoded_size(&self) -> u64 {
         self.script.encoded_size() + 8
-    }
-}
-
-#[cfg(feature = "dev_tokio")]
-#[async_trait]
-impl AsyncEncodable for TxOutput {
-    async fn async_from_binary<R: AsyncRead + Unpin + Send>(reader: &mut R) -> crate::Result<Self>
-    where
-        Self: Sized,
-    {
-        let value = reader.read_u64_le().await?;
-        let script = Script::async_from_binary(reader).await?;
-        Ok(TxOutput { value, script })
-    }
-
-    async fn async_to_binary<W: AsyncWrite + Unpin + Send>(
-        &self,
-        writer: &mut W,
-    ) -> crate::Result<()> {
-        writer.write_u64_le(self.value).await?;
-        self.script.async_to_binary(writer).await?;
-        Ok(())
     }
 }
 

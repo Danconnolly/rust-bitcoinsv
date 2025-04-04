@@ -1,6 +1,5 @@
 [workspace]
 members = [
     "bsv",
-    "examples",
 ]
 resolver = "2"
