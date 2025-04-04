@@ -23,6 +23,8 @@ pub use self::header::{BlockHash, BlockHeader, MerkleRoot};
 pub use self::params::{BlockchainId, KeyAddressKind};
 pub use self::script::*;
 pub use self::tx::{Outpoint, Tx, TxHash, TxInput, TxOutput};
-pub use self::var_int::{varint_decode, varint_encode, varint_size};
+pub use self::var_int::{
+    varint_decode, varint_encode, varint_size, VARINT_MAX_SIZE, VARINT_MIN_SIZE,
+};
 
 pub use hex::{FromHex, ToHex};
