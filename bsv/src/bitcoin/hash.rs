@@ -20,7 +20,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 ///
 /// Note that [TxHash], [BlockHash], and [MerkleRoot] are all type aliases for [struct@Hash]. Those aliases
 /// should generally be used instead of this struct.
-/// [MerkleRoot]: crate::bitcoin::MerkleRoot 
+/// [MerkleRoot]: crate::bitcoin::MerkleRoot
 /// [TxHash]: crate::bitcoin::TxHash
 /// [BlockHash]: crate::bitcoin::BlockHash
 // todo: analyse whether to use a Bytes for this or not.
