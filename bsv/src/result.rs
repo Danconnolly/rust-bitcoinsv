@@ -66,7 +66,7 @@ impl std::fmt::Display for Error {
             Error::Secp256k1Error(e) => f.write_str(&format!("secpk256k1 error: {:?}", e)),
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
-            #[cfg(feature = "dev_tokio")]
+            #[cfg(feature = "dev_p2p")]
             Error::MinActorError(e) => f.write_str(&format!("Minactor error: {:?}", e)), // todo: revert to display when implemented
             Error::TryGet(e) => f.write_str(&format!("Tryget error: {}", e)),
         }
