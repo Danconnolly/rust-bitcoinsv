@@ -14,7 +14,7 @@
 //!
 //! * the library will probably never support old versions of Bitcoin. Support for old versions is dead
 //! code and will be removed as quickly as possible.
-//! 
+//!
 //! [BlockchainId]: crate::bitcoin::BlockchainId
 
 /// Functionality related to the core of Bitcoin SV. Transactions, Block Headers, etc.

@@ -11,7 +11,7 @@ use hex::{FromHex, ToHex};
 #[cfg(feature = "dev_tokio")]
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
-/// The BlockHash is used to identify block headers and enforce proof of work.
+/// The BlockHash is used to identify block headers and implement proof of work.
 pub type BlockHash = Hash;
 /// The MerkleRoot is the root of the merkle tree of this block's transaction hashes.
 pub type MerkleRoot = Hash;
