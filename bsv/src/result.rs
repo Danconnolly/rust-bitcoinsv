@@ -41,7 +41,7 @@ pub enum Error {
     IOError(io::Error),
     /// String conversion error
     Utf8Error(FromUtf8Error),
-    #[cfg(feature = "dev_tokio")]
+    #[cfg(feature = "dev_p2p")]
     /// Error from minactor
     MinActorError(minactor::Error),
     /// Error from TryGet
@@ -109,7 +109,7 @@ impl From<secp256k1::Error> for Error {
     }
 }
 
-#[cfg(feature = "dev_tokio")]
+#[cfg(feature = "dev_p2p")]
 impl From<minactor::Error> for Error {
     fn from(e: minactor::Error) -> Self {
         Error::MinActorError(e)
