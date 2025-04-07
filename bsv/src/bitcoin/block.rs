@@ -8,7 +8,7 @@ use bytes::Bytes;
 #[derive(Clone, Debug)]
 pub struct Block {
     /// The encoded block.
-    raw: Bytes,
+    pub raw: Bytes,
     /// The number of transactions in the block.
     pub num_tx: u64,
     /// The offset in the encoded bytes where the transactions begin.
