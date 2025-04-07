@@ -1,6 +1,8 @@
 use bytes::{Buf, BufMut};
 
+/// The minimum size (in bytes) of an encoded VarInt.
 pub const VARINT_MIN_SIZE: usize = 1;
+/// The maximum size (in bytes) of an encoded VarInt.
 pub const VARINT_MAX_SIZE: usize = 9;
 
 /// The size of the value encoded as a varint.
