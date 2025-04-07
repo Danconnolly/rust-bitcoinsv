@@ -25,7 +25,7 @@ serde = { version = "1.0.193", features = ["derive"] }
 
 [dev-dependencies]
 bincode = { version = "2.0.1", default-features = false, features = ["std", "serde"] }
-hex-literal = "0.4.1"
+hex-literal = "1.0.0"
 serde_json = { version = "1.0.108", features = [] }
 
 [lib]
