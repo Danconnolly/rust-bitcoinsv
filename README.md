@@ -15,7 +15,7 @@ If you have anything you particularly want to see, feel free to open an issue or
 
 ## Current Feature Status
 
-* `bitcoin` module: main structs - Tx, BlockHeader, FullBlockStream
+* `bitcoin` module: main structs - Tx, BlockHeader, Block
 * `util` module: main structs - Amount
 
 
