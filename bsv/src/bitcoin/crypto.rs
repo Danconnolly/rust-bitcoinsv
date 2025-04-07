@@ -181,13 +181,14 @@ mod tests {
     #[test]
     fn test_bincode() {
         let privkey = PrivateKey::generate();
-        let e = bincode::serialize(&privkey).unwrap();
-        let d = bincode::deserialize(&e[..]).unwrap();
+        let config = bincode::config::legacy();
+        let e = bincode::serde::encode_to_vec(&privkey, config).unwrap();
+        let (d, _) = bincode::serde::decode_from_slice(&e, config).unwrap();
         assert_eq!(privkey, d);
 
         let pubkey = PublicKey::from(&privkey);
-        let e = bincode::serialize(&pubkey).unwrap();
-        let d = bincode::deserialize(&e[..]).unwrap();
+        let e = bincode::serde::encode_to_vec(&pubkey, config).unwrap();
+        let (d, _) = bincode::serde::decode_from_slice(&e[..], config).unwrap();
         assert_eq!(pubkey, d);
     }
 }

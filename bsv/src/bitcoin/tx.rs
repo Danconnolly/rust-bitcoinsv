@@ -290,11 +290,12 @@ mod tests {
     /// Test Rust standard serde of transaction and sub-structs.
     #[test]
     fn test_bincode() {
+        let config = bincode::config::legacy();
         let (tx_bin, tx_hash) = get_tx1();
         let mut bytes = Bytes::from(tx_bin);
         let tx = Tx::from_binary(&mut bytes).unwrap();
-        let e = bincode::serialize(&tx).unwrap();
-        let tx2: Tx = bincode::deserialize(&e).unwrap();
+        let e = bincode::serde::encode_to_vec(&tx, config).unwrap();
+        let (tx2, _): (Tx, usize) = bincode::serde::decode_from_slice(&e, config).unwrap();
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
     }
