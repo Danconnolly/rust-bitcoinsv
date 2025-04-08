@@ -58,6 +58,16 @@ impl BlockHeader {
         slice.get_u32_le()
     }
 
+    /// Block difficulty
+    pub fn difficulty(&self) -> f64 {
+        let bits = self.bits();
+        let exponent = bits >> 24;
+        let coefficient = bits & 0xFFFFFF;
+        let target = coefficient as f64 * 256f64.powi(exponent as i32 - 3);
+        let max_target = 0xFFFF as f64 * 256f64.powi(0x1D - 3);
+        max_target / target
+    }
+
     /// Nonce used to mine the block.
     pub fn nonce(&self) -> u32 {
         let mut slice = &self.raw[76..80];
@@ -145,6 +155,7 @@ mod tests {
             Hash::from_hex("00000000000000000328503edec3569a36f5b11cdcfbb3f6c5efe39cf1cafad8")
                 .unwrap()
         );
+        assert_eq!(block_header.difficulty(), 131760206200.85753);
     }
 
     fn get_block_header824962() -> (Vec<u8>, BlockHash) {
