@@ -123,6 +123,12 @@ impl From<&[u8]> for Hash {
     }
 }
 
+impl From<[u8; 32]> for Hash {
+    fn from(value: [u8; 32]) -> Self {
+        Hash { raw: value }
+    }
+}
+
 impl From<Hash> for [u8; 32] {
     /// Convert from Hash to u8 encoding
     fn from(value: Hash) -> Self {
