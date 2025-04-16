@@ -144,6 +144,17 @@ impl From<&str> for Hash {
 }
 
 impl Ord for Hash {
+    /// Define the ordering of hashes. The order direction matches the alphabetic ordering of
+    /// their hex representations.
+    ///
+    /// The ordering is byte-wise from the last byte to the first of the encoded form. This matches
+    /// the alphabetical ordering of the hex representation since the hex representation is  
+    /// reversed byte-wise.
+    ///
+    /// I'm not entirely sure this is the right thing to do. The good thing is that it will match
+    /// what a human will want to see in an ordered list of hashes. It also seems to be what other
+    /// libraries do. However, it may mismatch with other systems. For example, if storing the hashes
+    /// in binary form in a database field, the database may order them differently.
     fn cmp(&self, other: &Hash) -> Ordering {
         for i in (0..32).rev() {
             if self.raw[i] < other.raw[i] {
