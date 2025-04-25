@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## version 0.3.3 - 2025-04-25
+
+* add genesis blocks
+* From<[u8:32]> for Hash
+
+## version 0.3.2 - 2025-04-08
+
+* add difficulty for BlockHeader
+
+## version 0.3.1 - 2025-04-07
+
+* make Block.raw public
+
 ## version 0.3.0 - 2025-04-07
 
 * big refactor

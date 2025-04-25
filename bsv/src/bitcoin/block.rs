@@ -1,6 +1,7 @@
-use crate::bitcoin::{varint_decode, varint_size, BlockHeader, Encodable, Tx};
-use crate::Result;
+use crate::bitcoin::{varint_decode, varint_size, BlockHeader, BlockchainId, Encodable, Tx};
+use crate::{Error, Result};
 use bytes::Bytes;
+use hex::{FromHex, ToHex};
 
 /// Contains a full block from the blockchain.
 ///
@@ -26,9 +27,9 @@ impl Block {
         })
     }
 
-    pub fn header(&self) -> Result<BlockHeader> {
+    pub fn header(&self) -> BlockHeader {
         let mut header_bytes = self.raw.slice(0..80);
-        BlockHeader::from_binary(&mut header_bytes).map_err(From::from)
+        BlockHeader::from_binary(&mut header_bytes).unwrap()
     }
 
     pub fn tx_iter(&self) -> BlockTxIterator {
@@ -39,11 +40,40 @@ impl Block {
             offset: 0,
         }
     }
+
+    /// Get the Genesis block for the given blockchain.
+    pub fn get_genesis(blockchain_id: BlockchainId) -> Block {
+        match blockchain_id {
+            BlockchainId::Main => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
+            BlockchainId::Test => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae180101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
+            BlockchainId::Stn => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae180101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
+            BlockchainId::Regtest => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f20020000000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
+        }
+    }
 }
 
 impl From<Bytes> for Block {
     fn from(value: Bytes) -> Self {
         Block::new(value).unwrap()
+    }
+}
+
+impl FromHex for Block {
+    type Error = Error;
+    fn from_hex<T: AsRef<[u8]>>(hex: T) -> std::result::Result<Self, Self::Error> {
+        let bytes = Vec::<u8>::from_hex(hex)?;
+        let b = Bytes::from(bytes);
+        Ok(Block::from(b))
+    }
+}
+
+impl ToHex for Block {
+    fn encode_hex<T: FromIterator<char>>(&self) -> T {
+        self.raw.encode_hex()
+    }
+
+    fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
+        self.raw.encode_hex_upper()
     }
 }
 
@@ -79,6 +109,7 @@ impl Iterator for BlockTxIterator {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::bitcoin::BlockchainId::{Main, Regtest, Stn, Test};
 
     /// Iterate through a known block.
     #[test]
@@ -111,5 +142,15 @@ mod tests {
         let duplicate = block.clone();
         let d_addr = duplicate.raw.as_ptr();
         assert_eq!(input_addr, d_addr);
+    }
+
+    /// check the genesis blocks encoded
+    #[test]
+    fn check_genesis_blocks() {
+        for i in vec![Main, Test, Stn, Regtest] {
+            let genesis_block = Block::get_genesis(i);
+            let _genesis_block_hex: String = genesis_block.encode_hex();
+            assert_eq!(genesis_block.header(), BlockHeader::get_genesis(i));
+        }
     }
 }
