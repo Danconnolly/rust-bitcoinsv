@@ -5,11 +5,12 @@ use crate::{Error, Result};
 use bytes::{Buf, BufMut, Bytes};
 use hex::FromHex;
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
 /// Bitcoin Scripts are used to lock and unlock outputs.
 ///
 /// This struct is a Script in its encoded form and is read-only.
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct Script {
     /// The raw bytes of the script, not including the length of the script.
     pub raw: Bytes,
@@ -91,6 +92,12 @@ impl FromHex for Script {
         Ok(Self {
             raw: Bytes::from(raw),
         })
+    }
+}
+
+impl Debug for Script {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Script({})", hex::encode(&self.raw))
     }
 }
 

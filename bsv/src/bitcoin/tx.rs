@@ -5,6 +5,7 @@ use crate::Error;
 use bytes::{Buf, BufMut, Bytes};
 use hex::{FromHex, ToHex};
 use serde::{Deserialize, Serialize};
+use std::fmt::{Debug, Formatter};
 
 /// The TxHash is used to identify transactions.
 pub type TxHash = Hash;
@@ -111,7 +112,7 @@ impl Encodable for Tx {
 }
 
 /// An Outpoint is a reference to a specific output of a specific transaction.
-#[derive(PartialEq, Eq, Hash, Clone, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Clone, Serialize, Deserialize)]
 pub struct Outpoint {
     pub raw: Bytes,
 }
@@ -151,6 +152,15 @@ impl Encodable for Outpoint {
 
     fn encoded_size(&self) -> u64 {
         Self::SIZE
+    }
+}
+
+impl Debug for Outpoint {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Outpoint")
+            .field("tx_hash", &format!("{}", self.tx_hash()))
+            .field("index", &self.index())
+            .finish()
     }
 }
 
