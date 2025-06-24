@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 /// There are four blockchains, the main, test, stn, and regtest blockchains.
 use serde::{Deserialize, Serialize};
 
@@ -29,6 +30,17 @@ impl From<&str> for BlockchainId {
             "stn" => BlockchainId::Stn,
             "regtest" => BlockchainId::Regtest,
             _ => panic!("Unknown blockchain id: {}", value),
+        }
+    }
+}
+
+impl Display for BlockchainId {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self { 
+            BlockchainId::Main => write!(f, "main"),
+            BlockchainId::Test => write!(f, "test"),
+            BlockchainId::Stn => write!(f, "stn"),
+            BlockchainId::Regtest => write!(f, "regtest"),
         }
     }
 }
