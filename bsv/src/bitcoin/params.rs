@@ -1,6 +1,5 @@
-use std::fmt::{Display, Formatter};
-/// There are four blockchains, the main, test, stn, and regtest blockchains.
 use serde::{Deserialize, Serialize};
+use std::fmt::{Display, Formatter};
 
 /// Bitcoin has multiple blockchains: "main", "test", "regtest", and "stn" chains.
 ///
@@ -36,7 +35,7 @@ impl From<&str> for BlockchainId {
 
 impl Display for BlockchainId {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self { 
+        match self {
             BlockchainId::Main => write!(f, "main"),
             BlockchainId::Test => write!(f, "test"),
             BlockchainId::Stn => write!(f, "stn"),
