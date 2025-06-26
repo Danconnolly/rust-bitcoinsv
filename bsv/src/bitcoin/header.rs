@@ -4,7 +4,7 @@ use crate::bitcoin::Encodable;
 use crate::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use hex::{FromHex, ToHex};
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 /// The BlockHash is used to identify block headers and implement proof of work.
 pub type BlockHash = Hash;
@@ -148,6 +148,23 @@ impl From<Bytes> for BlockHeader {
 impl From<BlockHeader> for Vec<u8> {
     fn from(value: BlockHeader) -> Self {
         value.raw.to_vec()
+    }
+}
+
+impl Display for BlockHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{{{} prev_block={} v={} merkle={} ts={} bits={:x} nonce={} difficulty={:.8}}}",
+            self.hash(),
+            self.prev_hash(),
+            self.version(),
+            self.merkle_root(),
+            self.timestamp(),
+            self.bits(),
+            self.nonce(),
+            self.difficulty()
+        )
     }
 }
 
