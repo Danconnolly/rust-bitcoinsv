@@ -129,6 +129,12 @@ impl ToHex for BlockHeader {
     }
 }
 
+impl From<BlockHeader> for Vec<u8> {
+    fn from(value: BlockHeader) -> Self {
+        value.raw.to_vec()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

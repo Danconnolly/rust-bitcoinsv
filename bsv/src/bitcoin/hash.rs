@@ -136,6 +136,12 @@ impl From<Hash> for [u8; 32] {
     }
 }
 
+impl From<Hash> for Vec<u8> {
+    fn from(value: Hash) -> Self {
+        value.raw.to_vec()
+    }
+}
+
 impl From<&str> for Hash {
     /// This converts a hex encoded hash into a Hash struct.
     fn from(hash_as_hex: &str) -> Hash {
