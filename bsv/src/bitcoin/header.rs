@@ -75,16 +75,14 @@ impl BlockHeader {
     }
 
     /// Create a block header from a slice.
-    /// 
+    ///
     /// Note that From::Bytes is better if you already have a Bytes.
     pub fn from_slice(slice: &[u8]) -> Self {
         let v = slice.to_vec();
         let raw = Bytes::from(v);
-        Self {
-            raw,       
-        }
+        Self { raw }
     }
-    
+
     /// Get the Genesis BlockHeader for the given chain.
     pub fn get_genesis(block_chain: BlockchainId) -> BlockHeader {
         match block_chain {
@@ -142,9 +140,7 @@ impl ToHex for BlockHeader {
 
 impl From<Bytes> for BlockHeader {
     fn from(value: Bytes) -> Self {
-        Self {
-            raw: value,
-        }
+        Self { raw: value }
     }
 }
 

@@ -39,7 +39,7 @@ impl Hash {
         hash256.clone_from_slice(sha256d.as_ref());
         Hash { raw: hash256 }
     }
-    
+
     pub fn from_slice(slice: &[u8]) -> Hash {
         let mut hash = [0; 32];
         hash.copy_from_slice(slice);
