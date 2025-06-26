@@ -155,7 +155,7 @@ impl Display for BlockHeader {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{{hash={}, prev_block={}, v={}, merkle={}, ts={}, bits={:x}, nonce={}, difficulty={:.8}}}",
+            "{{ hash: {}, prev_block: {}, v: {}, merkle: {}, ts: {}, bits: {:x}, nonce: {}, difficulty: {:.8} }}",
             self.hash(),
             self.prev_hash(),
             self.version(),
