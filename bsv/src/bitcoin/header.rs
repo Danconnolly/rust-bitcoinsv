@@ -4,6 +4,7 @@ use crate::bitcoin::Encodable;
 use crate::Error;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use hex::{FromHex, ToHex};
+use std::fmt::{Debug, Formatter};
 
 /// The BlockHash is used to identify block headers and implement proof of work.
 pub type BlockHash = Hash;
@@ -13,7 +14,7 @@ pub type MerkleRoot = Hash;
 /// BlockHeaders are linked together to form a blockchain.
 ///
 /// This implementation stores the encoded form and extracts fields when they are requested.
-#[derive(Debug, Default, PartialEq, Eq, Hash, Clone)]
+#[derive(PartialEq, Eq, Hash, Clone)]
 pub struct BlockHeader {
     pub raw: Bytes,
 }
@@ -147,6 +148,21 @@ impl From<Bytes> for BlockHeader {
 impl From<BlockHeader> for Vec<u8> {
     fn from(value: BlockHeader) -> Self {
         value.raw.to_vec()
+    }
+}
+
+impl Debug for BlockHeader {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BlockHeader")
+            .field("hash", &self.hash())
+            .field("version", &self.version())
+            .field("prev_hash", &self.prev_hash())
+            .field("merkle_root", &self.merkle_root())
+            .field("timestamp", &self.timestamp())
+            .field("bits", &self.bits())
+            .field("nonce", &self.nonce())
+            .field("difficulty", &self.difficulty())
+            .finish()
     }
 }
 
