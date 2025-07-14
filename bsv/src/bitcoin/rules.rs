@@ -39,7 +39,8 @@ pub fn MAX_BLOCK_SIZE(policy: bool) -> u64 {
 /// Consensus Rule - maximum size of transactions - 1GB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#maximum-transaction-size)
 static CRULE_MAX_TX_SIZE: AtomicU64 = AtomicU64::new(1_000_000_000);
 
-/// Policy - maximum transaction size - default 10MB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#maximum-acceptable-transaction-size-policy)
+/// Policy - maximum transaction size - default 10MB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#maximum-acceptable-transaction-size-policy).
+/// In SV Node source code, it is [here](https://github.com/bitcoin-sv/bitcoin-sv/blob/86eb5e8bdf5573c3cd844a1d81bd4fb151b909e0/src/policy/policy.h#L69).
 static POLICY_MAX_TX_SIZE: AtomicU64 = AtomicU64::new(10_000_000);
 
 /// Get the policy or consensus rule value of the maximum size of a transaction.

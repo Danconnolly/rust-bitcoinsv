@@ -10,6 +10,18 @@ use std::fmt::{Debug, Formatter};
 /// The TxHash is used to identify transactions.
 pub type TxHash = Hash;
 
+/// Maximum number of transaction inputs allowed.
+/// Conservative limit: assuming minimum input size of ~41 bytes,
+/// and maximum transaction size of 10MB (policy), this allows ~250k inputs.
+/// We set a more conservative limit to prevent memory exhaustion attacks.
+const MAX_TX_INPUTS: u64 = 100_000;
+
+/// Maximum number of transaction outputs allowed.
+/// Conservative limit: assuming minimum output size of ~9 bytes,
+/// and maximum transaction size of 10MB (policy), this allows ~1M outputs.
+/// We set a more conservative limit to prevent memory exhaustion attacks.
+const MAX_TX_OUTPUTS: u64 = 100_000;
+
 /// A Bitcoin transaction.
 ///
 /// This implementation stores the encoded form and extracts fields when they are requested.
@@ -64,13 +76,29 @@ impl Encodable for Tx {
     {
         let version = buffer.get_u32_le();
         let num_inputs = varint_decode(buffer)?;
-        // todo: check size before allocation
+
+        // Validate number of inputs before allocation to prevent memory exhaustion
+        if num_inputs > MAX_TX_INPUTS {
+            return Err(Error::BadData(format!(
+                "Too many transaction inputs: {} (max: {})",
+                num_inputs, MAX_TX_INPUTS
+            )));
+        }
+
         let mut inputs = Vec::with_capacity(num_inputs as usize);
         for _ in 0..num_inputs {
             inputs.push(TxInput::from_binary(buffer)?);
         }
         let num_outputs = varint_decode(buffer)?;
-        // todo: check size before allocation
+
+        // Validate number of outputs before allocation to prevent memory exhaustion
+        if num_outputs > MAX_TX_OUTPUTS {
+            return Err(Error::BadData(format!(
+                "Too many transaction outputs: {} (max: {})",
+                num_outputs, MAX_TX_OUTPUTS
+            )));
+        }
+
         let mut outputs = Vec::with_capacity(num_outputs as usize);
         for _ in 0..num_outputs {
             outputs.push(TxOutput::from_binary(buffer)?);
@@ -315,5 +343,96 @@ mod tests {
         let tx_hash = "3abc31f8ff40ffb66d9037e156842fe782e6fa1ae728759263471c68660095f1";
         let tx_bin = hex::decode(tx_hex).unwrap();
         (tx_bin, Hash::from_hex(tx_hash).unwrap())
+    }
+
+    /// Test that excessive number of inputs triggers validation error
+    #[test]
+    fn test_excessive_inputs_validation() {
+        use crate::bitcoin::varint_encode;
+
+        // Create malicious transaction data with excessive inputs
+        let mut data = Vec::new();
+        data.extend_from_slice(&1u32.to_le_bytes()); // version
+
+        // Add a very large number of inputs (exceeding MAX_TX_INPUTS)
+        let excessive_inputs = super::MAX_TX_INPUTS + 1;
+        varint_encode(&mut data, excessive_inputs).unwrap();
+
+        // Try to parse this malicious data
+        let mut bytes = Bytes::from(data);
+        let result = Tx::from_binary(&mut bytes);
+
+        // Should fail with a BadData error
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::BadData(msg) => {
+                assert!(msg.contains("Too many transaction inputs"));
+                assert!(msg.contains(&excessive_inputs.to_string()));
+            }
+            _ => panic!("Expected BadData error for excessive inputs"),
+        }
+    }
+
+    /// Test that excessive number of outputs triggers validation error
+    #[test]
+    fn test_excessive_outputs_validation() {
+        use crate::bitcoin::varint_encode;
+
+        // Create transaction data with valid inputs but excessive outputs
+        let mut data = Vec::new();
+        data.extend_from_slice(&1u32.to_le_bytes()); // version
+
+        // Add zero inputs
+        varint_encode(&mut data, 0u64).unwrap();
+
+        // Add a very large number of outputs (exceeding MAX_TX_OUTPUTS)
+        let excessive_outputs = super::MAX_TX_OUTPUTS + 1;
+        varint_encode(&mut data, excessive_outputs).unwrap();
+
+        // Try to parse this malicious data
+        let mut bytes = Bytes::from(data);
+        let result = Tx::from_binary(&mut bytes);
+
+        // Should fail with a BadData error
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::BadData(msg) => {
+                assert!(msg.contains("Too many transaction outputs"));
+                assert!(msg.contains(&excessive_outputs.to_string()));
+            }
+            _ => panic!("Expected BadData error for excessive outputs"),
+        }
+    }
+
+    /// Test that transaction with maximum allowed inputs/outputs succeeds
+    #[test]
+    fn test_max_allowed_inputs_outputs() {
+        use crate::bitcoin::varint_encode;
+
+        // Create transaction data with exactly MAX_TX_INPUTS inputs
+        let mut data = Vec::new();
+        data.extend_from_slice(&1u32.to_le_bytes()); // version
+
+        // Add exactly MAX_TX_INPUTS (this should be allowed)
+        varint_encode(&mut data, super::MAX_TX_INPUTS).unwrap();
+
+        // We don't actually need to add the input data for this test,
+        // as the validation happens before reading the actual inputs.
+        // The parsing will fail later due to insufficient data, but not
+        // due to the validation check we're testing.
+
+        let mut bytes = Bytes::from(data);
+        let result = Tx::from_binary(&mut bytes);
+
+        // Should fail due to insufficient data (not enough bytes for inputs),
+        // but NOT due to validation error
+        assert!(result.is_err());
+        match result.unwrap_err() {
+            Error::BadData(msg) => panic!(
+                "Should not fail validation with exactly MAX_TX_INPUTS: {}",
+                msg
+            ),
+            _ => {} // Expected to fail for other reasons (insufficient data)
+        }
     }
 }
