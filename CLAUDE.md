@@ -69,3 +69,7 @@ Centralized error handling through `bsv/src/result.rs` with a comprehensive `Err
 - Many data structures are immutable and store raw encoded forms
 - Type aliases like `TxHash = Hash` are used throughout for clarity
 - The codebase is experimental/hobby project status as noted in README.md
+
+## Development Workflow
+
+- Always create a new branch when you start to work on a different issue
