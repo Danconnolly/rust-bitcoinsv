@@ -1,0 +1,50 @@
+[package]
+name = "bitcoinsv-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+bytes = "1.10"
+
+[dependencies.bitcoinsv]
+path = "../bsv"
+
+[[bin]]
+name = "fuzz_script_execution"
+path = "fuzz_targets/fuzz_script_execution.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_varint"
+path = "fuzz_targets/fuzz_varint.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_merkle_tree"
+path = "fuzz_targets/fuzz_merkle_tree.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_p2p_messages"
+path = "fuzz_targets/fuzz_p2p_messages.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "fuzz_transaction_parsing"
+path = "fuzz_targets/fuzz_transaction_parsing.rs"
+test = false
+doc = false
+bench = false
