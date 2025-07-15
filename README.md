@@ -5,6 +5,18 @@
 
 NOTE: This library is incomplete and undergoing extensive changes at the moment.
 
+## Breaking Changes in v0.4.0
+
+The `PrivateKey::from<String>` implementation has been changed to use `TryFrom<String>` to improve error handling. Update your code:
+
+```rust
+// Before (v0.3.x)
+let key = PrivateKey::from(wif_string);
+
+// After (v0.4.0)
+let key = PrivateKey::try_from(wif_string)?;
+```
+
 This library is a start at building a high-performance Bitcoin SV library in Rust.
 
 This is a hobby project and the code is experimental. If you're looking for a complete library, check

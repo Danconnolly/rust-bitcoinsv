@@ -73,3 +73,6 @@ Centralized error handling through `bsv/src/result.rs` with a comprehensive `Err
 ## Development Workflow
 
 - Always create a new branch when you start to work on a different issue
+
+## Repository Management
+- Issues are registered on github
