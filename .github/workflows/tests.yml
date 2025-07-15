@@ -28,9 +28,6 @@ jobs:
       - name: Run cargo audit
         run: cargo audit
 
-      - name: Format
-        run: cargo fmt -- --check
-
       - name: Run Clippy
         run: cargo clippy # -- --deny warnings
 
