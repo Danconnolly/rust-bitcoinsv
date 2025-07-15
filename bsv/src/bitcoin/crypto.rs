@@ -4,6 +4,7 @@ use crate::bitcoin::params::KeyAddressKind;
 use crate::{Error, Result};
 use secp256k1::Secp256k1;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 /// A Bitcoin private key.
@@ -81,9 +82,11 @@ impl PrivateKey {
 }
 
 /// Convert a WIF in a string to a PrivateKey.
-impl From<String> for PrivateKey {
-    fn from(value: String) -> Self {
-        PrivateKey::from_wif(&value).unwrap().0
+impl TryFrom<String> for PrivateKey {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        Ok(PrivateKey::from_wif(&value)?.0)
     }
 }
 
@@ -190,5 +193,29 @@ mod tests {
         let e = bincode::serde::encode_to_vec(&pubkey, config).unwrap();
         let (d, _) = bincode::serde::decode_from_slice(&e[..], config).unwrap();
         assert_eq!(pubkey, d);
+    }
+
+    /// Test TryFrom<String> for PrivateKey implementation
+    #[test]
+    fn test_try_from_string() {
+        // Test valid WIF string
+        let valid_wif = String::from("KwTeZVihYnMmcKP5MEfMeN1V726HNKFF84dWzEcqjyc7afgfyn5x");
+        let result = PrivateKey::try_from(valid_wif.clone());
+        assert!(result.is_ok());
+        
+        // Verify it produces the same result as from_wif
+        let try_from_key = result.unwrap();
+        let (from_wif_key, _) = PrivateKey::from_wif(&valid_wif).unwrap();
+        assert_eq!(try_from_key, from_wif_key);
+        
+        // Test invalid WIF string
+        let invalid_wif = String::from("invalid_wif_string");
+        let result = PrivateKey::try_from(invalid_wif);
+        assert!(result.is_err());
+        
+        // Test empty string
+        let empty_wif = String::from("");
+        let result = PrivateKey::try_from(empty_wif);
+        assert!(result.is_err());
     }
 }
