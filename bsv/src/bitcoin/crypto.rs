@@ -205,17 +205,17 @@ mod tests {
         let valid_wif = String::from("KwTeZVihYnMmcKP5MEfMeN1V726HNKFF84dWzEcqjyc7afgfyn5x");
         let result = PrivateKey::try_from(valid_wif.clone());
         assert!(result.is_ok());
-        
+
         // Verify it produces the same result as from_wif
         let try_from_key = result.unwrap();
         let (from_wif_key, _) = PrivateKey::from_wif(&valid_wif).unwrap();
         assert_eq!(try_from_key, from_wif_key);
-        
+
         // Test invalid WIF string
         let invalid_wif = String::from("invalid_wif_string");
         let result = PrivateKey::try_from(invalid_wif);
         assert!(result.is_err());
-        
+
         // Test empty string
         let empty_wif = String::from("");
         let result = PrivateKey::try_from(empty_wif);

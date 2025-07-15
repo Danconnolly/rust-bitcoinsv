@@ -46,6 +46,11 @@ impl Hash {
         Hash { raw: hash }
     }
 
+    /// Get the hash as a Bytes object
+    pub fn encode_bytes(&self) -> bytes::Bytes {
+        bytes::Bytes::copy_from_slice(&self.raw)
+    }
+
     // helper for ToHex trait implementation
     fn generic_encode_hex<T, F>(&self, mut encode_fn: F) -> T
     where

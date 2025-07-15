@@ -17,6 +17,22 @@ pub struct Script {
 }
 
 impl Script {
+    /// Get the length of the script in bytes
+    pub fn len(&self) -> usize {
+        self.raw.len()
+    }
+
+    /// Check if the script is empty
+    pub fn is_empty(&self) -> bool {
+        self.raw.is_empty()
+    }
+
+    /// Get the operations in the script (without trailing data)
+    pub fn operations(&self) -> Result<Vec<Operation>> {
+        let (ops, _) = self.decode()?;
+        Ok(ops)
+    }
+
     /// Decode the script, producing a vector of operations and possibly a byte sequence of trailing data.
     pub fn decode(&self) -> Result<(Vec<Operation>, Option<ByteSequence>)> {
         use Operation::*;

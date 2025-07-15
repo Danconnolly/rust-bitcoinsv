@@ -27,6 +27,30 @@ pub enum Error {
     DataTooSmall,
     /// The data provided is too large to perform the operation.
     DataTooLarge,
+    /// Script is too large
+    ScriptTooLarge,
+    /// Script has too many operations
+    ScriptTooManyOps,
+    /// Script stack overflow
+    ScriptStackOverflow,
+    /// Script unbalanced conditional
+    ScriptUnbalancedConditional,
+    /// Script verify failed
+    ScriptVerifyFailed,
+    /// Script OP_RETURN encountered
+    ScriptOpReturn,
+    /// Script invalid stack operation
+    ScriptInvalidStackOperation,
+    /// Script number too large
+    ScriptNumberTooLarge,
+    /// Script disabled opcode
+    ScriptDisabledOpcode,
+    /// Script requires transaction context
+    ScriptRequiresContext,
+    /// Script reserved opcode
+    ScriptReservedOpcode,
+    /// Script unimplemented opcode
+    ScriptUnimplementedOpcode,
     /// Internal error
     Internal(String),
     /// Internal errors
@@ -56,7 +80,19 @@ impl std::fmt::Display for Error {
             Error::UnrecognizedOpCode => f.write_str("unrecognized opcode"),
             Error::DataTooSmall => f.write_str("data too small"),
             Error::DataTooLarge => f.write_str("data too large"),
-            Error::Internal(s) => f.write_str(&format!("Internal error: {}", s)), // Added this line
+            Error::ScriptTooLarge => f.write_str("script too large"),
+            Error::ScriptTooManyOps => f.write_str("script has too many operations"),
+            Error::ScriptStackOverflow => f.write_str("script stack overflow"),
+            Error::ScriptUnbalancedConditional => f.write_str("script unbalanced conditional"),
+            Error::ScriptVerifyFailed => f.write_str("script verify failed"),
+            Error::ScriptOpReturn => f.write_str("script OP_RETURN encountered"),
+            Error::ScriptInvalidStackOperation => f.write_str("script invalid stack operation"),
+            Error::ScriptNumberTooLarge => f.write_str("script number too large"),
+            Error::ScriptDisabledOpcode => f.write_str("script disabled opcode"),
+            Error::ScriptRequiresContext => f.write_str("script requires transaction context"),
+            Error::ScriptReservedOpcode => f.write_str("script reserved opcode"),
+            Error::ScriptUnimplementedOpcode => f.write_str("script unimplemented opcode"),
+            Error::Internal(s) => f.write_str(&format!("Internal error: {}", s)),
             Error::InternalError(e) => e.fmt(f),
             Error::FromHexError(e) => f.write_str(&format!("Hex decoding error: {}", e)),
             Error::FromBase58Error(e) => f.write_str(&format!("Base58 decoding error: {:?}", e)),
