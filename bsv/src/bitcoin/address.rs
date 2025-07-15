@@ -61,7 +61,7 @@ mod tests {
         let (pv, n) = PrivateKey::from_wif(
             &"KwTeZVihYnMmcKP5MEfMeN1V726HNKFF84dWzEcqjyc7afgfyn5x".to_string(),
         )
-        .unwrap();
+        .expect("Failed to parse WIF private key for test");
         assert_eq!(n, KeyAddressKind::Main);
         let addr = Address::from_pv(&pv, n);
         assert_eq!(addr.kind, KeyAddressKind::Main);
@@ -79,7 +79,7 @@ mod tests {
         let key = PublicKey::from_str(
             "031adba39196c65be0e61c6ddf57b397aa246729f5b639bd5bc9b5c55cf14af107",
         )
-        .unwrap();
+        .expect("Failed to parse public key from hex for test");
         let addr = Address::from_pubkey(&key, KeyAddressKind::Main);
         assert_eq!(
             addr.to_string(),
@@ -95,7 +95,7 @@ mod tests {
         let key = PublicKey::from_str(
             "0319a115644e45738b06b7274b45c36c7c1cbecef32d667b9246eba684939ca1bc",
         )
-        .unwrap();
+        .expect("Failed to parse public key from hex for STN test");
         let addr = Address::from_pubkey(&key, KeyAddressKind::NotMain);
         assert_eq!(
             addr.to_string(),

@@ -41,8 +41,7 @@ impl ScriptBuilder {
             o.to_binary(&mut buffer)?;
             last_opreturn = *o == Operation::OP_RETURN;
         }
-        if self.trailing.is_some() {
-            let o = self.trailing.clone().unwrap();
+        if let Some(o) = self.trailing.clone() {
             if !last_opreturn {
                 Operation::OP_RETURN.to_binary(&mut buffer)?;
             }
@@ -93,7 +92,7 @@ mod tests {
             .add(OP_EQUALVERIFY)
             .add(OP_CHECKSIG)
             .build()
-            .unwrap();
+            .expect("Failed to build script for test");
         assert_eq!(script.raw.len(), 25);
         assert_eq!(
             script.raw,

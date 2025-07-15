@@ -122,9 +122,14 @@ impl ToHex for Hash {
 
 impl From<&[u8]> for Hash {
     /// This converts a u8 encoded hash into a Hash struct.
+    ///
+    /// # Panics
+    /// Panics if the slice is not exactly 32 bytes.
     fn from(hash_as_bytes: &[u8]) -> Hash {
-        Hash {
-            raw: <[u8; 32]>::try_from(hash_as_bytes).expect("Hash must be 32 bytes"),
+        if hash_as_bytes.len() == 32 {
+            Hash::from_slice(hash_as_bytes)
+        } else {
+            panic!("Hash must be exactly 32 bytes, got {}", hash_as_bytes.len())
         }
     }
 }
@@ -148,10 +153,12 @@ impl From<Hash> for Vec<u8> {
     }
 }
 
-impl From<&str> for Hash {
+impl TryFrom<&str> for Hash {
+    type Error = Error;
+
     /// This converts a hex encoded hash into a Hash struct.
-    fn from(hash_as_hex: &str) -> Hash {
-        Hash::from_hex(hash_as_hex).unwrap()
+    fn try_from(hash_as_hex: &str) -> Result<Self, Self::Error> {
+        Hash::from_hex(hash_as_hex)
     }
 }
 
@@ -221,7 +228,7 @@ mod tests {
 
     #[test]
     fn sha256d_test() {
-        let x = hex::decode("0123456789abcdef").unwrap();
+        let x = hex::decode("0123456789abcdef").expect("Failed to decode hex for test");
         let e = hex::encode(Hash::sha256d(&x).raw);
         assert_eq!(
             e,
@@ -252,23 +259,38 @@ mod tests {
     fn hash_compare() {
         let s1 = "5555555555555555555555555555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert_eq!(Hash::from_hex(s1).unwrap(), Hash::from_hex(s2).unwrap());
+        assert_eq!(
+            Hash::from_hex(s1).expect("Failed to parse hash 1"),
+            Hash::from_hex(s2).expect("Failed to parse hash 2")
+        );
 
         let s1 = "0555555555555555555555555555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::from_hex(s1).unwrap() < Hash::from_hex(s2).unwrap());
+        assert!(
+            Hash::from_hex(s1).expect("Failed to parse hash 1")
+                < Hash::from_hex(s2).expect("Failed to parse hash 2")
+        );
 
         let s1 = "5555555555555555555555555555555555555555555555555555555555555550";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::from_hex(s1).unwrap() < Hash::from_hex(s2).unwrap());
+        assert!(
+            Hash::from_hex(s1).expect("Failed to parse hash 1")
+                < Hash::from_hex(s2).expect("Failed to parse hash 2")
+        );
 
         let s1 = "6555555555555555555555555555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::from_hex(s1).unwrap() > Hash::from_hex(s2).unwrap());
+        assert!(
+            Hash::from_hex(s1).expect("Failed to parse hash 1")
+                > Hash::from_hex(s2).expect("Failed to parse hash 2")
+        );
 
         let s1 = "5555555555555555555555555555555555555555555555555555555555555556";
         let s2 = "5555555555555555555555555555555555555555555555555555555555555555";
-        assert!(Hash::from_hex(s1).unwrap() > Hash::from_hex(s2).unwrap());
+        assert!(
+            Hash::from_hex(s1).expect("Failed to parse hash 1")
+                > Hash::from_hex(s2).expect("Failed to parse hash 2")
+        );
     }
 
     /// Test binary read of hash
@@ -279,7 +301,7 @@ mod tests {
             0x0c, 0x40, 0xa6, 0xe5, 0xae, 0x6b, 0x05, 0xab, 0x12, 0xc9, 0x38, 0x81, 0xaf, 0x7f,
             0x8a, 0x04, 0x53, 0xf2,
         ]);
-        let h = Hash::from_binary(&mut b).unwrap();
+        let h = Hash::from_binary(&mut b).expect("Failed to parse hash from binary for test");
         assert_eq!(
             h.encode_hex::<String>(),
             "f253048a7faf8138c912ab056baee5a6400c0c4b0cfacc975cb7f73c087bc7be"
@@ -289,9 +311,10 @@ mod tests {
     #[test]
     fn hash_write() {
         let s = "684b2f7e73dec228a7bf9a73495eeb6a28f2cda66b7f8e1627fdff8922ec754f";
-        let h = Hash::from_hex(s).unwrap();
+        let h = Hash::from_hex(s).expect("Failed to parse hash from hex for test");
         let mut v = Vec::with_capacity(Hash::SIZE as usize);
-        h.to_binary(&mut v).unwrap();
+        h.to_binary(&mut v)
+            .expect("Failed to serialize hash to binary for test");
         let c = vec![
             0x4f, 0x75, 0xec, 0x22, 0x89, 0xff, 0xfd, 0x27, 0x16, 0x8e, 0x7f, 0x6b, 0xa6, 0xcd,
             0xf2, 0x28, 0x6a, 0xeb, 0x5e, 0x49, 0x73, 0x9a, 0xbf, 0xa7, 0x28, 0xc2, 0xde, 0x73,

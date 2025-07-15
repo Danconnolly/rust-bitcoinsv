@@ -993,17 +993,17 @@ mod tests {
     #[test]
     fn simple_reads() {
         let mut op1: &[u8] = &[0u8];
-        let r = Operation::from_binary(&mut op1).unwrap();
+        let r = Operation::from_binary(&mut op1).expect("Failed to parse OP_0 for test");
         assert_eq!(r, Operation::OP_0);
 
         // op_push 4 bytes
         let mut op2: &[u8] = &[4u8, 0, 1, 2, 3];
-        let r = Operation::from_binary(&mut op2).unwrap();
+        let r = Operation::from_binary(&mut op2).expect("Failed to parse OP_PUSH for test");
         assert!(matches!(r, Operation::OP_PUSH { .. }));
 
         // op_pushdata1
         let mut op3: &[u8] = &[76u8, 4, 1, 2, 3, 4];
-        let r = Operation::from_binary(&mut op3).unwrap();
+        let r = Operation::from_binary(&mut op3).expect("Failed to parse OP_PUSHDATA1 for test");
         assert!(matches!(r, Operation::OP_PUSHDATA1 { .. }));
     }
 
@@ -1014,11 +1014,12 @@ mod tests {
             let mut i: &[u8] = &[j];
             let o = Operation::from_binary(&mut i);
             if o.is_ok() {
-                let o = o.unwrap();
+                let o = o.expect("Operation should parse successfully for this opcode");
                 if o != Operation::OP_RESERVED && o != Operation::OP_NOP && o != Operation::OP_UPNOP
                 {
                     let mut b = BytesMut::with_capacity(10);
-                    o.to_binary(&mut b).unwrap();
+                    o.to_binary(&mut b)
+                        .expect("Failed to serialize operation for test");
                     assert_eq!(b[0], j);
                 }
             } else {

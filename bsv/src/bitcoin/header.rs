@@ -87,10 +87,10 @@ impl BlockHeader {
     /// Get the Genesis BlockHeader for the given chain.
     pub fn get_genesis(block_chain: BlockchainId) -> BlockHeader {
         match block_chain {
-            BlockchainId::Main => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c").unwrap(),
-            BlockchainId::Test => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18").unwrap(),
-            BlockchainId::Stn => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18").unwrap(),
-            BlockchainId::Regtest => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f2002000000").unwrap(),
+            BlockchainId::Main => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c").expect("Failed to decode main genesis header"),
+            BlockchainId::Test => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18").expect("Failed to decode test genesis header"),
+            BlockchainId::Stn => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae18").expect("Failed to decode stn genesis header"),
+            BlockchainId::Regtest => BlockHeader::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f2002000000").expect("Failed to decode regtest genesis header"),
         }
     }
 }
@@ -128,13 +128,15 @@ impl FromHex for BlockHeader {
 impl ToHex for BlockHeader {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut bytes = BytesMut::with_capacity(BlockHeader::SIZE as usize);
-        self.to_binary(&mut bytes).unwrap();
+        self.to_binary(&mut bytes)
+            .expect("Failed to encode header to binary");
         bytes.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         let mut bytes = BytesMut::with_capacity(BlockHeader::SIZE as usize);
-        self.to_binary(&mut bytes).unwrap();
+        self.to_binary(&mut bytes)
+            .expect("Failed to encode header to binary");
         bytes.encode_hex_upper()
     }
 }
@@ -193,7 +195,8 @@ mod tests {
     fn block_header_read() {
         let (block_header_bin, block_header_hash) = get_block_header824962();
         let mut bh_bytes = Bytes::from(block_header_bin);
-        let block_header = BlockHeader::from_binary(&mut bh_bytes).unwrap();
+        let block_header =
+            BlockHeader::from_binary(&mut bh_bytes).expect("Failed to decode test block header");
         assert_eq!(block_header.version(), 609435648);
         assert_eq!(block_header.hash(), block_header_hash);
         assert_eq!(block_header.nonce(), 1285270638);
@@ -201,28 +204,28 @@ mod tests {
         assert_eq!(
             block_header.merkle_root(),
             Hash::from_hex("39513f5dd95fcb548f43a6e2719819d3f6ecee1c52e7e64bf25b0e93b5bd4227")
-                .unwrap()
+                .expect("Failed to decode test merkle root")
         );
         assert_eq!(block_header.timestamp(), 1703972259);
         assert_eq!(
             block_header.prev_hash(),
             Hash::from_hex("00000000000000000328503edec3569a36f5b11cdcfbb3f6c5efe39cf1cafad8")
-                .unwrap()
+                .expect("Failed to decode test prev hash")
         );
         assert_eq!(block_header.difficulty(), 131760206200.85753);
     }
 
     fn get_block_header824962() -> (Vec<u8>, BlockHash) {
         (
-            Vec::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").unwrap(),
-            Hash::from_hex("000000000000000001749126813c455cabd41bb80fdfc1833ffe09deacb91967").unwrap()
+            Vec::from_hex("00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c").expect("Failed to decode test header data"),
+            Hash::from_hex("000000000000000001749126813c455cabd41bb80fdfc1833ffe09deacb91967").expect("Failed to decode test header hash")
         )
     }
 
     #[test]
     fn check_hex_encode() {
         let o = "00405324d8facaf19ce3efc5f6b3fbdc1cb1f5369a56c3de3e50280300000000000000002742bdb5930e5bf24be6e7521ceeecf6d3199871e2a6438f54cb5fd95d3f5139a38d90653c5808186eac9b4c";
-        let bh = BlockHeader::from_hex(o).unwrap();
+        let bh = BlockHeader::from_hex(o).expect("Failed to decode test header from hex");
         let s = bh.encode_hex::<String>();
         assert_eq!(s, o);
     }
@@ -234,25 +237,25 @@ mod tests {
         assert_eq!(
             hdr.hash(),
             BlockHash::from_hex("000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f")
-                .unwrap()
+                .expect("Failed to decode main genesis hash")
         );
         let hdr = BlockHeader::get_genesis(BlockchainId::Test);
         assert_eq!(
             hdr.hash(),
             BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943")
-                .unwrap()
+                .expect("Failed to decode test genesis hash")
         );
         let hdr = BlockHeader::get_genesis(BlockchainId::Stn);
         assert_eq!(
             hdr.hash(),
             BlockHash::from_hex("000000000933ea01ad0ee984209779baaec3ced90fa3f408719526f8d77f4943")
-                .unwrap()
+                .expect("Failed to decode test genesis hash")
         );
         let hdr = BlockHeader::get_genesis(BlockchainId::Regtest);
         assert_eq!(
             hdr.hash(),
             BlockHash::from_hex("0f9188f13cb7b2c71f2a335e3a4fc328bf5beb436012afca590b1a11466e2206")
-                .unwrap()
+                .expect("Failed to decode regtest genesis hash")
         );
     }
 }

@@ -40,7 +40,8 @@ pub struct Tx {
 impl Tx {
     pub fn hash(&self) -> Hash {
         let mut v = Vec::with_capacity(self.encoded_size() as usize);
-        self.to_binary(&mut v).unwrap();
+        self.to_binary(&mut v)
+            .expect("Failed to serialize transaction to binary");
         Hash::sha256d(&v)
     }
 }
@@ -58,13 +59,15 @@ impl FromHex for Tx {
 impl ToHex for Tx {
     fn encode_hex<T: FromIterator<char>>(&self) -> T {
         let mut v = Vec::with_capacity(self.encoded_size() as usize);
-        self.to_binary(&mut v).unwrap();
+        self.to_binary(&mut v)
+            .expect("Failed to serialize transaction to hex");
         v.encode_hex()
     }
 
     fn encode_hex_upper<T: FromIterator<char>>(&self) -> T {
         let mut v = Vec::with_capacity(self.encoded_size() as usize);
-        self.to_binary(&mut v).unwrap();
+        self.to_binary(&mut v)
+            .expect("Failed to serialize transaction to hex uppercase");
         v.encode_hex_upper()
     }
 }
@@ -271,7 +274,8 @@ mod tests {
         let (tx_bin, tx_hash) = get_tx1();
         let l = tx_bin.len() as u64;
         let mut bytes = Bytes::from(tx_bin);
-        let tx = Tx::from_binary(&mut bytes).unwrap();
+        let tx =
+            Tx::from_binary(&mut bytes).expect("Failed to parse transaction from binary for test");
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(l, tx.encoded_size());
@@ -292,7 +296,8 @@ mod tests {
         let (mut tx_bin, tx_hash) = get_tx1();
         tx_bin.append(&mut vec![0u8; 100]);
         let mut bytes = Bytes::from(tx_bin);
-        let tx = Tx::from_binary(&mut bytes).unwrap();
+        let tx =
+            Tx::from_binary(&mut bytes).expect("Failed to parse transaction from binary for test");
         assert_eq!(tx.encoded_size(), 211);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.hash(), tx_hash);
@@ -302,8 +307,10 @@ mod tests {
     fn read_from_hex() {
         let (tx_bin, tx_hash) = get_tx1();
         let mut bytes = Bytes::from(tx_bin);
-        let tx = Tx::from_binary(&mut bytes).unwrap();
-        let tx2 = Tx::from_hex(tx.encode_hex::<String>()).unwrap();
+        let tx =
+            Tx::from_binary(&mut bytes).expect("Failed to parse transaction from binary for test");
+        let tx2 = Tx::from_hex(tx.encode_hex::<String>())
+            .expect("Failed to parse transaction from hex string");
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
     }
@@ -312,14 +319,19 @@ mod tests {
     fn check_deser() {
         let (tx_bin, tx_hash) = get_tx1();
         let mut bytes = Bytes::from(tx_bin);
-        let tx = Tx::from_binary(&mut bytes).unwrap();
+        let tx =
+            Tx::from_binary(&mut bytes).expect("Failed to parse transaction from binary for test");
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx.version, 1);
         assert_eq!(tx.inputs.len(), 1);
-        let i = tx.inputs.first().unwrap();
+        let i = tx
+            .inputs
+            .first()
+            .expect("Transaction should have at least one input");
         assert_eq!(
             i.outpoint.tx_hash(),
-            Hash::from("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a")
+            Hash::from_hex("755f816c02d01c9c0a2f80079132d7b05a1891dc0c860afc6b13e27adc2e058a")
+                .expect("Valid hash for test")
         );
         assert_eq!(i.outpoint.index(), 1);
         assert_eq!(tx.outputs.len(), 2);
@@ -331,9 +343,12 @@ mod tests {
         let config = bincode::config::legacy();
         let (tx_bin, tx_hash) = get_tx1();
         let mut bytes = Bytes::from(tx_bin);
-        let tx = Tx::from_binary(&mut bytes).unwrap();
-        let e = bincode::serde::encode_to_vec(&tx, config).unwrap();
-        let (tx2, _): (Tx, usize) = bincode::serde::decode_from_slice(&e, config).unwrap();
+        let tx =
+            Tx::from_binary(&mut bytes).expect("Failed to parse transaction from binary for test");
+        let e = bincode::serde::encode_to_vec(&tx, config)
+            .expect("Failed to encode transaction with bincode");
+        let (tx2, _): (Tx, usize) = bincode::serde::decode_from_slice(&e, config)
+            .expect("Failed to decode transaction with bincode");
         assert_eq!(tx.hash(), tx_hash);
         assert_eq!(tx2.hash(), tx_hash);
     }
@@ -341,8 +356,11 @@ mod tests {
     fn get_tx1() -> (Vec<u8>, Hash) {
         let tx_hex = "01000000018a052edc7ae2136bfc0a860cdc91185ab0d7329107802f0a9c1cd0026c815f75010000006b483045022100e587ef1b4497a6694cad646cab468b6ece2fa98c7f49f9488611ca34eecebd1002205c4ea9066484bd1bffb7fdd7d84b5ae0ee6b7cdc20a8a513e41e420e0633b98841210262142850483b6728b8ecd299e4d0c8cf30ea0636f66205166814e52d73b64b4bffffffff0200000000000000000a006a075354554b2e434fb8ce3f01000000001976a91454cba8da8701174e34aac2bb31d42a88e2c302d088ac00000000";
         let tx_hash = "3abc31f8ff40ffb66d9037e156842fe782e6fa1ae728759263471c68660095f1";
-        let tx_bin = hex::decode(tx_hex).unwrap();
-        (tx_bin, Hash::from_hex(tx_hash).unwrap())
+        let tx_bin = hex::decode(tx_hex).expect("Failed to decode hex string for test transaction");
+        (
+            tx_bin,
+            Hash::from_hex(tx_hash).expect("Failed to parse hash from hex for test"),
+        )
     }
 
     /// Test that excessive number of inputs triggers validation error
@@ -356,7 +374,7 @@ mod tests {
 
         // Add a very large number of inputs (exceeding MAX_TX_INPUTS)
         let excessive_inputs = super::MAX_TX_INPUTS + 1;
-        varint_encode(&mut data, excessive_inputs).unwrap();
+        varint_encode(&mut data, excessive_inputs).expect("Failed to encode varint for test");
 
         // Try to parse this malicious data
         let mut bytes = Bytes::from(data);
@@ -364,7 +382,7 @@ mod tests {
 
         // Should fail with a BadData error
         assert!(result.is_err());
-        match result.unwrap_err() {
+        match result.expect_err("Parsing should fail with validation error") {
             Error::BadData(msg) => {
                 assert!(msg.contains("Too many transaction inputs"));
                 assert!(msg.contains(&excessive_inputs.to_string()));
@@ -383,11 +401,12 @@ mod tests {
         data.extend_from_slice(&1u32.to_le_bytes()); // version
 
         // Add zero inputs
-        varint_encode(&mut data, 0u64).unwrap();
+        varint_encode(&mut data, 0u64).expect("Failed to encode zero inputs for test");
 
         // Add a very large number of outputs (exceeding MAX_TX_OUTPUTS)
         let excessive_outputs = super::MAX_TX_OUTPUTS + 1;
-        varint_encode(&mut data, excessive_outputs).unwrap();
+        varint_encode(&mut data, excessive_outputs)
+            .expect("Failed to encode excessive outputs for test");
 
         // Try to parse this malicious data
         let mut bytes = Bytes::from(data);
@@ -395,7 +414,7 @@ mod tests {
 
         // Should fail with a BadData error
         assert!(result.is_err());
-        match result.unwrap_err() {
+        match result.expect_err("Parsing should fail with validation error") {
             Error::BadData(msg) => {
                 assert!(msg.contains("Too many transaction outputs"));
                 assert!(msg.contains(&excessive_outputs.to_string()));
@@ -414,7 +433,8 @@ mod tests {
         data.extend_from_slice(&1u32.to_le_bytes()); // version
 
         // Add exactly MAX_TX_INPUTS (this should be allowed)
-        varint_encode(&mut data, super::MAX_TX_INPUTS).unwrap();
+        varint_encode(&mut data, super::MAX_TX_INPUTS)
+            .expect("Failed to encode max inputs for test");
 
         // We don't actually need to add the input data for this test,
         // as the validation happens before reading the actual inputs.
@@ -427,7 +447,7 @@ mod tests {
         // Should fail due to insufficient data (not enough bytes for inputs),
         // but NOT due to validation error
         assert!(result.is_err());
-        match result.unwrap_err() {
+        match result.expect_err("Parsing should fail with validation error") {
             Error::BadData(msg) => panic!(
                 "Should not fail validation with exactly MAX_TX_INPUTS: {}",
                 msg

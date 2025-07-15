@@ -30,9 +30,7 @@ pub fn decode_with_checksum(encoded: &String) -> Result<Vec<u8>> {
     let l = data.len();
     if l < 5 {
         Err(Error::BadData(
-            "base58 string too short to contain checksum"
-                .parse()
-                .unwrap(),
+            "base58 string too short to contain checksum".to_string(),
         ))
     } else {
         let ck = Hash::sha256d(&data[..l - 4]);
@@ -65,8 +63,8 @@ mod tests {
     #[test]
     fn test_base58ck_decode() {
         let h = hex!("002c7a568d346629f5308a5b75d825d28b09297153");
-        let addr: String = "154BHe8d7Dmm7pWLG8J9gceXiCfCRDtWAo".parse().unwrap();
-        let r = decode_with_checksum(&addr).unwrap();
+        let addr: String = "154BHe8d7Dmm7pWLG8J9gceXiCfCRDtWAo".to_string();
+        let r = decode_with_checksum(&addr).expect("Failed to decode test address");
         assert_eq!(*r, h);
     }
 }

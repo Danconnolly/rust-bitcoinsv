@@ -4,6 +4,7 @@ use crate::bitcoin::params::KeyAddressKind;
 use crate::{Error, Result};
 use secp256k1::Secp256k1;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::str::FromStr;
 
 /// A Bitcoin private key.
@@ -81,9 +82,11 @@ impl PrivateKey {
 }
 
 /// Convert a WIF in a string to a PrivateKey.
-impl From<String> for PrivateKey {
-    fn from(value: String) -> Self {
-        PrivateKey::from_wif(&value).unwrap().0
+impl TryFrom<String> for PrivateKey {
+    type Error = Error;
+
+    fn try_from(value: String) -> Result<Self> {
+        Ok(PrivateKey::from_wif(&value)?.0)
     }
 }
 
@@ -161,7 +164,7 @@ mod tests {
         let privkey = PrivateKey::generate();
         let wif = privkey.to_wif(KeyAddressKind::Main);
         assert!(!wif.is_empty());
-        let (p_key2, blk_chain) = PrivateKey::from_wif(&wif).unwrap();
+        let (p_key2, blk_chain) = PrivateKey::from_wif(&wif).expect("Failed to parse WIF");
         assert_eq!(privkey, p_key2);
         assert_eq!(blk_chain, KeyAddressKind::Main);
     }
@@ -171,7 +174,8 @@ mod tests {
     fn test_known_addresses() {
         let stn_addr = "n2ziCHyDm8wr7owJwF3smicSBAcP17L8HS";
         let stn_wif = String::from("cU5N3pE6QnRd3rZFgv1KMvUkDwMY4Vnya3bLE5JtZG3Hb549pzDN");
-        let (privkey, bchain) = PrivateKey::from_wif(&stn_wif).unwrap();
+        let (privkey, bchain) =
+            PrivateKey::from_wif(&stn_wif).expect("Failed to parse known STN WIF");
         assert_eq!(bchain, KeyAddressKind::NotMain); // stn is indistinguishable from testnet
         let addr = Address::from_pv(&privkey, bchain);
         assert_eq!(addr.to_string(), stn_addr);
@@ -182,13 +186,15 @@ mod tests {
     fn test_bincode() {
         let privkey = PrivateKey::generate();
         let config = bincode::config::legacy();
-        let e = bincode::serde::encode_to_vec(&privkey, config).unwrap();
-        let (d, _) = bincode::serde::decode_from_slice(&e, config).unwrap();
+        let e = bincode::serde::encode_to_vec(&privkey, config).expect("Failed to encode privkey");
+        let (d, _) =
+            bincode::serde::decode_from_slice(&e, config).expect("Failed to decode privkey");
         assert_eq!(privkey, d);
 
         let pubkey = PublicKey::from(&privkey);
-        let e = bincode::serde::encode_to_vec(&pubkey, config).unwrap();
-        let (d, _) = bincode::serde::decode_from_slice(&e[..], config).unwrap();
+        let e = bincode::serde::encode_to_vec(&pubkey, config).expect("Failed to encode pubkey");
+        let (d, _) =
+            bincode::serde::decode_from_slice(&e[..], config).expect("Failed to decode pubkey");
         assert_eq!(pubkey, d);
     }
 }

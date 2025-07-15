@@ -1,4 +1,6 @@
+use crate::Error;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
 use std::fmt::{Display, Formatter};
 
 /// Bitcoin has multiple blockchains: "main", "test", "regtest", and "stn" chains.
@@ -19,16 +21,21 @@ pub enum BlockchainId {
     Regtest = 3,
 }
 
-impl From<&str> for BlockchainId {
-    fn from(value: &str) -> Self {
+impl TryFrom<&str> for BlockchainId {
+    type Error = Error;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         match value {
-            "main" => BlockchainId::Main,
-            "mainnet" => BlockchainId::Main,
-            "test" => BlockchainId::Test,
-            "testnet" => BlockchainId::Test,
-            "stn" => BlockchainId::Stn,
-            "regtest" => BlockchainId::Regtest,
-            _ => panic!("Unknown blockchain id: {}", value),
+            "main" => Ok(BlockchainId::Main),
+            "mainnet" => Ok(BlockchainId::Main),
+            "test" => Ok(BlockchainId::Test),
+            "testnet" => Ok(BlockchainId::Test),
+            "stn" => Ok(BlockchainId::Stn),
+            "regtest" => Ok(BlockchainId::Regtest),
+            _ => Err(Error::BadArgument(format!(
+                "Unknown blockchain id: {}",
+                value
+            ))),
         }
     }
 }
@@ -94,35 +101,38 @@ mod tests {
     #[test]
     fn json_serialize_blockchain() {
         let chain = BlockchainId::Main;
-        let json = serde_json::to_string(&chain).unwrap();
+        let json = serde_json::to_string(&chain).expect("Failed to serialize blockchain");
         assert_eq!(json, "\"main\"");
         let chain = BlockchainId::Test;
-        let json = serde_json::to_string(&chain).unwrap();
+        let json = serde_json::to_string(&chain).expect("Failed to serialize blockchain");
         assert_eq!(json, "\"test\"");
         let chain = BlockchainId::Stn;
-        let json = serde_json::to_string(&chain).unwrap();
+        let json = serde_json::to_string(&chain).expect("Failed to serialize blockchain");
         assert_eq!(json, "\"stn\"");
         let chain = BlockchainId::Regtest;
-        let json = serde_json::to_string(&chain).unwrap();
+        let json = serde_json::to_string(&chain).expect("Failed to serialize blockchain");
         assert_eq!(json, "\"regtest\"");
     }
 
     #[test]
     fn json_deserialize_blockchain() {
         let json = "\"main\"";
-        let chain: BlockchainId = serde_json::from_str(json).unwrap();
+        let chain: BlockchainId =
+            serde_json::from_str(json).expect("Failed to deserialize blockchain");
         assert_eq!(chain, BlockchainId::Main);
-        let chain = BlockchainId::from("test");
+        let chain = BlockchainId::try_from("test").expect("Failed to convert blockchain id");
         assert_eq!(chain, BlockchainId::Test);
     }
 
     #[test]
     fn json_deserialize_old_names() {
         let json = "\"mainnet\"";
-        let chain: BlockchainId = serde_json::from_str(json).unwrap();
+        let chain: BlockchainId =
+            serde_json::from_str(json).expect("Failed to deserialize blockchain");
         assert_eq!(chain, BlockchainId::Main);
         let json = "\"testnet\"";
-        let chain: BlockchainId = serde_json::from_str(json).unwrap();
+        let chain: BlockchainId =
+            serde_json::from_str(json).expect("Failed to deserialize blockchain");
         assert_eq!(chain, BlockchainId::Test);
     }
 }

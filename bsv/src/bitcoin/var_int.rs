@@ -72,51 +72,51 @@ mod tests {
 
     fn write_read_value(n: u64) {
         let mut v = BytesMut::new();
-        varint_encode(&mut v, n).unwrap();
-        let j = varint_decode(&mut v).unwrap();
+        varint_encode(&mut v, n).expect("Failed to encode varint");
+        let j = varint_decode(&mut v).expect("Failed to decode varint");
         assert_eq!(j, n);
     }
 
     #[test]
     fn test_known_values() {
         let mut v = Vec::new();
-        varint_encode(&mut v, 0).unwrap();
+        varint_encode(&mut v, 0).expect("Failed to encode varint");
         assert_eq!(v, vec![0]);
         v.clear();
-        varint_encode(&mut v, 1).unwrap();
+        varint_encode(&mut v, 1).expect("Failed to encode varint");
         assert_eq!(v, vec![1]);
         v.clear();
-        varint_encode(&mut v, 252).unwrap();
+        varint_encode(&mut v, 252).expect("Failed to encode varint");
         assert_eq!(v, vec![252]);
         v.clear();
-        varint_encode(&mut v, 253).unwrap();
+        varint_encode(&mut v, 253).expect("Failed to encode varint");
         assert_eq!(v, vec![253, 253, 0]);
         v.clear();
-        varint_encode(&mut v, 254).unwrap();
+        varint_encode(&mut v, 254).expect("Failed to encode varint");
         assert_eq!(v, vec![253, 254, 0]);
         v.clear();
-        varint_encode(&mut v, 255).unwrap();
+        varint_encode(&mut v, 255).expect("Failed to encode varint");
         assert_eq!(v, vec![253, 255, 0]);
         v.clear();
-        varint_encode(&mut v, 256).unwrap();
+        varint_encode(&mut v, 256).expect("Failed to encode varint");
         assert_eq!(v, vec![253, 0, 1]);
         v.clear();
-        varint_encode(&mut v, 65535).unwrap();
+        varint_encode(&mut v, 65535).expect("Failed to encode varint");
         assert_eq!(v, vec![253, 255, 255]);
         v.clear();
-        varint_encode(&mut v, 65536).unwrap();
+        varint_encode(&mut v, 65536).expect("Failed to encode varint");
         assert_eq!(v, vec![254, 0, 0, 1, 0]);
         v.clear();
-        varint_encode(&mut v, 65537).unwrap();
+        varint_encode(&mut v, 65537).expect("Failed to encode varint");
         assert_eq!(v, vec![254, 1, 0, 1, 0]);
         v.clear();
-        varint_encode(&mut v, 4294967295).unwrap();
+        varint_encode(&mut v, 4294967295).expect("Failed to encode varint");
         assert_eq!(v, vec![254, 255, 255, 255, 255]);
         v.clear();
-        varint_encode(&mut v, 4294967296).unwrap();
+        varint_encode(&mut v, 4294967296).expect("Failed to encode varint");
         assert_eq!(v, vec![255, 0, 0, 0, 0, 1, 0, 0, 0]);
         v.clear();
-        varint_encode(&mut v, 4294967297).unwrap();
+        varint_encode(&mut v, 4294967297).expect("Failed to encode varint");
         assert_eq!(v, vec![255, 1, 0, 0, 0, 1, 0, 0, 0]);
     }
 }
