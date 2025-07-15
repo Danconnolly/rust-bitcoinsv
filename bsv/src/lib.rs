@@ -20,6 +20,9 @@
 /// Functionality related to the core of Bitcoin SV. Transactions, Block Headers, etc.
 pub mod bitcoin;
 
+/// P2P network protocol implementation.
+pub mod p2p;
+
 /// Utility functions.
 pub mod util;
 
