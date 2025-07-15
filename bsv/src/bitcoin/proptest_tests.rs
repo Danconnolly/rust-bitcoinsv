@@ -63,8 +63,8 @@ mod tests {
         fn test_hash_hex_roundtrip(bytes in byte_array_32()) {
             // Property: converting hash to hex and back should preserve the value
             let hash = Hash { raw: bytes };
-            use hex::ToHex;
-            let hex_string = hash.raw.encode_hex::<String>();
+            // Use the Hash's ToHex implementation which reverses bytes
+            let hex_string = hash.encode_hex::<String>();
             let decoded = Hash::from_hex(&hex_string).unwrap();
 
             prop_assert_eq!(hash, decoded);
