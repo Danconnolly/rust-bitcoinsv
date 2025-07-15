@@ -2,6 +2,7 @@ use crate::bitcoin::{varint_decode, varint_size, BlockHeader, BlockchainId, Enco
 use crate::{Error, Result};
 use bytes::Bytes;
 use hex::{FromHex, ToHex};
+use std::convert::TryFrom;
 
 /// Contains a full block from the blockchain.
 ///
@@ -27,9 +28,9 @@ impl Block {
         })
     }
 
-    pub fn header(&self) -> BlockHeader {
+    pub fn header(&self) -> Result<BlockHeader> {
         let mut header_bytes = self.raw.slice(0..80);
-        BlockHeader::from_binary(&mut header_bytes).unwrap()
+        BlockHeader::from_binary(&mut header_bytes)
     }
 
     pub fn tx_iter(&self) -> BlockTxIterator {
@@ -42,19 +43,21 @@ impl Block {
     }
 
     /// Get the Genesis block for the given blockchain.
-    pub fn get_genesis(blockchain_id: BlockchainId) -> Block {
+    pub fn get_genesis(blockchain_id: BlockchainId) -> Result<Block> {
         match blockchain_id {
-            BlockchainId::Main => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
-            BlockchainId::Test => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae180101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
-            BlockchainId::Stn => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae180101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
-            BlockchainId::Regtest => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f20020000000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000").unwrap(),
+            BlockchainId::Main => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c0101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000"),
+            BlockchainId::Test => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae180101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000"),
+            BlockchainId::Stn => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff001d1aa4ae180101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000"),
+            BlockchainId::Regtest => Block::from_hex("0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4adae5494dffff7f20020000000101000000010000000000000000000000000000000000000000000000000000000000000000ffffffff4d04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73ffffffff0100f2052a01000000434104678afdb0fe5548271967f1a67130b7105cd6a828e03909a67962e0ea1f61deb649f6bc3f4cef38c4f35504e51ec112de5c384df7ba0b8d578a4c702b6bf11d5fac00000000"),
         }
     }
 }
 
-impl From<Bytes> for Block {
-    fn from(value: Bytes) -> Self {
-        Block::new(value).unwrap()
+impl TryFrom<Bytes> for Block {
+    type Error = Error;
+
+    fn try_from(value: Bytes) -> Result<Self> {
+        Block::new(value)
     }
 }
 
@@ -63,7 +66,7 @@ impl FromHex for Block {
     fn from_hex<T: AsRef<[u8]>>(hex: T) -> std::result::Result<Self, Self::Error> {
         let bytes = Vec::<u8>::from_hex(hex)?;
         let b = Bytes::from(bytes);
-        Ok(Block::from(b))
+        Block::try_from(b)
     }
 }
 
@@ -117,8 +120,8 @@ mod tests {
         let raw = std::fs::read(
             "../testdata/000000000000000006f0fc3708a93be758307b16ea39f57c7e62026355cb6bf4.bin",
         )
-        .unwrap();
-        let block = Block::new(Bytes::from(raw)).unwrap();
+        .expect("Failed to read test data file");
+        let block = Block::new(Bytes::from(raw)).expect("Failed to create block");
         assert_eq!(block.num_tx, 910);
         let mut tx_iter = block.tx_iter();
         let mut count = 0;
@@ -134,9 +137,9 @@ mod tests {
         let raw = std::fs::read(
             "../testdata/000000000000000006f0fc3708a93be758307b16ea39f57c7e62026355cb6bf4.bin",
         )
-        .unwrap();
+        .expect("Failed to read test data file");
         let input_addr = raw.as_ptr();
-        let block = Block::new(Bytes::from(raw)).unwrap();
+        let block = Block::new(Bytes::from(raw)).expect("Failed to create block");
         let b_addr = block.raw.as_ptr();
         assert_eq!(input_addr, b_addr);
         let duplicate = block.clone();
@@ -148,9 +151,12 @@ mod tests {
     #[test]
     fn check_genesis_blocks() {
         for i in vec![Main, Test, Stn, Regtest] {
-            let genesis_block = Block::get_genesis(i);
+            let genesis_block = Block::get_genesis(i).expect("Failed to get genesis block");
             let _genesis_block_hex: String = genesis_block.encode_hex();
-            assert_eq!(genesis_block.header(), BlockHeader::get_genesis(i));
+            assert_eq!(
+                genesis_block.header().expect("Failed to get header"),
+                BlockHeader::get_genesis(i)
+            );
         }
     }
 }

@@ -5,6 +5,7 @@ use ripemd::digest::Update;
 use ripemd::{Digest, Ripemd160};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::cmp::Ordering;
+use std::convert::TryFrom;
 use std::fmt;
 
 /// A 160-bit hash, specifically the RIPEMD160(SHA256) hash.
@@ -101,10 +102,12 @@ impl From<Hash160> for [u8; 20] {
     }
 }
 
-impl From<&str> for Hash160 {
+impl TryFrom<&str> for Hash160 {
+    type Error = crate::Error;
+
     /// This converts a hex encoded hash into a Hash160.
-    fn from(hash_as_hex: &str) -> Self {
-        Self::from_hex(hash_as_hex).unwrap()
+    fn try_from(hash_as_hex: &str) -> Result<Self, Self::Error> {
+        Self::from_hex(hash_as_hex)
     }
 }
 
@@ -176,7 +179,7 @@ mod tests {
         // the pub key provided is 02792790606e454a01e6c27372927dca961c025d25d989aeeb4b21dc2e196d2b5e
         let pubkey =
             hex::decode("02792790606e454a01e6c27372927dca961c025d25d989aeeb4b21dc2e196d2b5e")
-                .unwrap();
+                .expect("Failed to decode test pubkey");
         let e = hex::encode(Hash160::generate(&pubkey).hash);
         assert_eq!(e, "4cc77f98b35c178e1587747a03aaeb6932daee0b");
     }
@@ -205,25 +208,37 @@ mod tests {
         let s1 = "5555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555";
         assert_eq!(
-            Hash160::from_hex(s1).unwrap(),
-            Hash160::from_hex(s2).unwrap()
+            Hash160::from_hex(s1).expect("Failed to decode s1"),
+            Hash160::from_hex(s2).expect("Failed to decode s2")
         );
 
         let s1 = "0555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555";
-        assert!(Hash160::from_hex(s1).unwrap() < Hash160::from_hex(s2).unwrap());
+        assert!(
+            Hash160::from_hex(s1).expect("Failed to decode s1")
+                < Hash160::from_hex(s2).expect("Failed to decode s2")
+        );
 
         let s1 = "5555555555555555555555555555555555555550";
         let s2 = "5555555555555555555555555555555555555555";
-        assert!(Hash160::from_hex(s1).unwrap() < Hash160::from_hex(s2).unwrap());
+        assert!(
+            Hash160::from_hex(s1).expect("Failed to decode s1")
+                < Hash160::from_hex(s2).expect("Failed to decode s2")
+        );
 
         let s1 = "6555555555555555555555555555555555555555";
         let s2 = "5555555555555555555555555555555555555555";
-        assert!(Hash160::from_hex(s1).unwrap() > Hash160::from_hex(s2).unwrap());
+        assert!(
+            Hash160::from_hex(s1).expect("Failed to decode s1")
+                > Hash160::from_hex(s2).expect("Failed to decode s2")
+        );
 
         let s1 = "5555555555555555555555555555555555555556";
         let s2 = "5555555555555555555555555555555555555555";
-        assert!(Hash160::from_hex(s1).unwrap() > Hash160::from_hex(s2).unwrap());
+        assert!(
+            Hash160::from_hex(s1).expect("Failed to decode s1")
+                > Hash160::from_hex(s2).expect("Failed to decode s2")
+        );
     }
 
     /// Test binary read of hash - todo

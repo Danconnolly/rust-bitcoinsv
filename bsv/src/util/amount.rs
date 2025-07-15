@@ -99,14 +99,14 @@ mod tests {
     #[test]
     fn json_serialize_amount() {
         let amount = Amount::from_satoshis(100_000_000);
-        let json = serde_json::to_string(&amount).unwrap();
+        let json = serde_json::to_string(&amount).expect("Failed to serialize amount");
         assert_eq!(json, "1.0");
     }
 
     #[test]
     fn json_deserialize_amount() {
         let json = "1.0";
-        let amount: Amount = serde_json::from_str(json).unwrap();
+        let amount: Amount = serde_json::from_str(json).expect("Failed to deserialize amount");
         assert_eq!(amount, Amount::from_satoshis(100_000_000));
     }
 }
