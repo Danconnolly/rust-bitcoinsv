@@ -8,14 +8,14 @@ use std::time::SystemTime;
 use uuid::Uuid;
 
 /// Status of a peer connection
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum PeerStatus {
     /// Peer is known to be accessible and working
     Valid,
     /// Peer cannot currently be reached (after max retries exceeded)
     Inaccessible,
     /// Peer is banned and should not be contacted
-    Banned,
+    Banned(BanReason),
     /// Peer status has not yet been determined
     Unknown,
 }
@@ -45,8 +45,6 @@ pub struct Peer {
     /// Timestamp when status was last updated
     #[serde(with = "system_time_serde")]
     pub status_timestamp: SystemTime,
-    /// Optional ban reason (only set when status is Banned)
-    pub ban_reason: Option<BanReason>,
 }
 
 impl Peer {
@@ -58,7 +56,6 @@ impl Peer {
             port,
             status: PeerStatus::Unknown,
             status_timestamp: SystemTime::now(),
-            ban_reason: None,
         }
     }
 
@@ -66,23 +63,17 @@ impl Peer {
     pub fn update_status(&mut self, status: PeerStatus) {
         self.status = status;
         self.status_timestamp = SystemTime::now();
-
-        // Clear ban reason if no longer banned
-        if status != PeerStatus::Banned {
-            self.ban_reason = None;
-        }
     }
 
     /// Ban this peer with a reason
     pub fn ban(&mut self, reason: BanReason) {
-        self.status = PeerStatus::Banned;
+        self.status = PeerStatus::Banned(reason);
         self.status_timestamp = SystemTime::now();
-        self.ban_reason = Some(reason);
     }
 
     /// Check if peer is banned
     pub fn is_banned(&self) -> bool {
-        self.status == PeerStatus::Banned
+        matches!(self.status, PeerStatus::Banned(_))
     }
 
     /// Check if peer is valid
@@ -93,6 +84,14 @@ impl Peer {
     /// Check if peer is inaccessible
     pub fn is_inaccessible(&self) -> bool {
         self.status == PeerStatus::Inaccessible
+    }
+
+    /// Get ban reason if peer is banned
+    pub fn ban_reason(&self) -> Option<&BanReason> {
+        match &self.status {
+            PeerStatus::Banned(reason) => Some(reason),
+            _ => None,
+        }
     }
 }
 
@@ -133,7 +132,7 @@ mod tests {
         assert_eq!(peer.ip_address, ip);
         assert_eq!(peer.port, 8333);
         assert_eq!(peer.status, PeerStatus::Unknown);
-        assert!(peer.ban_reason.is_none());
+        assert!(peer.ban_reason().is_none());
         assert!(!peer.is_banned());
         assert!(!peer.is_valid());
     }
@@ -170,9 +169,9 @@ mod tests {
 
         peer.ban(reason.clone());
 
-        assert_eq!(peer.status, PeerStatus::Banned);
+        assert_eq!(peer.status, PeerStatus::Banned(reason.clone()));
         assert!(peer.is_banned());
-        assert_eq!(peer.ban_reason, Some(reason));
+        assert_eq!(peer.ban_reason(), Some(&reason));
     }
 
     #[test]
@@ -184,12 +183,12 @@ mod tests {
         peer.ban(BanReason::BannedUserAgent {
             user_agent: "/badclient:1.0/".to_string(),
         });
-        assert!(peer.ban_reason.is_some());
+        assert!(peer.ban_reason().is_some());
 
         // Unban by updating status
         peer.update_status(PeerStatus::Unknown);
         assert_eq!(peer.status, PeerStatus::Unknown);
-        assert!(peer.ban_reason.is_none());
+        assert!(peer.ban_reason().is_none());
     }
 
     #[test]
@@ -215,16 +214,18 @@ mod tests {
         let ip = IpAddr::V4(Ipv4Addr::new(10, 0, 0, 4));
         let mut peer = Peer::new(ip, 8333);
 
-        peer.ban(BanReason::BlockchainMismatch {
+        let reason = BanReason::BlockchainMismatch {
             received: "Bitcoin Core".to_string(),
-        });
+        };
+
+        peer.ban(reason.clone());
 
         let json = serde_json::to_string(&peer).expect("Failed to serialize");
         let deserialized: Peer = serde_json::from_str(&json).expect("Failed to deserialize");
 
-        assert_eq!(deserialized.status, PeerStatus::Banned);
-        assert!(deserialized.ban_reason.is_some());
-        assert_eq!(peer.ban_reason, deserialized.ban_reason);
+        assert!(matches!(deserialized.status, PeerStatus::Banned(_)));
+        assert!(deserialized.ban_reason().is_some());
+        assert_eq!(peer.ban_reason(), deserialized.ban_reason());
     }
 
     #[test]
@@ -279,7 +280,7 @@ mod tests {
             user_agent: "/bad1:1.0/".to_string(),
         });
 
-        let first_reason = peer.ban_reason.clone();
+        let first_reason = peer.ban_reason().cloned();
 
         // Second ban with different reason
         peer.ban(BanReason::NetworkMismatch {
@@ -288,7 +289,7 @@ mod tests {
         });
 
         // Reason should be updated
-        assert_ne!(peer.ban_reason, first_reason);
+        assert_ne!(peer.ban_reason(), first_reason.as_ref());
         assert!(peer.is_banned());
     }
 }

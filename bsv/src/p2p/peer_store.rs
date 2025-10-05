@@ -145,6 +145,17 @@ impl InMemoryPeerStore {
     pub fn is_empty(&self) -> bool {
         self.peers.lock().unwrap().is_empty()
     }
+
+    /// Check if two PeerStatus values match, treating all Banned variants as equal
+    fn status_matches(a: &PeerStatus, b: &PeerStatus) -> bool {
+        matches!(
+            (a, b),
+            (PeerStatus::Valid, PeerStatus::Valid)
+                | (PeerStatus::Inaccessible, PeerStatus::Inaccessible)
+                | (PeerStatus::Unknown, PeerStatus::Unknown)
+                | (PeerStatus::Banned(_), PeerStatus::Banned(_))
+        )
+    }
 }
 
 impl Default for InMemoryPeerStore {
@@ -229,7 +240,7 @@ impl PeerStore for InMemoryPeerStore {
         let peers = self.peers.lock().unwrap();
         Ok(peers
             .values()
-            .filter(|p| p.status == status)
+            .filter(|p| Self::status_matches(&p.status, &status))
             .cloned()
             .collect())
     }
@@ -247,7 +258,10 @@ impl PeerStore for InMemoryPeerStore {
 
     async fn count_by_status(&self, status: PeerStatus) -> Result<usize> {
         let peers = self.peers.lock().unwrap();
-        Ok(peers.values().filter(|p| p.status == status).count())
+        Ok(peers
+            .values()
+            .filter(|p| Self::status_matches(&p.status, &status))
+            .count())
     }
 }
 
@@ -321,7 +335,9 @@ mod tests {
         peer2.update_status(PeerStatus::Valid);
 
         let mut peer3 = Peer::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 3)), 8333);
-        peer3.update_status(PeerStatus::Banned);
+        peer3.ban(crate::p2p::peer::BanReason::BannedUserAgent {
+            user_agent: "/test:1.0/".to_string(),
+        });
 
         store.create(peer1).await.unwrap();
         store.create(peer2).await.unwrap();
@@ -330,7 +346,14 @@ mod tests {
         let valid_peers = store.find_by_status(PeerStatus::Valid).await.unwrap();
         assert_eq!(valid_peers.len(), 2);
 
-        let banned_peers = store.find_by_status(PeerStatus::Banned).await.unwrap();
+        let banned_peers = store
+            .find_by_status(PeerStatus::Banned(
+                crate::p2p::peer::BanReason::BannedUserAgent {
+                    user_agent: String::new(),
+                },
+            ))
+            .await
+            .unwrap();
         assert_eq!(banned_peers.len(), 1);
     }
 
@@ -349,7 +372,17 @@ mod tests {
 
         assert_eq!(store.count_by_status(PeerStatus::Valid).await.unwrap(), 1);
         assert_eq!(store.count_by_status(PeerStatus::Unknown).await.unwrap(), 1);
-        assert_eq!(store.count_by_status(PeerStatus::Banned).await.unwrap(), 0);
+        assert_eq!(
+            store
+                .count_by_status(PeerStatus::Banned(
+                    crate::p2p::peer::BanReason::BannedUserAgent {
+                        user_agent: String::new(),
+                    }
+                ))
+                .await
+                .unwrap(),
+            0
+        );
     }
 
     #[tokio::test]
@@ -471,7 +504,10 @@ mod tests {
 
         // Peer should still be in store
         let final_peer = store.read(peer.id).await.unwrap();
-        assert!(final_peer.status == PeerStatus::Valid || final_peer.status == PeerStatus::Unknown);
+        assert!(matches!(
+            final_peer.status,
+            PeerStatus::Valid | PeerStatus::Unknown
+        ));
     }
 
     #[tokio::test]
@@ -487,7 +523,10 @@ mod tests {
             peer1.update_status(PeerStatus::Valid);
 
             let mut peer2 = Peer::new(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 2)), 8333);
-            peer2.update_status(PeerStatus::Banned);
+            peer2.ban(crate::p2p::peer::BanReason::NetworkMismatch {
+                expected: "mainnet".to_string(),
+                received: "testnet".to_string(),
+            });
 
             store.create(peer1).await.unwrap();
             store.create(peer2).await.unwrap();
@@ -507,7 +546,14 @@ mod tests {
             let valid_peers = store.find_by_status(PeerStatus::Valid).await.unwrap();
             assert_eq!(valid_peers.len(), 1);
 
-            let banned_peers = store.find_by_status(PeerStatus::Banned).await.unwrap();
+            let banned_peers = store
+                .find_by_status(PeerStatus::Banned(
+                    crate::p2p::peer::BanReason::BannedUserAgent {
+                        user_agent: String::new(),
+                    },
+                ))
+                .await
+                .unwrap();
             assert_eq!(banned_peers.len(), 1);
         }
     }
