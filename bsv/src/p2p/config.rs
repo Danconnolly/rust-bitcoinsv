@@ -209,14 +209,14 @@ impl ConnectionConfig {
     /// Create a new ConnectionConfig with default values
     pub fn new() -> Self {
         Self {
-            ping_interval: Duration::from_secs(5 * 60),      // 5 minutes
-            ping_timeout: Duration::from_secs(30),            // 30 seconds
-            handshake_timeout: Duration::from_secs(10),       // 10 seconds
-            initial_backoff: Duration::from_secs(5),          // 5 seconds
+            ping_interval: Duration::from_secs(5 * 60), // 5 minutes
+            ping_timeout: Duration::from_secs(30),      // 30 seconds
+            handshake_timeout: Duration::from_secs(10), // 10 seconds
+            initial_backoff: Duration::from_secs(5),    // 5 seconds
             max_retries: 10,
             backoff_multiplier: 2.0,
             max_restarts: 3,
-            restart_window: Duration::from_secs(60 * 60),    // 1 hour
+            restart_window: Duration::from_secs(60 * 60), // 1 hour
         }
     }
 
@@ -429,7 +429,10 @@ mod tests {
         let banned = vec!["badclient".to_string(), "malicious".to_string()];
 
         assert!(is_user_agent_banned("/badclient:1.0/", &banned));
-        assert!(is_user_agent_banned("/some-malicious-software:2.0/", &banned));
+        assert!(is_user_agent_banned(
+            "/some-malicious-software:2.0/",
+            &banned
+        ));
         assert!(!is_user_agent_banned("/goodclient:1.0/", &banned));
     }
 
