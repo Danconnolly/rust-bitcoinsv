@@ -414,12 +414,12 @@ mod tests {
 
         // Should fail with a BadData error
         assert!(result.is_err());
-        match result.expect_err("Parsing should fail with validation error") {
-            Error::BadData(msg) => {
-                assert!(msg.contains("Too many transaction outputs"));
-                assert!(msg.contains(&excessive_outputs.to_string()));
-            }
-            _ => panic!("Expected BadData error for excessive outputs"),
+        if let Error::BadData(msg) = result.expect_err("Parsing should fail with validation error")
+        {
+            assert!(msg.contains("Too many transaction outputs"));
+            assert!(msg.contains(&excessive_outputs.to_string()));
+        } else {
+            panic!("Expected BadData error for excessive outputs")
         }
     }
 
@@ -447,12 +447,12 @@ mod tests {
         // Should fail due to insufficient data (not enough bytes for inputs),
         // but NOT due to validation error
         assert!(result.is_err());
-        match result.expect_err("Parsing should fail with validation error") {
-            Error::BadData(msg) => panic!(
+        if let Error::BadData(msg) = result.expect_err("Parsing should fail with validation error")
+        {
+            panic!(
                 "Should not fail validation with exactly MAX_TX_INPUTS: {}",
                 msg
-            ),
-            _ => {} // Expected to fail for other reasons (insufficient data)
+            )
         }
     }
 }

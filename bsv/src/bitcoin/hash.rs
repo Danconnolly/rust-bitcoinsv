@@ -78,7 +78,8 @@ impl Encodable for Hash {
     }
 
     fn to_binary(&self, buffer: &mut dyn BufMut) -> crate::Result<()> {
-        Ok(buffer.put_slice(&self.raw))
+        buffer.put_slice(&self.raw);
+        Ok(())
     }
 
     fn encoded_size(&self) -> u64 {

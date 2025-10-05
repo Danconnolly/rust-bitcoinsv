@@ -8,12 +8,12 @@
 //! other more established library, it is a re-write from ground level principles.
 //!
 //! * the library defines [BlockchainId] to distinguish between "mainnet", "testnet",
-//! etc, not "networks". The key feature that distinguishes these blockchains is the genesis block
-//! not the network. The P2P network is just a means for software to communicate, it does not define
-//! the blockchain.
+//!   etc, not "networks". The key feature that distinguishes these blockchains is the genesis block
+//!   not the network. The P2P network is just a means for software to communicate, it does not define
+//!   the blockchain.
 //!
 //! * the library will probably never support old versions of Bitcoin. Support for old versions is dead
-//! code and will be removed as quickly as possible.
+//!   code and will be removed as quickly as possible.
 //!
 //! [BlockchainId]: crate::bitcoin::BlockchainId
 

@@ -225,12 +225,13 @@ pub fn remove_signature_from_script(script: &[u8], signature: &[u8]) -> Bytes {
             let mut found = false;
 
             // Check for direct push (OP_PUSH)
-            if script[i] == signature.len() as u8 && i + 1 + signature.len() <= script.len() {
-                if &script[i + 1..i + 1 + signature.len()] == signature {
-                    // Skip the push opcode and signature
-                    i += 1 + signature.len();
-                    found = true;
-                }
+            if script[i] == signature.len() as u8
+                && i + 1 + signature.len() <= script.len()
+                && &script[i + 1..i + 1 + signature.len()] == signature
+            {
+                // Skip the push opcode and signature
+                i += 1 + signature.len();
+                found = true;
             }
 
             if !found {
@@ -271,8 +272,8 @@ mod tests {
             Some(SigHashType::SingleAnyoneCanPay)
         );
 
-        assert!(SigHashType::All.anyone_can_pay() == false);
-        assert!(SigHashType::AllAnyoneCanPay.anyone_can_pay() == true);
+        assert!(!SigHashType::All.anyone_can_pay());
+        assert!(SigHashType::AllAnyoneCanPay.anyone_can_pay());
     }
 
     fn create_outpoint(tx_hash: &TxHash, index: u32) -> Outpoint {

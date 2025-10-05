@@ -89,10 +89,10 @@ pub fn MAX_MULTISIG_KEYS(policy: bool) -> u64 {
 }
 
 /// Configurable Consensus Rule - max memory used by stacks - default = 200MB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#stack-memory-usage-consensus-rule)
-const CRULE_MAX_STACK_MEM: AtomicU64 = AtomicU64::new(200_000_000);
+static CRULE_MAX_STACK_MEM: AtomicU64 = AtomicU64::new(200_000_000);
 
 /// Policy - max memory used by stacks - default = 100MB - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#stack-memory-usage-policy)
-const POLICY_MAX_STACK_MEM: AtomicU64 = AtomicU64::new(100_000_000);
+static POLICY_MAX_STACK_MEM: AtomicU64 = AtomicU64::new(100_000_000);
 
 /// Get the policy or consensus rule value of the maximum memory used by the stacks.
 ///
@@ -106,7 +106,7 @@ pub fn MAX_STACK_MEM(policy: bool) -> u64 {
 }
 
 /// Policy - transaction evaluation timeout - default 1s = 1000 ms - [link](https://github.com/bitcoin-sv-specs/protocol/blob/master/updates/genesis-spec.md#transaction-evaluation-timeout)
-const POLICY_TX_EVAL_TIMEOUT_MS: AtomicU64 = AtomicU64::new(1_000);
+static POLICY_TX_EVAL_TIMEOUT_MS: AtomicU64 = AtomicU64::new(1_000);
 
 /// Get the policy value of the timeout for evaluating a transaction.
 pub fn TX_EVALE_TIMEOUT_MS() -> u64 {

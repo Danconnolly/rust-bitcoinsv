@@ -58,10 +58,8 @@ mod tests {
 
     #[test]
     fn test_mainnet() {
-        let (pv, n) = PrivateKey::from_wif(
-            &"KwTeZVihYnMmcKP5MEfMeN1V726HNKFF84dWzEcqjyc7afgfyn5x".to_string(),
-        )
-        .expect("Failed to parse WIF private key for test");
+        let (pv, n) = PrivateKey::from_wif("KwTeZVihYnMmcKP5MEfMeN1V726HNKFF84dWzEcqjyc7afgfyn5x")
+            .expect("Failed to parse WIF private key for test");
         assert_eq!(n, KeyAddressKind::Main);
         let addr = Address::from_pv(&pv, n);
         assert_eq!(addr.kind, KeyAddressKind::Main);
