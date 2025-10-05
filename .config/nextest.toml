@@ -1,2 +1,9 @@
 [profile.ci.junit]
 path = "junit.xml"
+
+[profile.proptest]
+# Property-based tests may take longer to run
+slow-timeout = { period = "120s" }
+
+[profile.proptest.junit]
+path = "junit-proptest.xml"

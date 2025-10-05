@@ -2,6 +2,26 @@
 //!
 //! These tests use proptest to generate random inputs and verify
 //! properties that should always hold true.
+//!
+//! ## CI Workflow
+//!
+//! These tests run in a separate GitHub Actions workflow (`.github/workflows/proptests.yml`)
+//! because they are slower than regular unit tests. The workflow triggers on:
+//! - Pull requests (opened, synchronized, reopened)
+//! - Pushes to main branch (including merged PRs)
+//! - Manual dispatch
+//!
+//! Regular unit tests (in `.github/workflows/tests.yml`) run on every push but
+//! exclude these proptests for faster feedback.
+//!
+//! To run locally:
+//! ```bash
+//! # Run only property tests
+//! cargo nextest run --profile proptest -E 'test(::proptest_tests::)'
+//!
+//! # Run all tests including property tests
+//! cargo nextest run
+//! ```
 
 #[cfg(test)]
 mod tests {
