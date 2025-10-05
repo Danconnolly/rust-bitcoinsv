@@ -67,6 +67,42 @@ pub enum Error {
     Utf8Error(FromUtf8Error),
     /// Error from TryGet
     TryGet(TryGetError),
+
+    // P2P module errors
+    /// Peer store error
+    PeerStoreError(String),
+    /// Peer not found
+    PeerNotFound(uuid::Uuid),
+    /// Duplicate peer
+    DuplicatePeer,
+    /// Connection refused (retryable)
+    ConnectionRefused,
+    /// Connection timeout (retryable)
+    ConnectionTimeout,
+    /// Connection reset (retryable)
+    ConnectionReset,
+    /// Connection failed (non-retryable)
+    ConnectionFailed(String),
+    /// Handshake timeout (non-retryable)
+    HandshakeTimeout,
+    /// Handshake failed (non-retryable)
+    HandshakeFailed(String),
+    /// Network mismatch during handshake
+    NetworkMismatch { expected: String, received: String },
+    /// Blockchain mismatch during handshake
+    BlockchainMismatch { received: String },
+    /// Banned user agent
+    BannedUserAgent { user_agent: String },
+    /// Invalid configuration
+    InvalidConfiguration(String),
+    /// Invalid connection limits
+    InvalidConnectionLimits { target: usize, max: usize },
+    /// DNS resolution failed
+    DnsResolutionFailed(String),
+    /// Channel send error
+    ChannelSendError,
+    /// Channel receive error
+    ChannelReceiveError,
 }
 
 impl std::fmt::Display for Error {
@@ -100,6 +136,34 @@ impl std::fmt::Display for Error {
             Error::IOError(e) => f.write_str(&format!("IO error: {}", e)),
             Error::Utf8Error(e) => f.write_str(&format!("UTF8 error: {}", e)),
             Error::TryGet(e) => f.write_str(&format!("Tryget error: {}", e)),
+            // P2P errors
+            Error::PeerStoreError(s) => f.write_str(&format!("Peer store error: {}", s)),
+            Error::PeerNotFound(id) => f.write_str(&format!("Peer not found: {}", id)),
+            Error::DuplicatePeer => f.write_str("Duplicate peer"),
+            Error::ConnectionRefused => f.write_str("Connection refused"),
+            Error::ConnectionTimeout => f.write_str("Connection timeout"),
+            Error::ConnectionReset => f.write_str("Connection reset"),
+            Error::ConnectionFailed(s) => f.write_str(&format!("Connection failed: {}", s)),
+            Error::HandshakeTimeout => f.write_str("Handshake timeout"),
+            Error::HandshakeFailed(s) => f.write_str(&format!("Handshake failed: {}", s)),
+            Error::NetworkMismatch { expected, received } => f.write_str(&format!(
+                "Network mismatch: expected {}, got {}",
+                expected, received
+            )),
+            Error::BlockchainMismatch { received } => {
+                f.write_str(&format!("Blockchain mismatch: {}", received))
+            }
+            Error::BannedUserAgent { user_agent } => {
+                f.write_str(&format!("Banned user agent: {}", user_agent))
+            }
+            Error::InvalidConfiguration(s) => f.write_str(&format!("Invalid configuration: {}", s)),
+            Error::InvalidConnectionLimits { target, max } => f.write_str(&format!(
+                "Invalid connection limits: target={}, max={}",
+                target, max
+            )),
+            Error::DnsResolutionFailed(s) => f.write_str(&format!("DNS resolution failed: {}", s)),
+            Error::ChannelSendError => f.write_str("Channel send error"),
+            Error::ChannelReceiveError => f.write_str("Channel receive error"),
         }
     }
 }
