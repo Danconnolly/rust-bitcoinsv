@@ -419,8 +419,10 @@ mod tests {
         let config = ConnectionConfig::default();
         assert!(config.validate().is_ok());
 
-        let mut bad_config = ConnectionConfig::default();
-        bad_config.backoff_multiplier = 0.5;
+        let bad_config = ConnectionConfig {
+            backoff_multiplier: 0.5,
+            ..Default::default()
+        };
         assert!(bad_config.validate().is_err());
     }
 

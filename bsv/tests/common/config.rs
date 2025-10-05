@@ -41,12 +41,20 @@ mod tests {
 
     #[test]
     fn test_default_config_values() {
-        // Should not panic with defaults
-        let _addr = get_test_node_address();
+        // Set a direct IP address to avoid DNS resolution in CI environments
+        std::env::set_var("BSV_TEST_NODE", "127.0.0.1:8333");
+
+        // Should not panic with direct IP address
+        let addr = get_test_node_address();
+        assert_eq!(addr.to_string(), "127.0.0.1:8333");
+
         let network = get_test_network();
         assert_eq!(network, "mainnet");
 
         let timeout = get_test_timeout_secs();
         assert_eq!(timeout, 30);
+
+        // Clean up
+        std::env::remove_var("BSV_TEST_NODE");
     }
 }
