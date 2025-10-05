@@ -3,6 +3,9 @@
 ![Test Status](https://gist.githubusercontent.com/Danconnolly/202d737d8ec36a48fbb4f7d0d4e1d779/raw/badge.svg)
 [![dependency status](https://deps.rs/repo/github/Danconnolly/rust-bitcoinsv/status.svg)](https://deps.rs/repo/github/Danconnolly/rust-bitcoinsv)
 
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/075b4edc391948e7b43446c7c100a862)](https://app.codacy.com/gh/Danconnolly/rust-bitcoinsv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/075b4edc391948e7b43446c7c100a862)](https://app.codacy.com/gh/Danconnolly/rust-bitcoinsv/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_coverage)
+
 NOTE: This library is incomplete and undergoing extensive changes at the moment.
 
 ## Breaking Changes in v0.4.0
