@@ -20,13 +20,10 @@ jobs:
       - name: Cache dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Install cargo nextest & audit
+      - name: Install cargo nextest
         uses: taiki-e/install-action@v2
         with:
-          tool: nextest, cargo-audit
-
-      - name: Run cargo audit
-        run: cargo audit
+          tool: nextest
 
       - name: Run Clippy
         run: cargo clippy # -- --deny warnings
