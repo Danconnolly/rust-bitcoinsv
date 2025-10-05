@@ -20,7 +20,7 @@ impl PrivateKey {
     /// Constructs new compressed ECDSA private key using the secp256k1 algorithm and
     /// a secure random number generator.
     pub fn generate() -> PrivateKey {
-        let secret_key = secp256k1::SecretKey::new(&mut rand::thread_rng());
+        let secret_key = secp256k1::SecretKey::new(&mut rand::rng());
         PrivateKey::new(secret_key)
     }
 
@@ -36,7 +36,12 @@ impl PrivateKey {
 
     /// Deserializes a private key from a slice.
     pub fn from_slice(data: &[u8]) -> Result<PrivateKey> {
-        Ok(PrivateKey::new(secp256k1::SecretKey::from_slice(data)?))
+        let key_bytes: [u8; 32] = data
+            .try_into()
+            .map_err(|_| Error::BadArgument("Invalid key length, expected 32 bytes".to_string()))?;
+        Ok(PrivateKey::new(secp256k1::SecretKey::from_byte_array(
+            key_bytes,
+        )?))
     }
 
     /// Gets the WIF encoding of this private key.
@@ -72,9 +77,12 @@ impl PrivateKey {
             }
         };
 
+        let key_bytes: [u8; 32] = data[1..33]
+            .try_into()
+            .map_err(|_| Error::Internal("Invalid key length".to_string()))?;
         Ok((
             PrivateKey {
-                inner: secp256k1::SecretKey::from_slice(&data[1..33])?,
+                inner: secp256k1::SecretKey::from_byte_array(key_bytes)?,
             },
             blockchain,
         ))
