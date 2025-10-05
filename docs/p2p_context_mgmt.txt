@@ -1,0 +1,55 @@
+  Context Management Strategy
+
+  You're right to be concerned. Here's my recommendation:
+
+  Approach: Batched Implementation with Fresh Contexts
+
+  Work in 4 batches with checkpoint documents between them:
+
+  Batch 1: Foundation (Phases 0-2) - ~4 days
+  - Test infrastructure
+  - Core data structures (Peer, PeerStore)
+  - Configuration
+  - Checkpoint: Create docs/p2p_checkpoint_1_foundation.md
+
+  Batch 2: Protocol (Phases 3-4) - ~8-10 days
+  - Handshake implementation
+  - Connection actor & state machine
+  - Checkpoint: Create docs/p2p_checkpoint_2_protocol.md
+
+  Batch 3: Orchestration (Phases 5-6) - ~7-8 days
+  - Manager implementation
+  - DNS discovery
+  - Checkpoint: Create docs/p2p_checkpoint_3_orchestration.md
+
+  Batch 4: Completion (Phases 7-11) - ~7-9 days
+  - Messages, observability, public API
+  - Final testing and documentation
+  - Checkpoint: Create docs/p2p_checkpoint_4_completion.md
+
+  Between Batches Workflow
+
+  1. I create a checkpoint document summarizing:
+    - What was implemented
+    - Key files and their purpose
+    - Test coverage achieved
+    - Any design decisions made
+    - What's next
+  2. You commit the code
+  3. Start fresh conversation for next batch
+  4. In new context, you say: "Continue P2P implementation, starting Batch N. See docs/p2p_implementation_plan.md and docs/p2p_checkpoint_X.md"
+  5. I read checkpoint + plan, continue from there
+
+  Why This Works
+
+  ✅ Each batch is self-contained enough to fit in one context✅ Checkpoints prevent information loss between contexts✅ Fresh context = full token budget for next batch✅ Natural breaking points
+  align with implementation phases✅ You maintain continuity through git commits
+
+  Alternative: Continue in One Context
+
+  We could try to complete all phases in this context if:
+  - We're very selective about what code we read
+  - We use the Task tool to offload some work to agents
+  - We accept risk of running out of tokens partway through
+
+  But I recommend the batched approach for quality and manageability.
