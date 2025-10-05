@@ -17,11 +17,17 @@ cargo clippy
 # Build the project
 cargo build --verbose
 
-# Run all tests
+# Run all tests (including property tests)
 cargo test
 
-# Run tests with better output (if nextest is installed)
-cargo nextest run --profile ci --no-fail-fast
+# Run unit tests only (excludes property tests)
+cargo nextest run --profile ci --no-fail-fast -E 'not test(::proptest_tests::)'
+
+# Run property tests only
+cargo nextest run --profile proptest --no-fail-fast -E 'test(::proptest_tests::)'
+
+# Run all tests with nextest
+cargo nextest run
 
 # Run a single test
 cargo test test_name
@@ -63,6 +69,25 @@ Centralized error handling through `bsv/src/result.rs` with a comprehensive `Err
 - Unit tests are embedded in source files using `#[cfg(test)]` modules
 - Binary test data is stored in `testdata/` directory
 - Use `cargo test specific_test_name` to run individual tests
+- Property-based tests use proptest framework (see `bsv/src/bitcoin/proptest_tests.rs`)
+
+#### CI Test Workflows
+The project uses two separate GitHub Actions workflows for testing:
+
+1. **Unit Tests** (`.github/workflows/tests.yml`)
+   - Runs on every push and pull request
+   - Excludes property-based tests for fast feedback
+   - Includes: build, clippy, unit tests
+   - Publishes test results and badge
+
+2. **Property Tests** (`.github/workflows/proptests.yml`)
+   - Runs on pull requests and pushes to main branch
+   - Only runs property-based tests (slower but comprehensive)
+   - Can be triggered manually via workflow_dispatch
+   - Uses extended timeout (30 minutes)
+
+This separation ensures fast CI feedback on every push while still maintaining comprehensive
+property-based testing on pull requests and the main branch.
 
 ### Important Implementation Notes
 - The P2P protocol implementation ignores checksums for streaming efficiency (see `docs/dev.md`)
