@@ -27,6 +27,11 @@ impl ByteSequence {
         self.raw.len()
     }
 
+    /// Check if the byte sequence is empty.
+    pub fn is_empty(&self) -> bool {
+        self.raw.is_empty()
+    }
+
     /// Can the byte sequence represent a small number (i64)?
     pub fn is_small_num(&self) -> bool {
         self.len() <= 8

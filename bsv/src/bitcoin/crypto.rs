@@ -58,7 +58,7 @@ impl PrivateKey {
     /// Returns a tuple of the private key and the blockchain for which the private
     /// key is intended. Note that the function can not distinguish between the
     /// non-production blockchains so it must return [KeyAddressKind].
-    pub fn from_wif(wif: &String) -> Result<(PrivateKey, KeyAddressKind)> {
+    pub fn from_wif(wif: &str) -> Result<(PrivateKey, KeyAddressKind)> {
         let data = base58ck::decode_with_checksum(wif)?;
 
         let _compressed = match data.len() {
@@ -194,13 +194,13 @@ mod tests {
     fn test_bincode() {
         let privkey = PrivateKey::generate();
         let config = bincode::config::legacy();
-        let e = bincode::serde::encode_to_vec(&privkey, config).expect("Failed to encode privkey");
+        let e = bincode::serde::encode_to_vec(privkey, config).expect("Failed to encode privkey");
         let (d, _) =
             bincode::serde::decode_from_slice(&e, config).expect("Failed to decode privkey");
         assert_eq!(privkey, d);
 
         let pubkey = PublicKey::from(&privkey);
-        let e = bincode::serde::encode_to_vec(&pubkey, config).expect("Failed to encode pubkey");
+        let e = bincode::serde::encode_to_vec(pubkey, config).expect("Failed to encode pubkey");
         let (d, _) =
             bincode::serde::decode_from_slice(&e[..], config).expect("Failed to decode pubkey");
         assert_eq!(pubkey, d);

@@ -137,7 +137,7 @@ pub fn verify_merkle_proof(
 
     for sibling in proof {
         // Determine if we're the left or right child
-        if current_index % 2 == 0 {
+        if current_index.is_multiple_of(2) {
             // We're the left child
             current_hash = hash_merkle_branches(&current_hash, sibling);
         } else {
@@ -169,7 +169,7 @@ pub fn calculate_partial_merkle_root(
     let mut _depth = 0;
     let mut level_size = total_tx_count;
     while level_size > 1 {
-        level_size = (level_size + 1) / 2;
+        level_size = level_size.div_ceil(2);
         _depth += 1;
     }
 

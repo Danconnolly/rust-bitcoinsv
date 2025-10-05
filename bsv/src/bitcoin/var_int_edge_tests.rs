@@ -299,7 +299,7 @@ mod tests {
         let mut rng = StdRng::seed_from_u64(42); // Deterministic for reproducibility
 
         for _ in 0..1000 {
-            let value = rng.gen::<u64>();
+            let value = rng.random::<u64>();
 
             let mut buf = BytesMut::new();
             varint_encode(&mut buf, value).unwrap();

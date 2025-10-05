@@ -275,14 +275,8 @@ impl Operation {
     pub fn eq_alias(&self, other: &Self) -> bool {
         use Operation::*;
         match self {
-            OP_0 | OP_FALSE => match other {
-                OP_0 | OP_FALSE => true,
-                _ => false,
-            },
-            OP_1 | OP_TRUE => match other {
-                OP_1 | OP_TRUE => true,
-                _ => false,
-            },
+            OP_0 | OP_FALSE => matches!(other, OP_0 | OP_FALSE),
+            OP_1 | OP_TRUE => matches!(other, OP_1 | OP_TRUE),
             value => other == value,
         }
     }
@@ -290,12 +284,32 @@ impl Operation {
     /// Returns true if the operation pushes data on the stack.
     pub fn is_data_push(&self) -> bool {
         use Operation::*;
-        match self {
-            OP_0 | OP_1 | OP_2 | OP_3 | OP_4 | OP_5 | OP_6 | OP_7 | OP_8 | OP_9 | OP_10 | OP_11
-            | OP_12 | OP_13 | OP_14 | OP_15 | OP_16 | OP_FALSE | OP_TRUE | OP_1NEGATE
-            | OP_PUSH(_) | OP_PUSHDATA1(_) | OP_PUSHDATA2(_) | OP_PUSHDATA4(_) => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            OP_0 | OP_1
+                | OP_2
+                | OP_3
+                | OP_4
+                | OP_5
+                | OP_6
+                | OP_7
+                | OP_8
+                | OP_9
+                | OP_10
+                | OP_11
+                | OP_12
+                | OP_13
+                | OP_14
+                | OP_15
+                | OP_16
+                | OP_FALSE
+                | OP_TRUE
+                | OP_1NEGATE
+                | OP_PUSH(_)
+                | OP_PUSHDATA1(_)
+                | OP_PUSHDATA2(_)
+                | OP_PUSHDATA4(_)
+        )
     }
 
     /// Returns the data pushed to stack for pushdata operations, NONE for operations that do not
@@ -356,10 +370,7 @@ impl Operation {
             OP_16 => Some(16),
             OP_1NEGATE => Some(-1),
             OP_PUSH(data) | OP_PUSHDATA1(data) | OP_PUSHDATA2(data) | OP_PUSHDATA4(data) => {
-                match data.to_small_number() {
-                    Err(_) => None,
-                    Ok(val) => Some(val),
-                }
+                data.to_small_number().ok()
             }
             _ => None,
         }
@@ -1013,8 +1024,7 @@ mod tests {
         for j in 0u8..179 {
             let mut i: &[u8] = &[j];
             let o = Operation::from_binary(&mut i);
-            if o.is_ok() {
-                let o = o.expect("Operation should parse successfully for this opcode");
+            if let Ok(o) = o {
                 if o != Operation::OP_RESERVED && o != Operation::OP_NOP && o != Operation::OP_UPNOP
                 {
                     let mut b = BytesMut::with_capacity(10);
@@ -1026,7 +1036,7 @@ mod tests {
                 // the data ops will not parse properly without making some fake data
                 // but the rest should succeed
                 if !(1..=78).contains(&j) {
-                    assert!(false);
+                    panic!("Operation parsing failed for opcode {}", j);
                 }
             }
         }

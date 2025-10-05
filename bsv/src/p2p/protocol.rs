@@ -123,6 +123,12 @@ pub struct MessageFramer {
     write_buffer: BytesMut,
 }
 
+impl Default for MessageFramer {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MessageFramer {
     pub fn new() -> Self {
         Self {
@@ -201,7 +207,7 @@ mod tests {
         assert_eq!(version_msg.version, PROTOCOL_VERSION);
         assert_eq!(version_msg.services, Services::NETWORK);
         assert_eq!(version_msg.user_agent, "/rust-bitcoinsv:0.1.0/");
-        assert_eq!(version_msg.relay, true);
+        assert!(version_msg.relay);
 
         // Check timestamp is recent
         let now = SystemTime::now()
@@ -424,7 +430,7 @@ mod tests {
 
         assert_eq!(version_msg.services.0, 9); // NETWORK | WITNESS
         assert_eq!(version_msg.user_agent, "/custom-client:1.0/");
-        assert_eq!(version_msg.relay, false);
+        assert!(!version_msg.relay);
         assert_eq!(version_msg.start_height, 750000);
     }
 }

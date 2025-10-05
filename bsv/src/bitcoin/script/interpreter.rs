@@ -34,6 +34,12 @@ pub struct ScriptInterpreter {
     pub(crate) op_count: usize,
 }
 
+impl Default for ScriptInterpreter {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ScriptInterpreter {
     pub fn new() -> Self {
         Self {
@@ -461,7 +467,7 @@ impl ScriptInterpreter {
                 let sha_result = sha_hasher.finalize();
 
                 let mut ripemd_hasher = Ripemd160::new();
-                RipemdDigest::update(&mut ripemd_hasher, &sha_result);
+                RipemdDigest::update(&mut ripemd_hasher, sha_result);
                 let result = ripemd_hasher.finalize();
                 self.push_bytes(Bytes::copy_from_slice(&result));
             }
@@ -642,7 +648,7 @@ fn bytes_to_int(bytes: &[u8]) -> Result<i64> {
 
     // Handle sign bit
     if bytes[bytes.len() - 1] & 0x80 != 0 {
-        result &= !((0x80 as i64) << (8 * (bytes.len() - 1)));
+        result &= !(0x80_i64 << (8 * (bytes.len() - 1)));
         result = -result;
     }
 

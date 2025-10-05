@@ -7,13 +7,12 @@ use base58::{FromBase58, ToBase58};
 /// Some Bitcoin standards use base-58 encoding with an additional checksum. The checksum
 /// is appended to the end of the base-58 encoding and consists of the first 4 bytes of
 /// the SHA256D hash of the value.
-
 /// Encodes `data` as a base58 string including the checksum.
 ///
 /// The checksum is the first four bytes of the sha256d of the data and is concatenated onto the end.
-pub fn encode_with_checksum(data: &Vec<u8>) -> String {
+pub fn encode_with_checksum(data: &[u8]) -> String {
     let mut checksum = Hash::sha256d(data).raw[0..4].to_vec();
-    let mut ck_data = data.clone();
+    let mut ck_data = data.to_owned();
     ck_data.append(&mut checksum);
     ck_data.to_base58()
 }
@@ -25,7 +24,7 @@ pub fn encode_with_checksum(data: &Vec<u8>) -> String {
 ///
 /// The checksum is the first four bytes of the sha256d of the data and is concatenated onto the end
 /// of the base58 encoding.
-pub fn decode_with_checksum(encoded: &String) -> Result<Vec<u8>> {
+pub fn decode_with_checksum(encoded: &str) -> Result<Vec<u8>> {
     let mut data = encoded.from_base58()?;
     let l = data.len();
     if l < 5 {

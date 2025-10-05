@@ -123,9 +123,9 @@ mod tests {
         .expect("Failed to read test data file");
         let block = Block::new(Bytes::from(raw)).expect("Failed to create block");
         assert_eq!(block.num_tx, 910);
-        let mut tx_iter = block.tx_iter();
+        let tx_iter = block.tx_iter();
         let mut count = 0;
-        while let Some(_) = tx_iter.next() {
+        for _ in tx_iter {
             count += 1;
         }
         assert_eq!(count, 910);
@@ -150,7 +150,7 @@ mod tests {
     /// check the genesis blocks encoded
     #[test]
     fn check_genesis_blocks() {
-        for i in vec![Main, Test, Stn, Regtest] {
+        for i in [Main, Test, Stn, Regtest] {
             let genesis_block = Block::get_genesis(i).expect("Failed to get genesis block");
             let _genesis_block_hex: String = genesis_block.encode_hex();
             assert_eq!(

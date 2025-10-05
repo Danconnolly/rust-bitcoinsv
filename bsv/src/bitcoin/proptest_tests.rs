@@ -31,7 +31,7 @@ mod tests {
 
     // Strategy for generating valid Bitcoin amounts (0 to 21 million BTC in satoshis)
     fn bitcoin_amount() -> impl Strategy<Value = u64> {
-        0u64..=21_000_000_00000000u64
+        0u64..=2_100_000_000_000_000_u64
     }
 
     // Strategy for generating transaction counts
@@ -138,7 +138,7 @@ mod tests {
             }
 
             // Add a number operation based on value
-            if num_value >= 1 && num_value <= 16 {
+            if (1..=16).contains(&num_value) {
                 use crate::bitcoin::script::Operation::*;
                 let op = match num_value {
                     1 => OP_1,
@@ -226,7 +226,7 @@ mod tests {
             use secp256k1::SecretKey;
 
             // Skip if the seed doesn't create a valid private key
-            if let Ok(secret_key) = SecretKey::from_slice(&seed) {
+            if let Ok(secret_key) = SecretKey::from_byte_array(seed) {
                 let privkey = PrivateKey::new(secret_key);
                 let pubkey1 = PublicKey::from(&privkey);
                 let pubkey2 = PublicKey::from(&privkey);
