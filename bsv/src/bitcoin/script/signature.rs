@@ -160,12 +160,11 @@ pub fn sign_input(
     let sighash = calculate_signature_hash(tx, input_index, subscript, sighash_type)?;
 
     // Create message from hash
-    let message = Message::from_digest_slice(&sighash.raw)
-        .map_err(|_| Error::Internal("Failed to create message from hash".to_string()))?;
+    let message = Message::from_digest(sighash.raw);
 
     // Sign the message
     let secp = Secp256k1::new();
-    let signature = secp.sign_ecdsa(&message, &private_key.inner);
+    let signature = secp.sign_ecdsa(message, &private_key.inner);
 
     // Serialize signature with sighash type
     let mut sig_bytes = signature.serialize_der().to_vec();
@@ -206,13 +205,12 @@ pub fn verify_signature(
     let sighash = calculate_signature_hash(tx, input_index, subscript, sighash_type)?;
 
     // Create message from hash
-    let message = Message::from_digest_slice(&sighash.raw)
-        .map_err(|_| Error::Internal("Failed to create message from hash".to_string()))?;
+    let message = Message::from_digest(sighash.raw);
 
     // Verify signature
     let secp = Secp256k1::new();
     Ok(secp
-        .verify_ecdsa(&message, &signature, &pubkey.inner)
+        .verify_ecdsa(message, &signature, &pubkey.inner)
         .is_ok())
 }
 
