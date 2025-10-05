@@ -6,8 +6,8 @@
 mod common;
 
 use bitcoinsv::p2p::{
-    HandshakeState, Message, MessageHeader, Network, PingPongState, Services, VersionMessage,
-    MAGIC_MAINNET,
+    DnsDiscovery, HandshakeState, InMemoryPeerStore, ManagerConfig, Message, MessageHeader,
+    Network, PeerStore, PingPongState, Services, VersionMessage, MAGIC_MAINNET,
 };
 use bytes::{Buf, BytesMut};
 use common::config::{get_test_node_address, get_test_timeout_secs};
@@ -908,4 +908,72 @@ async fn test_ping_pong_exchange_with_remote_node() {
         0,
         "No pending pings after validation"
     );
+}
+
+/// Test DNS discovery with real BSV DNS seeds
+///
+/// This test performs actual DNS lookups against Bitcoin SV DNS seeds to discover peers.
+#[tokio::test]
+async fn test_discover_peers_from_real_dns_seeds() {
+    use std::sync::Arc;
+
+    init_test_logging();
+
+    // Skip test if BSV_TEST_NODE is not explicitly set
+    // (This indicates user wants to run integration tests)
+    if std::env::var("BSV_TEST_NODE").is_err() {
+        eprintln!("⚠️  Skipping test: BSV_TEST_NODE environment variable not set");
+        eprintln!("   Set BSV_TEST_NODE=<node_address>:8333 to run integration tests");
+        return;
+    }
+
+    tracing::info!("Starting DNS discovery test");
+
+    // Create a real mainnet config with actual DNS seeds
+    let config = ManagerConfig::new(Network::Mainnet);
+    assert!(!config.dns_seeds.is_empty(), "Config should have DNS seeds");
+
+    tracing::info!("Using DNS seeds: {:?}", config.dns_seeds);
+
+    // Create peer store
+    let peer_store = Arc::new(InMemoryPeerStore::new());
+
+    // Create discovery instance
+    let discovery = DnsDiscovery::new(peer_store.clone(), config);
+
+    // Perform discovery
+    let result = discovery.discover().await;
+    assert!(result.is_ok(), "DNS discovery should succeed");
+
+    let discovered_count = result.unwrap();
+    tracing::info!("Discovered {} peers from DNS seeds", discovered_count);
+
+    // Verify peers were added
+    let peers = peer_store.list_all().await.unwrap();
+    tracing::info!("Total peers in store: {}", peers.len());
+
+    // Should have discovered at least some peers
+    assert!(
+        !peers.is_empty(),
+        "Should have discovered at least one peer from DNS seeds"
+    );
+
+    // Verify peer properties
+    for peer in peers.iter().take(5) {
+        tracing::debug!(
+            "Discovered peer: {}:{} - status: {:?}",
+            peer.ip_address,
+            peer.port,
+            peer.status
+        );
+
+        // All discovered peers should have Unknown status initially
+        assert_eq!(
+            peer.status,
+            bitcoinsv::p2p::PeerStatus::Unknown,
+            "Newly discovered peers should have Unknown status"
+        );
+    }
+
+    tracing::info!("DNS discovery test completed successfully");
 }

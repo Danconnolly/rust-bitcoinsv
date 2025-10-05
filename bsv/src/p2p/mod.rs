@@ -5,6 +5,7 @@
 
 mod config;
 mod connection;
+mod discovery;
 mod handshake;
 mod manager;
 mod message;
@@ -15,6 +16,7 @@ mod protocol;
 
 pub use self::config::*;
 pub use self::connection::*;
+pub use self::discovery::*;
 pub use self::handshake::*;
 pub use self::manager::*;
 pub use self::message::*;
