@@ -5,6 +5,7 @@
 use crate::{Error, Result};
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
+use tracing;
 
 /// Bitcoin network type
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -145,8 +146,20 @@ impl ManagerConfig {
 
     /// Validate the configuration
     pub fn validate(&self) -> Result<()> {
+        tracing::debug!(
+            target = self.target_connections,
+            max = self.max_connections,
+            network = %self.network,
+            "Validating Manager configuration"
+        );
+
         // Validate connection limits
         if self.target_connections > self.max_connections {
+            tracing::error!(
+                target = self.target_connections,
+                max = self.max_connections,
+                "Invalid configuration: target_connections exceeds max_connections"
+            );
             return Err(Error::InvalidConnectionLimits {
                 target: self.target_connections,
                 max: self.max_connections,
@@ -155,6 +168,7 @@ impl ManagerConfig {
 
         // Target connections must be at least 1 in normal mode
         if self.target_connections == 0 {
+            tracing::error!("Invalid configuration: target_connections cannot be 0");
             return Err(Error::InvalidConfiguration(
                 "target_connections must be at least 1".to_string(),
             ));
@@ -162,11 +176,13 @@ impl ManagerConfig {
 
         // Max connections must be at least 1
         if self.max_connections == 0 {
+            tracing::error!("Invalid configuration: max_connections cannot be 0");
             return Err(Error::InvalidConfiguration(
                 "max_connections must be at least 1".to_string(),
             ));
         }
 
+        tracing::trace!("Manager configuration validated successfully");
         Ok(())
     }
 }
@@ -222,12 +238,24 @@ impl ConnectionConfig {
 
     /// Validate the configuration
     pub fn validate(&self) -> Result<()> {
+        tracing::debug!(
+            handshake_timeout = ?self.handshake_timeout,
+            ping_timeout = ?self.ping_timeout,
+            max_retries = self.max_retries,
+            "Validating Connection configuration"
+        );
+
         if self.backoff_multiplier <= 1.0 {
+            tracing::error!(
+                backoff_multiplier = self.backoff_multiplier,
+                "Invalid configuration: backoff_multiplier must be > 1.0"
+            );
             return Err(Error::InvalidConfiguration(
                 "backoff_multiplier must be greater than 1.0".to_string(),
             ));
         }
 
+        tracing::trace!("Connection configuration validated successfully");
         Ok(())
     }
 }

@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, watch, Mutex};
+use tracing;
 use uuid::Uuid;
 
 /// Operating mode for the Manager
@@ -147,6 +148,13 @@ pub struct Manager {
 impl Manager {
     /// Create a new Manager in Normal mode
     pub fn new(config: ManagerConfig, peer_store: Arc<dyn PeerStore>) -> Self {
+        tracing::info!(
+            network = %config.network,
+            target_connections = config.target_connections,
+            max_connections = config.max_connections,
+            "Creating P2P Manager in Normal mode"
+        );
+
         let (control_event_tx, _) = broadcast::channel(1000);
         let (bitcoin_message_tx, _) = broadcast::channel(1000);
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
@@ -171,6 +179,13 @@ impl Manager {
         peer_store: Arc<dyn PeerStore>,
         peers: Vec<Peer>,
     ) -> Self {
+        tracing::info!(
+            network = %config.network,
+            peer_count = peers.len(),
+            max_connections = config.max_connections,
+            "Creating P2P Manager in Fixed Peer List mode"
+        );
+
         let mut manager = Self::new(config, peer_store);
         manager.operating_mode = OperatingMode::FixedPeerList;
         manager.fixed_peers = Some(peers);
@@ -194,19 +209,32 @@ impl Manager {
 
     /// Start the Manager and begin connection management
     pub async fn start(&mut self) -> crate::Result<()> {
+        tracing::info!(
+            mode = ?self.operating_mode,
+            target_connections = self.config.target_connections,
+            "Starting P2P Manager"
+        );
         // TODO: Implement manager start logic
         Ok(())
     }
 
     /// Shutdown the Manager gracefully
     pub async fn shutdown(&mut self) -> crate::Result<()> {
+        let connection_count = self.get_connection_count();
+        tracing::info!(
+            active_connections = connection_count,
+            "Shutting down P2P Manager"
+        );
         // TODO: Implement shutdown logic
+        tracing::info!("P2P Manager shutdown complete");
         Ok(())
     }
 
     /// Get list of peers from store
     pub async fn get_peers(&self) -> crate::Result<Vec<Peer>> {
-        self.peer_store.list_all().await
+        let peers = self.peer_store.list_all().await?;
+        tracing::debug!(peer_count = peers.len(), "Retrieved peer list");
+        Ok(peers)
     }
 
     /// Send a message to a specific peer
@@ -215,15 +243,25 @@ impl Manager {
         peer_id: Uuid,
         message: crate::p2p::Message,
     ) -> crate::Result<()> {
+        tracing::debug!(
+            peer_id = %peer_id,
+            message_type = ?message,
+            "Sending message to peer"
+        );
+
         let connections = self.active_connections.lock().await;
         if let Some(handle) = connections.get(&peer_id) {
             handle
                 .control_tx
                 .send(PeerConnectionCommand::SendMessage(message))
                 .await
-                .map_err(|_| crate::Error::ChannelSendError)?;
+                .map_err(|_| {
+                    tracing::error!(peer_id = %peer_id, "Failed to send message: channel error");
+                    crate::Error::ChannelSendError
+                })?;
             Ok(())
         } else {
+            tracing::warn!(peer_id = %peer_id, "Cannot send message: peer not found");
             Err(crate::Error::PeerNotFound(peer_id))
         }
     }
@@ -234,6 +272,12 @@ impl Manager {
         peer_id: Uuid,
         reason: crate::p2p::BanReason,
     ) -> crate::Result<()> {
+        tracing::warn!(
+            peer_id = %peer_id,
+            reason = ?reason,
+            "Banning peer"
+        );
+
         let mut peer = self.peer_store.read(peer_id).await?;
         peer.ban(reason);
         self.peer_store.update(peer).await?;
@@ -241,6 +285,7 @@ impl Manager {
         // Disconnect if currently connected
         let mut connections = self.active_connections.lock().await;
         if let Some(handle) = connections.remove(&peer_id) {
+            tracing::info!(peer_id = %peer_id, "Disconnecting banned peer");
             let _ = handle
                 .control_tx
                 .send(PeerConnectionCommand::Disconnect)
@@ -252,6 +297,8 @@ impl Manager {
 
     /// Unban a peer by ID
     pub async fn unban_peer(&mut self, peer_id: Uuid) -> crate::Result<()> {
+        tracing::info!(peer_id = %peer_id, "Unbanning peer");
+
         let mut peer = self.peer_store.read(peer_id).await?;
         peer.update_status(crate::p2p::PeerStatus::Unknown);
         self.peer_store.update(peer).await?;
@@ -260,9 +307,18 @@ impl Manager {
 
     /// Update configuration dynamically
     pub async fn update_config(&mut self, config: ManagerConfig) -> crate::Result<()> {
+        tracing::info!(
+            old_target = self.config.target_connections,
+            new_target = config.target_connections,
+            old_max = self.config.max_connections,
+            new_max = config.max_connections,
+            "Updating Manager configuration"
+        );
+
         config.validate()?;
         self.config = config;
         // TODO: Propagate config changes to active connections
+        tracing::debug!("Configuration update complete");
         Ok(())
     }
 }
@@ -282,6 +338,336 @@ mod tests {
         let peer_store = Arc::new(InMemoryPeerStore::new());
         Manager::new(config, peer_store)
     }
+
+    // Phase 7.1: Tests for Internal Message Types
+
+    #[test]
+    fn test_peer_connection_command_update_config() {
+        let config = ConnectionConfig::new();
+        let cmd = PeerConnectionCommand::UpdateConfig(config.clone());
+
+        match cmd {
+            PeerConnectionCommand::UpdateConfig(c) => {
+                assert_eq!(c.handshake_timeout, config.handshake_timeout);
+                assert_eq!(c.ping_interval, config.ping_interval);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_peer_connection_command_disconnect() {
+        let cmd = PeerConnectionCommand::Disconnect;
+        assert!(matches!(cmd, PeerConnectionCommand::Disconnect));
+    }
+
+    #[test]
+    fn test_peer_connection_command_send_message() {
+        let msg = crate::p2p::Message::Ping(12345);
+        let cmd = PeerConnectionCommand::SendMessage(msg.clone());
+
+        match cmd {
+            PeerConnectionCommand::SendMessage(m) => {
+                assert_eq!(m, msg);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_peer_connection_command_clone() {
+        let msg = crate::p2p::Message::Ping(12345);
+        let cmd1 = PeerConnectionCommand::SendMessage(msg);
+        let cmd2 = cmd1.clone();
+
+        match (cmd1, cmd2) {
+            (PeerConnectionCommand::SendMessage(m1), PeerConnectionCommand::SendMessage(m2)) => {
+                assert_eq!(m1, m2);
+            }
+            _ => panic!("Wrong variants"),
+        }
+    }
+
+    #[test]
+    fn test_control_event_connection_established() {
+        let peer_id = Uuid::new_v4();
+        let event = ControlEvent::ConnectionEstablished { peer_id };
+
+        match event {
+            ControlEvent::ConnectionEstablished { peer_id: id } => {
+                assert_eq!(id, peer_id);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_control_event_connection_failed() {
+        let peer_id = Uuid::new_v4();
+        let reason = "timeout".to_string();
+        let event = ControlEvent::ConnectionFailed {
+            peer_id,
+            reason: reason.clone(),
+        };
+
+        match event {
+            ControlEvent::ConnectionFailed {
+                peer_id: id,
+                reason: r,
+            } => {
+                assert_eq!(id, peer_id);
+                assert_eq!(r, reason);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_control_event_connection_lost() {
+        let peer_id = Uuid::new_v4();
+        let event = ControlEvent::ConnectionLost { peer_id };
+
+        match event {
+            ControlEvent::ConnectionLost { peer_id: id } => {
+                assert_eq!(id, peer_id);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_control_event_peer_banned() {
+        let peer_id = Uuid::new_v4();
+        let reason = crate::p2p::BanReason::BannedUserAgent {
+            user_agent: "malicious".to_string(),
+        };
+        let event = ControlEvent::PeerBanned {
+            peer_id,
+            reason: reason.clone(),
+        };
+
+        match event {
+            ControlEvent::PeerBanned {
+                peer_id: id,
+                reason: r,
+            } => {
+                assert_eq!(id, peer_id);
+                assert_eq!(r, reason);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_control_event_handshake_complete() {
+        let peer_id = Uuid::new_v4();
+        let event = ControlEvent::HandshakeComplete { peer_id };
+
+        match event {
+            ControlEvent::HandshakeComplete { peer_id: id } => {
+                assert_eq!(id, peer_id);
+            }
+            _ => panic!("Wrong variant"),
+        }
+    }
+
+    #[test]
+    fn test_control_event_clone() {
+        let peer_id = Uuid::new_v4();
+        let event1 = ControlEvent::ConnectionEstablished { peer_id };
+        let event2 = event1.clone();
+
+        match (event1, event2) {
+            (
+                ControlEvent::ConnectionEstablished { peer_id: id1 },
+                ControlEvent::ConnectionEstablished { peer_id: id2 },
+            ) => {
+                assert_eq!(id1, id2);
+                assert_eq!(id1, peer_id);
+            }
+            _ => panic!("Wrong variants"),
+        }
+    }
+
+    #[test]
+    fn test_bitcoin_message_event_construction() {
+        let peer_id = Uuid::new_v4();
+        let message = crate::p2p::Message::Ping(12345);
+        let event = BitcoinMessageEvent {
+            peer_id,
+            message: message.clone(),
+        };
+
+        assert_eq!(event.peer_id, peer_id);
+        assert_eq!(event.message, message);
+    }
+
+    #[test]
+    fn test_bitcoin_message_event_clone() {
+        let peer_id = Uuid::new_v4();
+        let message = crate::p2p::Message::Ping(12345);
+        let event1 = BitcoinMessageEvent {
+            peer_id,
+            message: message.clone(),
+        };
+        let event2 = event1.clone();
+
+        assert_eq!(event1.peer_id, event2.peer_id);
+        assert_eq!(event1.message, event2.message);
+    }
+
+    // Phase 7.3: Tests for Broadcast Channels
+
+    #[tokio::test]
+    async fn test_multiple_subscribers_receive_control_events() {
+        let manager = create_test_manager();
+        let mut rx1 = manager.subscribe_control_events();
+        let mut rx2 = manager.subscribe_control_events();
+        let mut rx3 = manager.subscribe_control_events();
+
+        let peer_id = Uuid::new_v4();
+        let event = ControlEvent::ConnectionEstablished { peer_id };
+        manager.control_event_tx.send(event).unwrap();
+
+        // All three subscribers should receive the event
+        let received1 = rx1.recv().await.unwrap();
+        let received2 = rx2.recv().await.unwrap();
+        let received3 = rx3.recv().await.unwrap();
+
+        for received in [received1, received2, received3] {
+            match received {
+                ControlEvent::ConnectionEstablished { peer_id: id } => {
+                    assert_eq!(id, peer_id);
+                }
+                _ => panic!("Wrong event type"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_multiple_subscribers_receive_bitcoin_messages() {
+        let manager = create_test_manager();
+        let mut rx1 = manager.subscribe_bitcoin_messages();
+        let mut rx2 = manager.subscribe_bitcoin_messages();
+
+        let peer_id = Uuid::new_v4();
+        let message = crate::p2p::Message::Ping(99999);
+        let event = BitcoinMessageEvent {
+            peer_id,
+            message: message.clone(),
+        };
+        manager.bitcoin_message_tx.send(event).unwrap();
+
+        // Both subscribers should receive the event
+        let received1 = rx1.recv().await.unwrap();
+        let received2 = rx2.recv().await.unwrap();
+
+        assert_eq!(received1.peer_id, peer_id);
+        assert_eq!(received2.peer_id, peer_id);
+        assert_eq!(received1.message, message);
+        assert_eq!(received2.message, message);
+    }
+
+    #[tokio::test]
+    async fn test_late_subscriber_doesnt_receive_old_events() {
+        let manager = create_test_manager();
+        let mut rx1 = manager.subscribe_control_events();
+
+        // Send event before second subscriber joins
+        let peer_id1 = Uuid::new_v4();
+        let event1 = ControlEvent::ConnectionEstablished { peer_id: peer_id1 };
+        manager.control_event_tx.send(event1).unwrap();
+
+        // First subscriber receives it
+        let received = rx1.recv().await.unwrap();
+        match received {
+            ControlEvent::ConnectionEstablished { peer_id: id } => {
+                assert_eq!(id, peer_id1);
+            }
+            _ => panic!("Wrong event type"),
+        }
+
+        // Now add second subscriber
+        let mut rx2 = manager.subscribe_control_events();
+
+        // Send new event
+        let peer_id2 = Uuid::new_v4();
+        let event2 = ControlEvent::HandshakeComplete { peer_id: peer_id2 };
+        manager.control_event_tx.send(event2).unwrap();
+
+        // Both should receive the new event
+        let received1 = rx1.recv().await.unwrap();
+        let received2 = rx2.recv().await.unwrap();
+
+        for received in [received1, received2] {
+            match received {
+                ControlEvent::HandshakeComplete { peer_id: id } => {
+                    assert_eq!(id, peer_id2);
+                }
+                _ => panic!("Wrong event type"),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_channel_capacity_configuration() {
+        // Manager creates channels with capacity of 1000
+        let manager = create_test_manager();
+        let mut rx = manager.subscribe_control_events();
+
+        // Send many events (less than capacity)
+        for i in 0..100 {
+            let peer_id = Uuid::new_v4();
+            let event = ControlEvent::ConnectionEstablished { peer_id };
+            manager.control_event_tx.send(event).unwrap();
+
+            // Receive immediately to prevent overflow
+            let received = rx.recv().await.unwrap();
+            match received {
+                ControlEvent::ConnectionEstablished { .. } => {
+                    // Expected
+                }
+                _ => panic!("Wrong event type at iteration {}", i),
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_channel_handles_mixed_event_types() {
+        let manager = create_test_manager();
+        let mut rx = manager.subscribe_control_events();
+
+        // Send different event types
+        let peer_id1 = Uuid::new_v4();
+        manager
+            .control_event_tx
+            .send(ControlEvent::ConnectionEstablished { peer_id: peer_id1 })
+            .unwrap();
+
+        let peer_id2 = Uuid::new_v4();
+        manager
+            .control_event_tx
+            .send(ControlEvent::HandshakeComplete { peer_id: peer_id2 })
+            .unwrap();
+
+        let peer_id3 = Uuid::new_v4();
+        manager
+            .control_event_tx
+            .send(ControlEvent::ConnectionLost { peer_id: peer_id3 })
+            .unwrap();
+
+        // Receive in order
+        let event1 = rx.recv().await.unwrap();
+        assert!(matches!(event1, ControlEvent::ConnectionEstablished { .. }));
+
+        let event2 = rx.recv().await.unwrap();
+        assert!(matches!(event2, ControlEvent::HandshakeComplete { .. }));
+
+        let event3 = rx.recv().await.unwrap();
+        assert!(matches!(event3, ControlEvent::ConnectionLost { .. }));
+    }
+
+    // Phase 5.1: Connection Slot Tests
 
     #[tokio::test]
     async fn test_connection_count_reservation() {

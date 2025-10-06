@@ -10,6 +10,7 @@ use std::net::IpAddr;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use tokio::fs;
+use tracing;
 use uuid::Uuid;
 
 /// Trait for storing and managing peer data
@@ -78,22 +79,27 @@ impl InMemoryPeerStore {
             return Ok(()); // No file configured
         };
 
+        tracing::debug!(path = ?path, "Loading peers from file");
+
         // Check if file exists
         if !fs::try_exists(path)
             .await
             .map_err(|e| Error::PeerStoreError(format!("Failed to check file existence: {}", e)))?
         {
             // File doesn't exist, that's OK
+            tracing::debug!("Peer store file does not exist, starting with empty store");
             return Ok(());
         }
 
         // Read file content
-        let content = fs::read_to_string(path)
-            .await
-            .map_err(|e| Error::PeerStoreError(format!("Failed to read peer store file: {}", e)))?;
+        let content = fs::read_to_string(path).await.map_err(|e| {
+            tracing::error!(path = ?path, error = %e, "Failed to read peer store file");
+            Error::PeerStoreError(format!("Failed to read peer store file: {}", e))
+        })?;
 
         // Parse JSON
         let peers: Vec<Peer> = serde_json::from_str(&content).map_err(|e| {
+            tracing::error!(path = ?path, error = %e, "Failed to parse peer store file");
             Error::PeerStoreError(format!("Failed to parse peer store file: {}", e))
         })?;
 
@@ -108,6 +114,9 @@ impl InMemoryPeerStore {
             ip_index.insert((peer.ip_address, peer.port), peer.id);
             peers_map.insert(peer.id, peer);
         }
+
+        let count = peers_map.len();
+        tracing::info!(peer_count = count, "Loaded peers from file");
 
         Ok(())
     }
@@ -124,15 +133,21 @@ impl InMemoryPeerStore {
             peers_map.values().cloned().collect()
         };
 
+        tracing::debug!(path = ?path, peer_count = peers.len(), "Saving peers to file");
+
         // Serialize to JSON
-        let json = serde_json::to_string_pretty(&peers)
-            .map_err(|e| Error::PeerStoreError(format!("Failed to serialize peers: {}", e)))?;
+        let json = serde_json::to_string_pretty(&peers).map_err(|e| {
+            tracing::error!(error = %e, "Failed to serialize peers");
+            Error::PeerStoreError(format!("Failed to serialize peers: {}", e))
+        })?;
 
         // Write to file
         fs::write(path, json).await.map_err(|e| {
+            tracing::error!(path = ?path, error = %e, "Failed to write peer store file");
             Error::PeerStoreError(format!("Failed to write peer store file: {}", e))
         })?;
 
+        tracing::info!(path = ?path, peer_count = peers.len(), "Saved peers to file");
         Ok(())
     }
 
@@ -167,37 +182,65 @@ impl Default for InMemoryPeerStore {
 #[async_trait::async_trait]
 impl PeerStore for InMemoryPeerStore {
     async fn create(&self, peer: Peer) -> Result<()> {
+        tracing::trace!(
+            peer_id = %peer.id,
+            ip = %peer.ip_address,
+            port = peer.port,
+            status = ?peer.status,
+            "Creating peer in store"
+        );
+
         let mut peers = self.peers.lock().unwrap();
         let mut ip_index = self.ip_index.lock().unwrap();
 
         // Check for duplicate ID
         if peers.contains_key(&peer.id) {
+            tracing::warn!(peer_id = %peer.id, "Attempted to create duplicate peer (ID exists)");
             return Err(Error::DuplicatePeer);
         }
 
         // Check for duplicate IP:port
         if ip_index.contains_key(&(peer.ip_address, peer.port)) {
+            tracing::warn!(
+                ip = %peer.ip_address,
+                port = peer.port,
+                "Attempted to create duplicate peer (IP:port exists)"
+            );
             return Err(Error::DuplicatePeer);
         }
 
         // Add to indexes
+        let peer_id = peer.id;
         ip_index.insert((peer.ip_address, peer.port), peer.id);
         peers.insert(peer.id, peer);
 
+        tracing::debug!(peer_id = %peer_id, "Peer created successfully");
         Ok(())
     }
 
     async fn read(&self, id: Uuid) -> Result<Peer> {
         let peers = self.peers.lock().unwrap();
-        peers.get(&id).cloned().ok_or(Error::PeerNotFound(id))
+        peers.get(&id).cloned().ok_or_else(|| {
+            tracing::trace!(peer_id = %id, "Peer not found in store");
+            Error::PeerNotFound(id)
+        })
     }
 
     async fn update(&self, peer: Peer) -> Result<()> {
+        tracing::trace!(
+            peer_id = %peer.id,
+            status = ?peer.status,
+            "Updating peer in store"
+        );
+
         let mut peers = self.peers.lock().unwrap();
         let mut ip_index = self.ip_index.lock().unwrap();
 
         // Check if peer exists
-        let old_peer = peers.get(&peer.id).ok_or(Error::PeerNotFound(peer.id))?;
+        let old_peer = peers.get(&peer.id).ok_or_else(|| {
+            tracing::warn!(peer_id = %peer.id, "Attempted to update non-existent peer");
+            Error::PeerNotFound(peer.id)
+        })?;
 
         // If IP:port changed, update index
         if old_peer.ip_address != peer.ip_address || old_peer.port != peer.port {
@@ -207,17 +250,33 @@ impl PeerStore for InMemoryPeerStore {
             // Check if new IP:port is already used by another peer
             if let Some(&existing_id) = ip_index.get(&(peer.ip_address, peer.port)) {
                 if existing_id != peer.id {
+                    tracing::warn!(
+                        peer_id = %peer.id,
+                        ip = %peer.ip_address,
+                        port = peer.port,
+                        "New IP:port already in use by another peer"
+                    );
                     return Err(Error::DuplicatePeer);
                 }
             }
 
             // Add new IP:port mapping
             ip_index.insert((peer.ip_address, peer.port), peer.id);
+            tracing::debug!(
+                peer_id = %peer.id,
+                old_ip = %old_peer.ip_address,
+                old_port = old_peer.port,
+                new_ip = %peer.ip_address,
+                new_port = peer.port,
+                "Peer IP:port updated"
+            );
         }
 
         // Update peer
+        let peer_id = peer.id;
         peers.insert(peer.id, peer);
 
+        tracing::debug!(peer_id = %peer_id, "Peer updated successfully");
         Ok(())
     }
 
