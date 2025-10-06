@@ -93,6 +93,8 @@ pub enum Error {
     BlockchainMismatch { received: String },
     /// Banned user agent
     BannedUserAgent { user_agent: String },
+    /// Ping timeout (connection not responding)
+    PingTimeout,
     /// Invalid configuration
     InvalidConfiguration(String),
     /// Invalid connection limits
@@ -156,6 +158,7 @@ impl std::fmt::Display for Error {
             Error::BannedUserAgent { user_agent } => {
                 f.write_str(&format!("Banned user agent: {}", user_agent))
             }
+            Error::PingTimeout => f.write_str("Ping timeout"),
             Error::InvalidConfiguration(s) => f.write_str(&format!("Invalid configuration: {}", s)),
             Error::InvalidConnectionLimits { target, max } => f.write_str(&format!(
                 "Invalid connection limits: target={}, max={}",

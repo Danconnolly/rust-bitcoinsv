@@ -93,6 +93,11 @@ impl Peer {
             _ => None,
         }
     }
+
+    /// Get the socket address for this peer
+    pub fn socket_addr(&self) -> std::net::SocketAddr {
+        std::net::SocketAddr::new(self.ip_address, self.port)
+    }
 }
 
 // Custom serde serialization for SystemTime

@@ -27,7 +27,7 @@ sha1 = "0.10.6"
 sha2 = "0.10.8"
 # P2P module dependencies
 async-trait = "0.1"
-tokio = { version = "1.41", features = ["net", "sync", "time", "rt", "macros", "fs"] }
+tokio = { version = "1.41", features = ["net", "sync", "time", "rt", "macros", "fs", "io-util"] }
 tracing = "0.1"
 uuid = { version = "1.11", features = ["v4", "serde"] }
 
